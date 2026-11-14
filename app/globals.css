@@ -156,10 +156,12 @@ a:hover {
   max-width: 48ch;
   color: var(--muted);
 }
-.trip-head {
-  max-width: 720px; /* the trip sign's width, so Edit trip sits over its corner */
+.back {
+  display: inline-block;
   margin-bottom: 32px;
-  min-height: 36px;
+}
+.trip-edit {
+  margin-top: 16px;
 }
 
 /* The guide sign. Real ones are green with a white border set in from the edge; two inset shadows draw that

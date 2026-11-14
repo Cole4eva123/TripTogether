@@ -71,15 +71,15 @@ export default function TripPage() {
 
   return (
     <main className="page">
-      <div className="page-head trip-head">
-        <Link href="/trips">Back to your trips</Link>
-        {isOwner && (
-          <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet btn-small">
-            Edit trip
-          </Link>
-        )}
-      </div>
+      <Link href="/trips" className="back">
+        Back to your trips
+      </Link>
       <TripSign trip={trip} />
+      {isOwner && (
+        <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet btn-small trip-edit">
+          Edit trip
+        </Link>
+      )}
 
       <div className="trip-layout">
         <Itinerary trip={trip} items={items} onChange={load} />

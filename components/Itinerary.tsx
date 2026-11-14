@@ -89,8 +89,8 @@ export default function Itinerary({
             )}
             {day.n !== null && open === `new:${day.date}` && form(day.date)}
             {day.n !== null && open !== `new:${day.date}` && (
-              <button className="btn btn-quiet btn-small" onClick={() => setOpen(`new:${day.date}`)}>
-                {day.items.length ? "Add another plan" : "Add a plan"}
+              <button className="link-btn add-plan" onClick={() => setOpen(`new:${day.date}`)}>
+                + {day.items.length ? "Add another plan" : "Add a plan"}
               </button>
             )}
           </li>

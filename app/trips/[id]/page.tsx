@@ -71,9 +71,14 @@ export default function TripPage() {
 
   return (
     <main className="page">
-      <Link href="/trips" className="back">
-        Back to your trips
-      </Link>
+      <div className="page-head trip-head">
+        <Link href="/trips">Back to your trips</Link>
+        {isOwner && (
+          <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet btn-small">
+            Edit trip
+          </Link>
+        )}
+      </div>
       <TripSign trip={trip} />
 
       <div className="trip-layout">
@@ -109,27 +114,22 @@ export default function TripPage() {
               {error}
             </p>
           )}
-          <div className="actions">
+          <section className="trip-exit">
             {isOwner ? (
-              <>
-                <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet">
-                  Edit trip
-                </Link>
-                <button
-                  className="btn btn-danger"
-                  onClick={() =>
-                    removeAndExit(
-                      `Delete the trip to ${trip.destination} for everyone? This can't be undone.`,
-                      `/trips/${trip.id}`,
-                    )
-                  }
-                >
-                  Delete trip
-                </button>
-              </>
+              <button
+                className="link-btn link-danger"
+                onClick={() =>
+                  removeAndExit(
+                    `Delete the trip to ${trip.destination} for everyone? This can't be undone.`,
+                    `/trips/${trip.id}`,
+                  )
+                }
+              >
+                Delete trip
+              </button>
             ) : (
               <button
-                className="btn btn-danger"
+                className="link-btn link-danger"
                 onClick={() =>
                   removeAndExit(
                     `Leave the trip to ${trip.destination}? You'll need the code to rejoin.`,
@@ -140,7 +140,7 @@ export default function TripPage() {
                 Leave trip
               </button>
             )}
-          </div>
+          </section>
         </aside>
       </div>
     </main>

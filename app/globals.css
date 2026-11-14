@@ -156,9 +156,10 @@ a:hover {
   max-width: 48ch;
   color: var(--muted);
 }
-.back {
-  display: inline-block;
-  margin-bottom: 40px;
+.trip-head {
+  max-width: 720px; /* the trip sign's width, so Edit trip sits over its corner */
+  margin-bottom: 32px;
+  min-height: 36px;
 }
 
 /* The guide sign. Real ones are green with a white border set in from the edge; two inset shadows draw that
@@ -366,11 +367,26 @@ textarea {
   gap: 16px;
 }
 
+.trips-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px 32px;
+  margin-top: 24px;
+}
+/* Line New trip up with the code box, under the join form's label. */
+.trips-bar > .btn {
+  margin-top: 29px;
+}
 .join {
   display: grid;
   gap: 6px;
-  margin-top: 32px;
-  max-width: 400px;
+  flex: 1 1 280px;
+  max-width: 360px;
+}
+.join label {
+  font-weight: 600;
+  color: var(--muted);
 }
 .join-row {
   display: flex;
@@ -409,6 +425,17 @@ textarea {
 }
 .link-danger {
   color: var(--red);
+}
+.add-plan {
+  font-size: 15px;
+  text-decoration: none;
+}
+.add-plan:hover {
+  text-decoration: underline;
+}
+.trip-exit {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
 }
 
 /* Trip page */
@@ -570,6 +597,9 @@ textarea {
 @media (max-width: 600px) {
   h1 {
     font-size: 28px;
+  }
+  .trips-bar > .btn {
+    margin-top: 0;
   }
   .row2,
   .plan-form-row {

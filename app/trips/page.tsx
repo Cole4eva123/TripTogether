@@ -43,36 +43,36 @@ export default function TripsPage() {
 
   return (
     <main className="page">
-      <div className="page-head">
-        <h1>Your trips</h1>
+      <h1>Your trips</h1>
+
+      <div className="trips-bar">
         <Link href="/trips/new" className="btn">
           New trip
         </Link>
+        <form className="join" onSubmit={join}>
+          <label htmlFor="code">Or join one with a code</label>
+          <div className="join-row">
+            <input
+              id="code"
+              name="code"
+              className="code-input"
+              placeholder="K7Q2MX"
+              maxLength={6}
+              autoComplete="off"
+              spellCheck={false}
+              required
+            />
+            <button className="btn btn-quiet" disabled={joining}>
+              Join trip
+            </button>
+          </div>
+          {joinError && (
+            <p className="error" role="alert">
+              {joinError}
+            </p>
+          )}
+        </form>
       </div>
-
-      <form className="join" onSubmit={join}>
-        <label htmlFor="code">Got an invite code?</label>
-        <div className="join-row">
-          <input
-            id="code"
-            name="code"
-            className="code-input"
-            placeholder="K7Q2MX"
-            maxLength={6}
-            autoComplete="off"
-            spellCheck={false}
-            required
-          />
-          <button className="btn" disabled={joining}>
-            Join trip
-          </button>
-        </div>
-        {joinError && (
-          <p className="error" role="alert">
-            {joinError}
-          </p>
-        )}
-      </form>
 
       {loadError && (
         <p className="error" role="alert">

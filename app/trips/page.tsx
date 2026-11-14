@@ -79,7 +79,7 @@ export default function TripsPage() {
         </p>
       )}
       {!!trips?.length && (
-        <ul className="signs">
+        <ul className="road road-signs">
           {trips.map((t) => (
             <li key={t.id}>
               <TripSign trip={t} href={`/trips/${t.id}`} />

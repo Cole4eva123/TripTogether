@@ -2,23 +2,29 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Itinerary from "@/components/Itinerary";
 import { useMe } from "@/components/me";
 import TripSign from "@/components/TripSign";
 import { api, errorText } from "@/lib/api";
-import type { Member, Trip } from "@/lib/types";
+import type { Member, PlanItem, Trip } from "@/lib/types";
+
+type TripData = { trip: Trip; members: Member[]; items: PlanItem[] };
 
 export default function TripPage() {
   const { id } = useParams<{ id: string }>();
   const me = useMe();
   const router = useRouter();
-  const [data, setData] = useState<{ trip: Trip; members: Member[] } | null>(null);
+  const [data, setData] = useState<TripData | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
+  // Also reloads after an itinerary change, so plans added by others show up too.
+  const load = useCallback(() => api<TripData>(`/trips/${id}`).then(setData), [id]);
+
   useEffect(() => {
-    api<{ trip: Trip; members: Member[] }>(`/trips/${id}`).then(setData, (e) => setError(errorText(e)));
-  }, [id]);
+    load().catch((e) => setError(errorText(e)));
+  }, [load]);
 
   if (!data || !me)
     return (
@@ -34,7 +40,7 @@ export default function TripPage() {
       </main>
     );
 
-  const { trip, members } = data;
+  const { trip, members, items } = data;
   const isOwner = trip.ownerId === me.id;
 
   async function copyCode() {
@@ -63,62 +69,72 @@ export default function TripPage() {
       </Link>
       <TripSign trip={trip} />
 
-      <div className="detail">
-        <section>
-          <h2>Travelers</h2>
-          <ul className="members">
-            {members.map((m) => (
-              <li key={m.id}>
-                <span>
-                  {m.name}
-                  {m.id === me.id && <span className="muted"> (you)</span>}
-                </span>
-                {m.id === trip.ownerId && <span className="muted">Organizer</span>}
-              </li>
-            ))}
-          </ul>
-        </section>
+      <div className="trip-layout">
+        <Itinerary trip={trip} items={items} onChange={load} />
 
-        <section>
-          <h2>Invite your group</h2>
-          <p className="muted">Send this code to friends. They enter it on their trips page to join.</p>
-          <p className="code">{trip.inviteCode}</p>
-          <button className="btn btn-quiet" onClick={copyCode}>
-            {copied ? "Copied" : "Copy code"}
-          </button>
-        </section>
-      </div>
+        <aside className="trip-side">
+          <section>
+            <h2>Travelers</h2>
+            <ul className="members">
+              {members.map((m) => (
+                <li key={m.id}>
+                  <span>
+                    {m.name}
+                    {m.id === me.id && <span className="muted"> (you)</span>}
+                  </span>
+                  {m.id === trip.ownerId && <span className="muted">Organizer</span>}
+                </li>
+              ))}
+            </ul>
+          </section>
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="actions actions-end">
-        {isOwner ? (
-          <>
-            <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet">
-              Edit trip
-            </Link>
-            <button
-              className="btn btn-danger"
-              onClick={() =>
-                removeAndExit(`Delete the trip to ${trip.destination} for everyone? This can't be undone.`, `/trips/${trip.id}`)
-              }
-            >
-              Delete trip
+          <section>
+            <h2>Invite your group</h2>
+            <p className="muted">Send this code to friends. They enter it on their trips page to join.</p>
+            <p className="code">{trip.inviteCode}</p>
+            <button className="btn btn-quiet" onClick={copyCode}>
+              {copied ? "Copied" : "Copy code"}
             </button>
-          </>
-        ) : (
-          <button
-            className="btn btn-danger"
-            onClick={() =>
-              removeAndExit(`Leave the trip to ${trip.destination}? You'll need the code to rejoin.`, `/trips/${trip.id}/members/me`)
-            }
-          >
-            Leave trip
-          </button>
-        )}
+          </section>
+
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="actions">
+            {isOwner ? (
+              <>
+                <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet">
+                  Edit trip
+                </Link>
+                <button
+                  className="btn btn-danger"
+                  onClick={() =>
+                    removeAndExit(
+                      `Delete the trip to ${trip.destination} for everyone? This can't be undone.`,
+                      `/trips/${trip.id}`,
+                    )
+                  }
+                >
+                  Delete trip
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn btn-danger"
+                onClick={() =>
+                  removeAndExit(
+                    `Leave the trip to ${trip.destination}? You'll need the code to rejoin.`,
+                    `/trips/${trip.id}/members/me`,
+                  )
+                }
+              >
+                Leave trip
+              </button>
+            )}
+          </div>
+        </aside>
       </div>
     </main>
   );

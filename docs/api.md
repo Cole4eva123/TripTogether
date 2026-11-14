@@ -8,15 +8,16 @@ every path, status code and response shape below, and the frontend needs no chan
 
 ## Conventions
 
-- Bodies are JSON. Shapes are in `lib/types.ts`: `User`, `Trip`, `Member`, `TripInput`.
+- Bodies are JSON. Shapes are in `lib/types.ts`: `User`, `Trip`, `Member`, `TripInput`, `PlanItem`, `PlanInput`.
 - Dates are `YYYY-MM-DD` strings, with no time or time zone.
 - Every error is `{ "error": string }`, written for the person using the app. The frontend shows it as-is.
 - The session is an httpOnly cookie, `tt_session`, set by register and login. Every endpoint outside `/api/auth`
   returns `401 { error }` without it.
 - A trip someone isn't a member of answers `404`, the same as a trip that doesn't exist, so trip ids aren't
   probeable.
-- Validate trip bodies with `parseTripInput` from `lib/validate.ts` (tested in `lib/validate.test.ts`). It drops
-  unknown fields, so a body can't set `ownerId` or `inviteCode`.
+- Validate trip bodies with `parseTripInput` and plan bodies with `parsePlanInput`, both in `lib/validate.ts`
+  (tested in `lib/validate.test.ts`). They drop unknown fields, so a body can't set `ownerId`, `inviteCode` or
+  `addedBy`.
 
 ## Auth
 
@@ -36,11 +37,13 @@ keeps them in plain text).
 |---|---|---|---|---|
 | GET | `/api/trips` | none | `200 { trips: Trip[] }`, the trips I'm a member of, earliest start first | `401` |
 | POST | `/api/trips` | `TripInput` | `201 { trip }`; I become owner and first member | `400` invalid input |
-| GET | `/api/trips/:id` | none | `200 { trip, members: Member[] }` | `404` |
+| GET | `/api/trips/:id` | none | `200 { trip, members: Member[], items: PlanItem[] }` | `404` |
 | PATCH | `/api/trips/:id` | `TripInput` (all four fields) | `200 { trip }` | `400`; `403` not the owner; `404` |
-| DELETE | `/api/trips/:id` | none | `204` | `403` not the owner; `404` |
+| DELETE | `/api/trips/:id` | none | `204`; its plan items go too | `403` not the owner; `404` |
 
-`TripInput` is `{ origin, destination, startDate, endDate }`. `endDate` may equal `startDate`, not precede it.
+`TripInput` is `{ origin, destination, startDate, endDate }`. `endDate` may equal `startDate`, not precede it, and
+a trip is at most 60 days. Editing the dates leaves existing plan items where they are, even outside the new
+dates; the frontend shows those apart and lets members move or remove them.
 
 ## Members
 
@@ -51,3 +54,21 @@ keeps them in plain text).
 
 Invite codes are 6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no 0/O, 1/I/L), unique, generated when the
 trip is created. The join endpoint trims and uppercases the code before looking it up.
+
+## Itinerary
+
+Any member can add, edit and remove any plan item. Items come back with `GET /api/trips/:id` in no particular
+order; the frontend groups and sorts them (`lib/itinerary.ts`).
+
+| Method | Path | Body | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/trips/:id/items` | `PlanInput` | `201 { item }`; `addedBy` is my name | `400` invalid input; `404` trip |
+| PATCH | `/api/trips/:id/items/:itemId` | `PlanInput` (all fields) | `200 { item }` | `400`; `404` trip or item |
+| DELETE | `/api/trips/:id/items/:itemId` | none | `204` | `404` trip or item |
+
+`PlanInput` is `{ date, time, title, place, note }`:
+
+- `date` is a day within the trip's current dates.
+- `time` is `HH:MM` on a 24-hour clock, or empty/null for "any time that day" (stored as `null`).
+- `title` is required, up to 120 characters; `place` up to 120; `note` up to 1000. Missing `place` and `note`
+  are stored as `""`.

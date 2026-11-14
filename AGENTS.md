@@ -23,15 +23,18 @@ Next.js 16 (App Router, React 19, TypeScript, plain CSS in `app/globals.css`). P
   The frontend depends only on that contract, through `lib/api.ts`.
 - `lib/mock-db.ts` — in-memory store behind the route handlers, standing in for the real backend. Replace it with
   a database; keep the contract.
-- `lib/validate.ts` — trip input validation, shared by every trip write.
+- `lib/validate.ts` — trip and plan-item input validation, shared by every write.
+- `lib/itinerary.ts` — groups plan items into the trip's days (pure, tested).
 - `app/login`, `app/register`, `app/trips/**` — client-component pages. `app/trips/layout.tsx` checks the session
   and redirects to `/login`.
 
 ## Design
 
-US highway signage: each trip is a green guide sign (`components/TripSign.tsx`) with its invite code on a tab
-like an exit number. Font Overpass. Tokens at the top of `app/globals.css`. The sign is the one loud element;
-keep the rest quiet. UI copy is English, sentence case.
+A road atlas: contour-map paper (`public/contours.svg`), roads with a dashed yellow centre line, US highway
+guide signs. Each trip is a green guide sign (`components/TripSign.tsx`) with its invite code on a tab like an
+exit number, hung off a road on the trips list. The itinerary (`components/Itinerary.tsx`) is a road with a
+mile-marker post per day. Font Overpass. Tokens at the top of `app/globals.css`. Signs and roads are the loud
+elements; keep the rest quiet. UI copy is English, sentence case.
 
 ## Next 16 gotchas met so far
 

@@ -1,4 +1,5 @@
-/* TripTogether: US road signage. The trip sign is the one loud thing; everything around it stays quiet. */
+/* TripTogether: a road atlas. Contour-map paper, roads with a dashed yellow centre line, green guide signs.
+   The signs and the road are the loud things; everything else stays quiet. */
 :root {
   --paper: #eef2ec; /* road-atlas land */
   --asphalt: #23272b;
@@ -8,6 +9,8 @@
   --white: #ffffff;
   --line: #b7c1bb;
   --red: #b3261e;
+  --lane: #f2b705; /* centre-line yellow */
+  --steel: #8b968f; /* sign arms */
   --radius: 6px;
   color-scheme: light;
 }
@@ -25,6 +28,16 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.5;
+}
+
+/* The contour map, pinned to the viewport. A fixed layer rather than background-attachment: fixed, which iOS
+   ignores and then stretches the map over the whole page height. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url("/contours.svg") center / cover;
 }
 
 h1,
@@ -59,9 +72,12 @@ a:hover {
 /* Layout */
 
 .page {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 16px 16px 64px;
+}
+.page > :where(*) {
+  max-width: 720px;
 }
 .page-narrow {
   display: grid;
@@ -80,7 +96,7 @@ a:hover {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -221,12 +237,46 @@ a.sign:hover {
   letter-spacing: 0.08em;
 }
 
-.signs {
+/* The road: asphalt with white edge lines and a dashed yellow centre line, running down the left of a list. */
+.road {
+  --road-w: 34px;
+  --road-gap: 32px;
+  position: relative;
   list-style: none;
-  margin: 72px 0 0;
-  padding: 0;
+  margin: 0;
+  padding: 0 0 0 calc(var(--road-w) + var(--road-gap));
   display: grid;
+}
+.road::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  bottom: -24px;
+  left: 0;
+  width: var(--road-w);
+  border-inline: 3px solid var(--white);
+  background:
+    linear-gradient(var(--lane) 55%, transparent 0) center top / 3px 26px repeat-y,
+    var(--asphalt);
+}
+
+.road-signs {
+  margin-top: 80px;
   gap: 56px;
+}
+.road-signs > li {
+  position: relative;
+}
+/* A steel arm from the road out to each sign. */
+.road-signs > li::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  width: var(--road-gap);
+  height: 8px;
+  margin-top: -4px;
+  background: var(--steel);
 }
 .page > .sign-trip {
   margin-top: 24px;
@@ -290,7 +340,9 @@ a.sign:hover {
 label {
   font-weight: 700;
 }
-input {
+input,
+select,
+textarea {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
@@ -300,8 +352,13 @@ input {
   color: inherit;
   font: inherit;
 }
-input:hover {
+input:hover,
+select:hover,
+textarea:hover {
   border-color: var(--muted);
+}
+textarea {
+  resize: vertical;
 }
 .row2 {
   display: grid;
@@ -334,23 +391,154 @@ input:hover {
   flex-wrap: wrap;
   gap: 12px;
 }
-.actions-end {
-  margin-top: 48px;
+.btn-small {
+  min-height: 36px;
+  padding: 2px 14px 0;
+  font-size: 15px;
+}
+.link-btn {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--green);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-danger {
+  color: var(--red);
 }
 
 /* Trip page */
 
-.detail {
+.trip-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-  margin-top: 40px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 56px;
+  margin-top: 48px;
+  max-width: none;
 }
-.detail section {
+.trip-side {
+  display: grid;
+  gap: 36px;
+  align-content: start;
+}
+.trip-side section {
   display: grid;
   gap: 12px;
-  align-content: start;
   justify-items: start;
+}
+
+.itinerary {
+  display: grid;
+  gap: 28px;
+  align-content: start;
+}
+.itinerary .road::before {
+  top: -8px;
+}
+.road-stop {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding-bottom: 36px;
+}
+/* A mile-marker post on the road for each day. */
+.marker {
+  --bg: var(--green);
+  position: absolute;
+  top: -6px;
+  left: calc((var(--road-w) - 32px) / 2 - var(--road-w) - var(--road-gap));
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 42px;
+  padding-top: 2px;
+  border-radius: 5px;
+  background: var(--bg);
+  box-shadow:
+    inset 0 0 0 2px var(--bg),
+    inset 0 0 0 4px var(--white);
+  color: var(--white);
+  font-size: 18px;
+  font-weight: 800;
+}
+.marker-off {
+  --bg: var(--red);
+}
+.road-stop h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.day-date {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.plans {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+.plan-time {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.plan-body {
+  display: grid;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+.plan-title {
+  font-weight: 700;
+}
+.plan-note {
+  white-space: pre-line;
+}
+.plan-by {
+  color: var(--muted);
+  font-size: 14px;
+}
+.plan-actions {
+  display: flex;
+  align-items: start;
+  gap: 14px;
+}
+.plan-form {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  padding: 16px;
+  border: 2px solid var(--green);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+.plan-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 12px;
 }
 .members {
   list-style: none;
@@ -372,13 +560,31 @@ input:hover {
   line-height: 1.1;
 }
 
+@media (max-width: 860px) {
+  .trip-layout {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+
 @media (max-width: 600px) {
   h1 {
     font-size: 28px;
   }
   .row2,
-  .detail {
+  .plan-form-row {
     grid-template-columns: 1fr;
+  }
+  .road {
+    --road-w: 22px;
+    --road-gap: 22px;
+  }
+  .plan {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .plan-body {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
   .sign-trip {
     padding: 24px 56px 22px 24px;

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
 
 const modes = {
@@ -26,9 +25,11 @@ const modes = {
 
 export default function AuthForm({ mode }: { mode: keyof typeof modes }) {
   const m = modes[mode];
-  const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Next keeps this page's state when you navigate away; drop a failed attempt's message when it does.
+  useLayoutEffect(() => () => setError(""), []);
 
   async function submit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,7 +37,10 @@ export default function AuthForm({ mode }: { mode: keyof typeof modes }) {
     setError("");
     try {
       await api(m.path, "POST", Object.fromEntries(new FormData(e.currentTarget)));
-      router.replace("/trips");
+      // A full page load, not router.replace: Next keeps visited pages' state across client navigations, so
+      // anything a page held from before this login (errors, another user's data) would otherwise come back.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- the full load is the point
+      window.location.assign("/trips");
     } catch (err) {
       setError(errorText(err));
       setBusy(false);

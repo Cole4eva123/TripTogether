@@ -16,7 +16,13 @@ export default function EditTripPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api<{ trip: Trip }>(`/trips/${id}`).then(({ trip }) => setTrip(trip), (e) => setError(errorText(e)));
+    api<{ trip: Trip }>(`/trips/${id}`).then(
+      ({ trip }) => {
+        setTrip(trip);
+        setError(""); // Next may restore this page with an error from an earlier visit
+      },
+      (e) => setError(errorText(e)),
+    );
   }, [id]);
 
   const notOwner = trip && me && trip.ownerId !== me.id;

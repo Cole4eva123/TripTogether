@@ -19,7 +19,12 @@ export default function TripsLayout({ children }: LayoutProps<"/trips">) {
   }, [router]);
 
   function logOut() {
-    api("/auth/logout", "POST").then(() => router.replace("/login"), (e) => alert(errorText(e)));
+    // Full page load for the same reason as in AuthForm: drop every page's state along with the session.
+    api("/auth/logout", "POST").then(
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- the full load is the point
+      () => window.location.assign("/login"),
+      (e) => alert(errorText(e)),
+    );
   }
 
   return (

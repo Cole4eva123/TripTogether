@@ -20,7 +20,14 @@ export default function TripPage() {
   const [copied, setCopied] = useState(false);
 
   // Also reloads after an itinerary change, so plans added by others show up too.
-  const load = useCallback(() => api<TripData>(`/trips/${id}`).then(setData), [id]);
+  const load = useCallback(
+    () =>
+      api<TripData>(`/trips/${id}`).then((d) => {
+        setData(d);
+        setError(""); // Next may restore this page with an error from an earlier visit
+      }),
+    [id],
+  );
 
   useEffect(() => {
     load().catch((e) => setError(errorText(e)));

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import TripSign from "@/components/TripSign";
 import { api, errorText } from "@/lib/api";
 import type { Trip } from "@/lib/types";
@@ -14,9 +14,15 @@ export default function TripsPage() {
   const [joinError, setJoinError] = useState("");
   const [joining, setJoining] = useState(false);
 
+  // Next keeps this page's state when you navigate away; drop a failed join's message when it does.
+  useLayoutEffect(() => () => setJoinError(""), []);
+
   useEffect(() => {
     api<{ trips: Trip[] }>("/trips").then(
-      ({ trips }) => setTrips(trips),
+      ({ trips }) => {
+        setTrips(trips);
+        setLoadError(""); // Next may restore this page with an error from an earlier visit
+      },
       (e) => setLoadError(errorText(e)),
     );
   }, []);

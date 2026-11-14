@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { errorText } from "@/lib/api";
 import type { TripInput } from "@/lib/types";
 
@@ -20,6 +20,9 @@ export default function TripForm({
   const [start, setStart] = useState(initial?.startDate ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Next keeps this page's state when you navigate away; drop a failed save's message when it does.
+  useLayoutEffect(() => () => setError(""), []);
 
   async function submit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();

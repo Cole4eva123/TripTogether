@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { errorText } from "@/lib/api";
 import type { TripInput } from "@/lib/types";
 
@@ -20,9 +20,20 @@ export default function TripForm({
   const [start, setStart] = useState(initial?.startDate ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const initialStart = initial?.startDate ?? "";
 
-  // Next keeps this page's state when you navigate away; drop a failed save's message when it does.
-  useLayoutEffect(() => () => setError(""), []);
+  // Next keeps this page's state when you navigate away: a successful save leaves still busy and filled in,
+  // a failed one leaves its message. Reset all of it when the page is hidden so it comes back fresh.
+  useLayoutEffect(() => {
+    const form = formRef.current;
+    return () => {
+      form?.reset();
+      setStart(initialStart);
+      setError("");
+      setBusy(false);
+    };
+  }, [initialStart]);
 
   async function submit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,7 +48,7 @@ export default function TripForm({
   }
 
   return (
-    <form className="form" onSubmit={submit}>
+    <form ref={formRef} className="form" onSubmit={submit}>
       <div className="row2">
         <div className="field">
           <label htmlFor="origin">Starting from</label>

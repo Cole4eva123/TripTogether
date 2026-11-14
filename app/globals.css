@@ -1,0 +1,397 @@
+/* TripTogether: US road signage. The trip sign is the one loud thing; everything around it stays quiet. */
+:root {
+  --paper: #eef2ec; /* road-atlas land */
+  --asphalt: #23272b;
+  --muted: #59625e;
+  --green: #0a6e4f; /* guide-sign green */
+  --green-dark: #08573f;
+  --white: #ffffff;
+  --line: #b7c1bb;
+  --red: #b3261e;
+  --radius: 6px;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--asphalt);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 32px;
+  line-height: 1.15;
+  font-weight: 800;
+}
+h2 {
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+a {
+  color: var(--green);
+  font-weight: 600;
+}
+a:hover {
+  color: var(--green-dark);
+}
+
+:focus-visible {
+  outline: 3px solid var(--asphalt);
+  outline-offset: 2px;
+}
+
+/* Layout */
+
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px 64px;
+}
+.page-narrow {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+.page-narrow > * {
+  max-width: 560px;
+}
+.page-narrow .form {
+  margin-top: 8px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+.topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  min-width: 0;
+}
+.topbar-user span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.auth {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 48px 16px;
+  display: grid;
+  gap: 24px;
+}
+.auth .sign-small {
+  justify-self: start;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted);
+}
+.hint {
+  color: var(--muted);
+  font-size: 14px;
+}
+.error {
+  color: var(--red);
+  font-weight: 600;
+}
+.empty {
+  margin-top: 40px;
+  max-width: 48ch;
+  color: var(--muted);
+}
+.back {
+  display: inline-block;
+  margin-bottom: 40px;
+}
+
+/* The guide sign. Real ones are green with a white border set in from the edge; two inset shadows draw that
+   border so :focus-visible can still use outline. */
+
+.sign {
+  --bg: var(--green);
+  display: block;
+  background: var(--bg);
+  color: var(--white);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 6px var(--bg),
+    inset 0 0 0 9px var(--white);
+  text-decoration: none;
+}
+a.sign:hover {
+  --bg: var(--green-dark);
+  color: var(--white);
+}
+.sign-small {
+  display: inline-block;
+  padding: 7px 14px 5px;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 3px var(--bg),
+    inset 0 0 0 5px var(--white);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.sign-trip {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 28px 72px 26px 30px;
+}
+
+.sign-title {
+  font-size: clamp(30px, 7vw, 44px);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.sign-line {
+  font-size: 18px;
+  font-weight: 600;
+}
+.sign-count {
+  margin-left: 16px;
+  font-weight: 400;
+}
+.sign-arrow {
+  position: absolute;
+  top: 22px;
+  right: 30px;
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* The invite code rides above the sign like an exit-number tab. */
+.sign-tab {
+  position: absolute;
+  bottom: calc(100% - 2px);
+  left: 30px;
+  padding: 9px 16px 5px;
+  background: var(--bg);
+  border-radius: 8px 8px 0 0;
+  box-shadow:
+    inset 0 0 0 4px var(--bg),
+    inset 0 0 0 6px var(--white);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.signs {
+  list-style: none;
+  margin: 72px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 56px;
+}
+.page > .sign-trip {
+  margin-top: 24px;
+}
+
+/* Controls */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 2px 18px 0;
+  border: 2px solid var(--green);
+  border-radius: var(--radius);
+  background: var(--green);
+  color: var(--white);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--green-dark);
+  border-color: var(--green-dark);
+  color: var(--white);
+}
+.btn-quiet {
+  background: transparent;
+  color: var(--green);
+}
+.btn-quiet:hover {
+  background: rgb(10 110 79 / 0.08);
+  color: var(--green-dark);
+}
+.btn-danger {
+  background: transparent;
+  border-color: var(--red);
+  color: var(--red);
+}
+.btn-danger:hover {
+  background: rgb(179 38 30 / 0.08);
+  border-color: var(--red);
+  color: var(--red);
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.form {
+  display: grid;
+  gap: 20px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+label {
+  font-weight: 700;
+}
+input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: inherit;
+  font: inherit;
+}
+input:hover {
+  border-color: var(--muted);
+}
+.row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.join {
+  display: grid;
+  gap: 6px;
+  margin-top: 32px;
+  max-width: 400px;
+}
+.join-row {
+  display: flex;
+  gap: 8px;
+}
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+.code-input::placeholder {
+  letter-spacing: 0.12em;
+  font-weight: 400;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.actions-end {
+  margin-top: 48px;
+}
+
+/* Trip page */
+
+.detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 40px;
+}
+.detail section {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  justify-items: start;
+}
+.members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+.members li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.code {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+}
+
+@media (max-width: 600px) {
+  h1 {
+    font-size: 28px;
+  }
+  .row2,
+  .detail {
+    grid-template-columns: 1fr;
+  }
+  .sign-trip {
+    padding: 24px 56px 22px 24px;
+  }
+  .sign-arrow {
+    right: 22px;
+    font-size: 36px;
+  }
+  .sign-tab {
+    left: 24px;
+  }
+  .sign-count {
+    display: block;
+    margin-left: 0;
+  }
+}

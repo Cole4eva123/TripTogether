@@ -86,6 +86,12 @@ export default function TripPage() {
 
         <aside className="grid content-start gap-9">
           <section className="grid justify-items-start gap-3">
+            <h2>Take a surprise detour</h2>
+            <p className="text-muted">Share hidden ideas and draw a mystery itinerary within your budget and time.</p>
+            <Link href={`/trips/${trip.id}/blind-box`} className="btn btn-quiet">Open travel blind box</Link>
+          </section>
+
+          <section className="grid justify-items-start gap-3">
             <h2>Travelers</h2>
             <ul className="w-full">
               {members.map((m) => (

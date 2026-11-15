@@ -1,6 +1,7 @@
 // Mock backend store: in memory, gone on every server restart. It exists so the frontend runs before the real
 // backend does. The real backend replaces this file with a database and keeps the contract in docs/api.md.
 import { randomInt, randomUUID } from "node:crypto";
+import { deleteBlindBox } from "./blind-box-store";
 import type { Member, PlanInput, PlanItem, Trip, TripInput, User } from "./types";
 
 type StoredUser = User & { password: string };
@@ -91,6 +92,7 @@ export function updateTrip(id: string, input: TripInput): Trip {
 }
 
 export function deleteTrip(id: string) {
+  deleteBlindBox(id);
   store.trips = store.trips.filter((t) => t.id !== id);
   store.items = store.items.filter((i) => i.tripId !== id);
 }

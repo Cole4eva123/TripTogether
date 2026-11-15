@@ -2,6 +2,7 @@
 
 import type { FuelPlan, FuelPreferences, FuelSearch, Station } from "@/lib/fuel-types";
 import { membershipFor, stationPrice } from "@/lib/gasoline-intelligence";
+import { formatDistance, type DistanceUnit, type StationDistances } from "@/lib/fuel-display";
 
 export const money=(n:number) => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(n);
 export const duration=(minutes:number) => {const total=Math.round(minutes);return `${Math.floor(total/60)}h ${total%60}m`;};
@@ -47,20 +48,24 @@ export function RegionalPrices({search}:{search:FuelSearch}) {
     </div>)}</div>
   </section>;
 }
-export function PlanSummary({plan,input}:{plan:FuelPlan;input:FuelPreferences}) {
+export function PlanSummary({plan,input,distanceUnit}:{plan:FuelPlan;input:FuelPreferences;distanceUnit:DistanceUnit}) {
   const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(input.departure);
   const departureDay=dateOnly?new Date(`${input.departure}T00:00:00Z`).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"}):null;
   return <section className="grid gap-5" aria-labelledby="plan-heading">
     <div><h2 id="plan-heading">Your plan</h2><p className="text-[14px] text-muted">{dateOnly?`Departure ${departureDay}`:`ETA ${arrival(plan.arrival)}`}</p></div>
     <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2">
-      {[["Distance",`${plan.route.miles.toFixed(0)} mi`],["With breaks",duration(plan.totalMinutes)],["Estimated total",money(plan.totalCost)],["Fuel cost",money(plan.fuelConsumedCost)],["On-road purchases",money(plan.purchaseCost)],["Detour",`${plan.detourMiles.toFixed(1)} mi · ${duration(plan.detourMinutes)}`]].map(([label,value]) => <div key={label} className="rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
+      {[["Distance",formatDistance(plan.route.miles,distanceUnit,0)],["With breaks",duration(plan.totalMinutes)],["Estimated total",money(plan.totalCost)],["Fuel cost",money(plan.fuelConsumedCost)],["On-road purchases",money(plan.purchaseCost)],["Detour",`${formatDistance(plan.detourMiles,distanceUnit)} · ${duration(plan.detourMinutes)}`]].map(([label,value]) => <div key={label} className="rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
     </div>
-    <details className="text-[13px]"><summary className="cursor-pointer font-semibold text-green">Cost &amp; fuel details</summary><div className="mt-2 grid gap-1 text-muted"><p>Total: {money(plan.fuelConsumedCost)} fuel used + {money(input.otherCosts)} other costs.</p><p>{plan.gallonsUsed.toFixed(1)} gal used · {plan.gallonsPurchased.toFixed(1)} gal purchased · {plan.fuelOnArrival.toFixed(1)} gal on arrival</p></div></details>
+    <div className="text-[13px]"><h3 className="font-semibold text-green">Cost &amp; fuel details</h3><div className="mt-2 grid gap-1 text-muted"><p>Total: {money(plan.fuelConsumedCost)} fuel used + {money(input.otherCosts)} other costs.</p><p>{plan.gallonsUsed.toFixed(1)} gal used · {plan.gallonsPurchased.toFixed(1)} gal purchased · {plan.fuelOnArrival.toFixed(1)} gal on arrival</p></div></div>
     {plan.stops.length===0 && <p className="rounded-lg border border-green bg-white p-4">No fuel or rest stops needed.</p>}
     <ol className="grid gap-4">{plan.stops.map(stop => <li key={stop.station.id} className="rounded-xl border-2 border-green bg-white p-5">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-[12px] font-bold uppercase tracking-wider text-muted">Stop {stop.number} · {stop.station.state || "State not mapped"}</p><h3 className="text-[20px] font-bold">{stop.station.name}</h3></div><p className="text-[22px] font-extrabold text-green">{money(stop.pricePerGallon)}<span className="text-[12px] font-normal">/gal</span></p></div>
+      <div className="flex items-start justify-between gap-3"><div><p className="text-[12px] font-bold uppercase tracking-wider text-muted">Stop {stop.number}</p><h3 className="text-[20px] font-bold">{stop.station.name}</h3></div><p className="text-[22px] font-extrabold text-green">{money(stop.pricePerGallon)}<span className="text-[12px] font-normal">/gal</span></p></div>
       <p className="mt-1 text-[14px] text-muted">{stop.station.address || "Address not mapped"}</p>
-      <p className="mt-3 text-[14px]">{stop.milesFromStart.toFixed(1)} mi from start · {stop.legMiles.toFixed(1)} mi / {duration(stop.legMinutes)} from {stop.number===1?"start":`stop ${stop.number-1}`}</p>
+      <div className="mt-3 grid gap-1 text-[14px]">
+        <p>{formatDistance(stop.milesFromStart,distanceUnit)} from start</p>
+        <p>{formatDistance(stop.legMiles,distanceUnit)} / {duration(stop.legMinutes)} from {stop.number===1?"start":`stop ${stop.number-1}`}</p>
+        <p>{formatDistance(plan.route.miles-stop.milesFromStart,distanceUnit)} to destination</p>
+      </div>
       <p className="text-[14px]">{dateOnly?`Arrive after ${duration(stop.minutesFromStart)}`:`Arrive ${arrival(stop.arrival)}`} · Rest {input.stopMinutes} min</p>
       <div className="mt-3 flex flex-wrap gap-2"><span className="rounded bg-paper px-2 py-1 text-[14px] font-semibold">Add {stop.buyGallons.toFixed(2)} gal · {money(stop.cost)}</span><span className="rounded bg-paper px-2 py-1 text-[14px]">Tank {stop.gallonsOnArrival.toFixed(1)} → {stop.fuelAfterStop.toFixed(1)} gal</span></div>
       <PreferredAmenities station={stop.station} input={input}/>
@@ -69,15 +74,20 @@ export function PlanSummary({plan,input}:{plan:FuelPlan;input:FuelPreferences}) 
     </li>)}</ol>
   </section>;
 }
-export function StationChoice({station,input,search,selected,active,onSelect,onFocus}:{station:Station;input:FuelPreferences;search:FuelSearch;selected:boolean;active:boolean;onSelect:()=>void;onFocus:()=>void}) {
+export function StationChoice({station,input,search,distances,distanceUnit,selected,active,onSelect,onFocus}:{station:Station;input:FuelPreferences;search:FuelSearch;distances:StationDistances;distanceUnit:DistanceUnit;selected:boolean;active:boolean;onSelect:()=>void;onFocus:()=>void}) {
   const price=stationPrice(station,input,search.regions), membership=membershipFor(station,input);
   const unavailable=station.detourMinutes>input.maxDetourMinutes || (station.membersOnly && !membership) || !price;
   return <li className={`rounded-lg border-2 bg-white p-3 ${active?"border-green":"border-line"}`}>
-    <div className="flex items-start gap-3"><input type="checkbox" aria-label={`Include ${station.name} at ${station.routeMiles.toFixed(0)} miles`} className="mt-1 min-h-0! w-4! shrink-0 accent-green" checked={selected} disabled={unavailable} onChange={onSelect}/>
-      <div className="min-w-0 flex-1"><button type="button" className="text-left font-bold text-green underline" onClick={onFocus}>{station.name}</button><p className="text-[12px] text-muted">{station.address || "Address not mapped"} · {station.state || "State not mapped"}</p></div>
+    <div className="flex items-start gap-3"><input type="checkbox" aria-label={`Include ${station.name} at ${formatDistance(distances.fromStart,distanceUnit,0)}`} className="mt-1 min-h-0! w-4! shrink-0 accent-green" checked={selected} disabled={unavailable} onChange={onSelect}/>
+      <div className="min-w-0 flex-1"><button type="button" className="text-left font-bold text-green underline" onClick={onFocus}>{station.name}</button><p className="text-[12px] text-muted">{station.address || "Address not mapped"}</p></div>
       <div className="text-right"><p className="font-bold">{price?`${money(price.value)}/gal`:"Unknown"}</p><p className="text-[11px] text-muted">{price?.kind}</p></div>
     </div>
-    <p className="mt-2 text-[12px] text-muted">{station.routeMiles.toFixed(1)} mi / {duration(station.routeMinutes)} from start · ~{Math.ceil(station.detourMinutes)} min detour</p>
+    <div className="mt-2 grid gap-1 text-[12px] text-muted">
+      <p>{distances.estimated?"~":""}{formatDistance(distances.fromStart,distanceUnit)} from start</p>
+      <p>{distances.estimated?"~":""}{formatDistance(distances.fromPrevious,distanceUnit)} from {distances.previousLabel}</p>
+      <p>{distances.estimated?"~":""}{formatDistance(distances.toDestination,distanceUnit)} to destination</p>
+      <p>~{Math.ceil(station.detourMinutes)} min detour</p>
+    </div>
     <PreferredAmenities station={station} input={input}/>
     {unavailable && <p className="mt-1 text-[12px] font-semibold text-red">{station.membersOnly&&!membership?"Requires membership":!price?"Add a fallback price to select":"Exceeds your detour limit"}</p>}
     <StationDetails station={station}/>

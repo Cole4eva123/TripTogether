@@ -35,7 +35,6 @@ export function parseVehicle(value: unknown): Vehicle {
 }
 export function parseFuelPreferences(value: unknown): FuelPreferences {
   const v = object(value);
-  if (v.vehicleConfirmed !== true) throw new FuelError("Confirm your vehicle and fuel specifications first.");
   const departure = text(v.departure, "Departure date", 40);
   const departureMs=Date.parse(departure);
   if (!Number.isFinite(departureMs) || (/^\d{4}-\d{2}-\d{2}$/.test(departure) && new Date(departureMs).toISOString().slice(0,10)!==departure)) {

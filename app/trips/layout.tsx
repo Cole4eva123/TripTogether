@@ -30,11 +30,15 @@ export default function TripsLayout({ children }: LayoutProps<"/trips">) {
   return (
     <MeContext value={me}>
       <header className="mx-auto flex max-w-240 flex-wrap items-center justify-between gap-4 p-4">
-        <Link href="/trips" className="sign sign-small">
-          TripTogether
-        </Link>
-        <div className="flex min-w-0 items-center gap-2 text-muted">
-          <Link href="/trips/gasoline-intelligence" className="mr-2 whitespace-nowrap text-[14px]">Gasoline Intelligence</Link>
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <Link href="/trips" className="sign sign-small">
+            TripTogether
+          </Link>
+          <Link href="/trips/gasoline-intelligence" className="btn btn-quiet">
+            Gasoline Intelligence
+          </Link>
+        </div>
+        <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2 text-muted">
           <span className="truncate">{me?.name}</span>
           <button className="btn btn-quiet" onClick={logOut}>
             Log out

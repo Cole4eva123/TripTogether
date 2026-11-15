@@ -79,15 +79,14 @@ test("regional samples expose sample size and price changes without pretending t
   assert.equal(regions[0].average,3.9);assert.equal(regions[0].count,2);
   assert.equal(regions[0].kind,"station sample");assert.ok(Math.abs(regions[1].change!+0.8)<0.00001);
 });
-test("server requires vehicle confirmation and rejects nonfinite or excessive parameters",()=>{
-  assert.throws(()=>parseFuelPreferences(input),/Confirm your vehicle/);
-  assert.equal(parseFuelPreferences({...input,vehicleConfirmed:true}).vehicle.make,"Toyota");
-  for(const bad of [{intervalMinutes:200},{estimatedPrice:NaN},{reservePercent:0},{vehicle:{...input.vehicle,mpg:0}}]) {
-    assert.throws(()=>parseFuelPreferences({...input,vehicleConfirmed:true,...bad}));
+test("server accepts vehicle specifications without confirmation and rejects invalid parameters",()=>{
+  assert.equal(parseFuelPreferences(input).vehicle.make,"Toyota");
+  for(const bad of [{intervalMinutes:200},{estimatedPrice:NaN},{reservePercent:0},{vehicle:{...input.vehicle,mpg:0}},{vehicle:{...input.vehicle,tankGallons:0}},{vehicle:{...input.vehicle,grade:"unknown"}}]) {
+    assert.throws(()=>parseFuelPreferences({...input,...bad}));
   }
 });
 test("departure preserves the trip's calendar day and validates real dates",()=>{
-  const body={...input,vehicleConfirmed:true};
+  const body=input;
   assert.equal(parseFuelPreferences({...body,departure:"2026-11-27"}).departure,"2026-11-27");
   assert.equal(parseFuelPreferences({...body,departure:"2024-02-29"}).departure,"2024-02-29");
   assert.equal(parseFuelPreferences(body).departure,input.departure);

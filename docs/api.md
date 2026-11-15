@@ -86,7 +86,7 @@ time at each stop rather than an assumed departure/arrival clock time.
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/gasoline-intelligence/vehicle` | `{ description: string }` (up to 500 characters) | `200 VehicleSuggestion` with cited research and editable partial vehicle specs | `400` invalid input; `429` rate limit; `502` upstream failure; `503` missing DeepSeek key |
-| POST | `/api/gasoline-intelligence/search` | `FuelPreferences & { vehicleConfirmed: true }` | `200 FuelSearch`, including an opaque user-bound search ID, route, stations, regions and warnings | `400` invalid settings; `404` location/stations not found; `429`; `502` map failure |
+| POST | `/api/gasoline-intelligence/search` | `FuelPreferences` | `200 FuelSearch`, including an opaque user-bound search ID, route, stations, regions and warnings | `400` invalid settings; `404` location/stations not found; `429`; `502` map failure |
 | POST | `/api/gasoline-intelligence/plan` | `{ searchId, stationIds?: string[] }` | `200 FuelPlan` with road-verified stops, quantities, costs and arrival times | `400` invalid selection; `410` expired/unavailable search; `422` insufficient range or over three hours between stops; `429`; `502` upstream failure |
 
 Searches last 30 minutes and are not persisted. Search/vehicle/plan rate limits are respectively

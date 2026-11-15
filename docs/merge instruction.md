@@ -4,7 +4,7 @@
 
 开发分支为 `feature/gasoline-intelligence`，功能名称及 URL 使用 `gasoline-intelligence`。
 本模块继续基于仓库现有的 Next.js App Router、React、TypeScript 和 Tailwind CSS v4 开发。
-以下 Git 命令供维护者后续准备合并时使用；本次整理没有执行分支合并或推送。
+以下 Git 命令供维护者后续准备合并时使用；模块开发及提交仅在当前功能分支进行，合并目标由团队确定。
 
 ## 在原框架中的位置
 
@@ -12,11 +12,12 @@
 |---|---|
 | `app/trips/gasoline-intelligence/` | 功能页面及加载状态，继承原来的 `app/trips/layout.tsx` 登录检查和导航 |
 | `app/api/gasoline-intelligence/` | `vehicle`、`search`、`plan` 三个 Route Handler，沿用原项目的服务端接口组织方式 |
-| `components/gasoline-intelligence/` | 页面主组件 `GasolineIntelligence.tsx`、交互地图 `FuelMap.tsx`、结果组件 `FuelResults.tsx` |
+| `components/gasoline-intelligence/` | 页面主组件 `GasolineIntelligence.tsx`、交互地图 `FuelMap.tsx`、结果组件 `FuelResults.tsx`、悬停说明按钮 `OneClickPlanButton.tsx` |
 | `lib/gasoline-intelligence.ts` | 规划算法、续航检查、价格比较、建议加油量和费用计算 |
 | `lib/gasoline-intelligence.test.ts` | 规划逻辑测试，继续由现有 `npm test` 脚本发现 |
 | `lib/fuel-coverage.ts`、`lib/fuel-coverage.test.ts` | 检查路线候选站覆盖、针对断档补搜及回归测试，沿用现有服务层和测试命令 |
 | `lib/fuel-types.ts`、`lib/fuel-validation.ts` | 加油业务的数据类型和输入校验 |
+| `lib/fuel-display.ts`、`lib/fuel-display.test.ts` | mi/km 显示换算、站点三段距离和搜索有效期倒计时的格式与测试；接口仍使用英里 |
 | `lib/fuel-service.ts` | 会话检查、查询编排、用户隔离、临时缓存及限流 |
 | `lib/fuel-ai.ts`、`lib/fuel-maps.ts`、`lib/fuel-http.ts` | 外部服务访问和结果校验，供服务端接口调用 |
 | `lib/fuel-region-provider.ts`、`lib/fuel-regions.ts`、`lib/fuel-regions.test.ts` | 州均价获取、解析和测试 |
@@ -51,12 +52,14 @@
 加油模块只选择年月日；停靠时刻按出发后的累计用时展示。加油模块当前不修改旅行、成员或共享行程数据。
 搜索及规划结果保存在进程内，搜索有效期为 30 分钟，服务重启后失效。如果后续需要保存规划，
 应沿用团队的数据库和 ORM，在服务层增加持久化及旅行成员权限检查。
+地图右下方的单位选择器同步调整地图、规划和候选站列表的距离；底部居中显示地图来源及搜索剩余有效时间。
+推荐站点使用重新计算的实际道路距离，未规划或待重新计算的站点用 `~` 标记近似距离。
 
 ### 接口路径
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| POST | `/api/gasoline-intelligence/vehicle` | 自然语言识别车型，返回待确认的参数和来源 |
+| POST | `/api/gasoline-intelligence/vehicle` | 自然语言识别车型，返回可编辑的参数和来源 |
 | POST | `/api/gasoline-intelligence/search` | 查询道路路线、候选站和地区油价 |
 | POST | `/api/gasoline-intelligence/plan` | 自动推荐，或按照用户选择重新规划 |
 
@@ -133,7 +136,7 @@ npm run build
 
 1. 原来的登录、旅行列表、详情和行程编辑正常，其他模块的导航仍在。
 2. 登录后能从导航及旅行详情进入 `/trips/gasoline-intelligence`，旅行的起终点能正确带入。
-3. 车型识别结果需要用户确认，确认后可查询并规划。
+3. 车型识别后直接显示 MPG、油箱容量和油品等级；参数完整即可查询并规划，无需勾选确认。
 4. 地图、站点、州均价、加油量、费用及到达时间正常显示；估算价有明确标签。
 5. 手动增删停靠点后可以重新计算；超出续航或连续驾驶时间限制时显示错误。
 6. 未登录调用三个新接口返回 `401`，项目代码和提交中没有实际密钥。

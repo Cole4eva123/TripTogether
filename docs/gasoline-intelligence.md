@@ -58,10 +58,11 @@ References: [OSRM route API](https://project-osrm.org/docs/v5.5.2/api/),
 [DeepSeek web tools](https://api-docs.deepseek.com/guides/web_tools/),
 [DeepSeek JSON output](https://api-docs.deepseek.com/guides/json_mode/).
 
-## Vehicle and price confirmation
+## Vehicle specifications and prices
 
-The driver describes their car (including year/trim/engine if known), reviews cited specifications, and
-confirms the MPG, tank capacity and required fuel grade. Missing specifications remain blank. Pure EVs
+The driver describes their car (including year/trim/engine if known). MPG, tank capacity and fuel grade
+remain visible and editable; other specifications and sources are folded away. There is no confirmation
+step. Missing specifications remain blank and must be filled in before planning. Pure EVs
 need a separate charging planner. Full-tank range is MPG × US gallons; the default reserve is 15%.
 
 Web-reported station prices, AAA/other regional estimates and the user's fallback estimate have separate labels.
@@ -96,6 +97,17 @@ Manual station selection is ordered along the original route. **Recalculate sele
 the edits; the old totals are hidden while edits are pending. The same reserve and driving-time checks
 apply to manual edits. A maximum of 23 stops is allowed per travel day.
 
+The map's lower-right selector switches displayed distances between miles and kilometers throughout
+the planner; calculations and API fields remain in miles. Station popups and cards separate the address,
+distance from start, distance from the previous selected stop, and distance to the destination. Verified
+stops use the recomputed road legs; candidates and pending edits show approximate distances with `~`.
+Cost and fuel details stay expanded, and **Choose your stops** follows the recommended itinerary.
+Hovering over **One-click plan** for one second shows its explanation in a rounded theme-colored
+tooltip; keyboard focus also reveals it, and Escape dismisses it. The map's lower-left summary keeps
+the displayed route's distance and driving time alongside the zoom and preview instructions.
+The centered map footer identifies OpenStreetMap tiles and OSRM routing, with a live countdown to
+the search's `expiresAt`. An expired result prompts a new search; the countdown does not renew it.
+
 The trip budget estimates the value of **all fuel consumed**, including starting fuel, plus other costs
 entered by the user. Cash spent buying fuel on the road is shown separately and is not added twice.
 Tolls, meals and accommodation are not automatically priced. Departure is a calendar date (`YYYY-MM-DD`)
@@ -111,7 +123,7 @@ signed-in user; selections and costs cannot be supplied by an untrusted client a
 Nothing in this module is persisted across server restarts.
 
 - `POST /api/gasoline-intelligence/vehicle`: `{description}` → `VehicleSuggestion`.
-- `POST /api/gasoline-intelligence/search`: `FuelPreferences & {vehicleConfirmed:true}` → `FuelSearch`.
+- `POST /api/gasoline-intelligence/search`: `FuelPreferences` → `FuelSearch`.
 - `POST /api/gasoline-intelligence/plan`: `{searchId, stationIds?:string[]}` → `FuelPlan`. Omit IDs for recommendations;
   an empty array deliberately requests no stops, subject to range and driving-time checks.
 

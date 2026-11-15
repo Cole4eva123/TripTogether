@@ -39,7 +39,7 @@ The app applies pending migrations itself on the first request, on either databa
 - `lib/store.ts` — trips, members and the itinerary. Same functions as `lib/mock-db.ts`, async.
 
 `lib/mock-db.ts` is no longer used by any route. It stays, unchanged, until every branch
-has moved over (see `docs/merge-notes-ghx.md`).
+has moved over (see `docs/merge-notes-bingo-backend.md`).
 
 ## Tests
 

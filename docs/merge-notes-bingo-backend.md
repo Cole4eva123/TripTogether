@@ -1,9 +1,9 @@
-# Merging the `ghx` branch
+# Merging the `feature/bingo-backend` branch
 
-What `ghx` changes, and what each other branch needs after it merges. The branch adds the real backend for the
+What `feature/bingo-backend` changes, and what each other branch needs after it merges. The branch adds the real backend for the
 base features (PostgreSQL + Drizzle + Better Auth, `docs/backend.md`) and feature 4, Travel Bingo.
 
-## What `ghx` touched in shared files
+## What `feature/bingo-backend` touched in shared files
 
 Everything else on the branch is a new file.
 

@@ -3,7 +3,7 @@
 # in .env.local. Without DATABASE_URL the app uses PGlite in .data/ instead (docs/backend.md).
 services:
   db:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_USER: triptogether
       POSTGRES_PASSWORD: triptogether
@@ -11,6 +11,6 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
 volumes:
   pgdata:

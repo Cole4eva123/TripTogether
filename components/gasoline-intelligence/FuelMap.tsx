@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { RoadRoute, Station } from "@/lib/fuel-types";
+import type { FuelStop, RoadRoute, Station } from "@/lib/fuel-types";
 
-type Props = { route:RoadRoute|null;stations:Station[];selectedIds:string[];activeId:string|null;onPick:(id:string) => void };
+type MapStation = Station & { displayPrice:{value:number;kind:FuelStop["priceKind"]}|null };
+type Props = { route:RoadRoute|null;stations:MapStation[];selectedIds:string[];activeId:string|null;onPick:(id:string) => void };
+const money=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
 export default function FuelMap({route,stations,selectedIds,activeId,onPick}:Props) {
   const element=useRef<HTMLDivElement>(null), map=useRef<Leaflet.Map|null>(null), library=useRef<typeof Leaflet|null>(null);
   const layers=useRef<Leaflet.LayerGroup|null>(null), fitted=useRef<RoadRoute|null>(null);
@@ -15,7 +17,7 @@ export default function FuelMap({route,stations,selectedIds,activeId,onPick}:Pro
     import("leaflet").then(L => {
       if (disposed || !element.current) return;
       library.current=L;
-      const instance=L.map(element.current,{scrollWheelZoom:false}).setView([39.8,-96.6],4);
+      const instance=L.map(element.current,{scrollWheelZoom:true}).setView([39.8,-96.6],4);
       map.current=instance;
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(instance);
       layers.current=L.layerGroup().addTo(instance);
@@ -48,7 +50,8 @@ export default function FuelMap({route,stations,selectedIds,activeId,onPick}:Pro
       }).addTo(group);
       const popup=document.createElement("div");
       const title=document.createElement("strong");title.textContent=station.name;
-      const info=document.createElement("p");info.textContent=[station.address || "Address not mapped",station.state,`${station.routeMiles.toFixed(1)} mi along original route`,station.price?`Reported $${station.price.perGallon.toFixed(3)}/gal`:"Station price unknown"].filter(Boolean).join(" · ");
+      const price=station.displayPrice;
+      const info=document.createElement("p");info.textContent=[station.address || "Address not mapped",station.state,`${station.routeMiles.toFixed(1)} mi along original route`,price?`${money.format(price.value)}/gal · ${price.kind}`:"Station price unknown"].filter(Boolean).join(" · ");
       popup.append(title,info);marker.bindPopup(popup);
       marker.on("click",() => onPick(station.id));
       if (active) marker.openPopup();

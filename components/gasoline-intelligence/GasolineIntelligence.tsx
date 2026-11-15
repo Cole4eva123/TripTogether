@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useMe } from "@/components/me";
 import { api, errorText } from "@/lib/api";
+import { stationPrice } from "@/lib/gasoline-intelligence";
 import type { FuelPlan, FuelPreferences, FuelSearch, Vehicle, VehicleSuggestion } from "@/lib/fuel-types";
 import FuelMap from "./FuelMap";
 import { duration, PlanSummary, RegionalPrices, StationChoice } from "./FuelResults";
@@ -92,13 +93,21 @@ export default function GasolineIntelligence() {
     else setSelectedIds(ids => [...ids,id].sort((a,b) => search!.stations.find(s => s.id===a)!.routeMiles-search!.stations.find(s => s.id===b)!.routeMiles));
   }
   const dirty=!!search && (!plan || selectedIds.join(";")!==plan.stops.map(s => s.station.id).join(";"));
-  const mapStations=search?.stations.map(s => plan?.stops.find(stop => stop.station.id===s.id)?.station ?? s) ?? [];
+  const mapStations=search?.stations.map(station => {
+    const stop=plan?.stops.find(stop => stop.station.id===station.id);
+    return {
+      ...(stop?.station ?? station),
+      displayPrice: stop && !dirty
+        ? {value:stop.pricePerGallon,kind:stop.priceKind}
+        : plannedInput ? stationPrice(station,plannedInput,search.regions) : null,
+    };
+  }) ?? [];
   const visibleStations=search?.stations.filter(s => `${s.name} ${s.address} ${s.state} ${s.amenities.join(" ")}`.toLowerCase().includes(filter.toLowerCase())) ?? [];
   if (!me) return <main className="mx-auto max-w-300 p-4" role="status">Loading your session…</main>;
 
   return <main className="mx-auto max-w-320 px-4 pt-4 pb-16">
     <Link href="/trips" className="text-[14px]">Back to your trips</Link>
-    <div className="mt-5 mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2 text-[13px] font-bold uppercase tracking-[0.15em] text-green">A better way to stop</p><h1>Gasoline intelligence</h1><p className="mt-3 max-w-[65ch] text-muted">Find a sensible place to fill up, grab a bite and take a break. Built around your car and the road ahead.</p></div><span className="sign sign-small">US road trips</span></div>
+    <div className="mt-5 mb-8 flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2 text-[13px] font-bold uppercase tracking-[0.15em] text-green">A better way to stop</p><h1>Gasoline Intelligence</h1><p className="mt-3 max-w-[65ch] text-muted">Find a sensible place to fill up, grab a bite and take a break. Built around your car and the road ahead.</p></div><span className="sign sign-small">US road trips</span></div>
 
     <div className="grid grid-cols-[350px_minmax(0,1fr)] items-start gap-7 max-md:grid-cols-1">
       <form className="grid gap-5" onSubmit={submit}>

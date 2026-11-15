@@ -73,7 +73,7 @@ order; the frontend groups and sorts them (`lib/itinerary.ts`).
 - `title` is required, up to 120 characters; `place` up to 120; `note` up to 1000. Missing `place` and `note`
   are stored as `""`.
 
-## Gasoline intelligence
+## Gasoline Intelligence
 
 The fuel planner uses the existing session cookie. All three endpoints return `401` when signed out.
 Bodies and response shapes are defined in `lib/fuel-types.ts`; provider configuration, estimates and

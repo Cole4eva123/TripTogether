@@ -34,7 +34,7 @@ export default function TripsLayout({ children }: LayoutProps<"/trips">) {
           TripTogether
         </Link>
         <div className="flex min-w-0 items-center gap-2 text-muted">
-          <Link href="/trips/gasoline-intelligence" className="mr-2 whitespace-nowrap text-[14px]">Gasoline intelligence</Link>
+          <Link href="/trips/gasoline-intelligence" className="mr-2 whitespace-nowrap text-[14px]">Gasoline Intelligence</Link>
           <span className="truncate">{me?.name}</span>
           <button className="btn btn-quiet" onClick={logOut}>
             Log out

@@ -42,7 +42,7 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 
 ## 创新功能
 
-加油规划模块统一命名为 **Gasoline intelligence**，开发分支为 `gasoline_intelligence`。
+加油规划模块统一命名为 **Gasoline Intelligence**，开发分支为 `gasoline_intelligence`。
 登录后点击同名导航或旅行详情入口，进入 `/trips/gasoline-intelligence`。
 车型确认、沿途选站、一键规划、地图及手动重算的配置和限制见 [加油规划说明](docs/gasoline-intelligence.md)。
 合并时的结构约定、冲突处理和检查步骤见 [中文合并说明](<docs/merge instruction.md>)。

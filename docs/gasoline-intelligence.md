@@ -1,4 +1,4 @@
-# Gasoline intelligence
+# Gasoline Intelligence
 
 中文合并说明见 [merge instruction.md](<merge instruction.md>)。
 
@@ -9,7 +9,7 @@ point and destination to the planner. It does not change shared itineraries, aut
 
 1. Run `npm ci`.
 2. Copy `.env.example` to `.env.local` and fill in `DEEPSEEK_API_KEY`.
-3. Run `npm run dev`, sign in, then choose **Gasoline intelligence**.
+3. Run `npm run dev`, sign in, then choose **Gasoline Intelligence**.
 
 Configure the DeepSeek key and use `deepseek-flash`, which supports the server-side web tools.
 Keep keys server-side: never prefix this key with `NEXT_PUBLIC_`. `.env.local` and local credential notes

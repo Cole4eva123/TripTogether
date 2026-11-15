@@ -1,4 +1,4 @@
-# Gasoline intelligence 合并说明
+# Gasoline Intelligence 合并说明
 
 ## 分支和命名
 
@@ -65,7 +65,7 @@
 
 | 文件 | 合并时的处理方式 |
 |---|---|
-| `app/trips/layout.tsx` | 保留目标分支的登录、用户信息、退出和其他导航，再加入 Gasoline intelligence 入口；窄屏导航允许换行 |
+| `app/trips/layout.tsx` | 保留目标分支的登录、用户信息、退出和其他导航，再加入 Gasoline Intelligence 入口；窄屏导航允许换行 |
 | `app/trips/[id]/page.tsx` | 保留目标分支的数据加载、权限和行程逻辑，再加入传递 `origin`、`destination` 的入口链接 |
 | `package.json` | 沿用团队确定的框架版本和脚本，补入运行依赖 `leaflet` 与开发依赖 `@types/leaflet` |
 | `package-lock.json` | 先解决 `package.json`，再执行 `npm install --package-lock-only` 生成一致的锁文件，随后运行 `npm ci` 检查 |

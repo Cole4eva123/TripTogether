@@ -76,7 +76,7 @@ export default function TripPage() {
       </Link>
       <TripSign trip={trip} />
       <Link href={`/trips/gasoline-intelligence?${new URLSearchParams({ origin: trip.origin, destination: trip.destination })}`} className="btn btn-quiet btn-small mt-4 mr-3">
-        Gasoline intelligence
+        Gasoline Intelligence
       </Link>
       {isOwner && (
         <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet btn-small mt-4">

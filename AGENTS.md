@@ -10,7 +10,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # TripTogether
 
-Next.js 16 (App Router, React 19, TypeScript, plain CSS in `app/globals.css`). Product scope: `README.md`.
+Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技术栈 table): `README.md`.
+
+- Styling is moving to Tailwind CSS. Until that migration lands, styles are plain CSS in `app/globals.css`;
+  once Tailwind is installed, write new styles as Tailwind classes, not new CSS rules.
+- Backend target: PostgreSQL (local, in Docker) through Drizzle ORM, auth through Better Auth. Deployment is
+  out of scope for now.
 
 ## Commands
 
@@ -22,7 +27,8 @@ Next.js 16 (App Router, React 19, TypeScript, plain CSS in `app/globals.css`). P
 - `app/api/` — route handlers. Their contract (paths, status codes, shapes, error messages) is `docs/api.md`.
   The frontend depends only on that contract, through `lib/api.ts`.
 - `lib/mock-db.ts` — in-memory store behind the route handlers, standing in for the real backend. Replace it with
-  a database; keep the contract.
+  Postgres via Drizzle; keep the contract. If Better Auth can't serve the `/api/auth/*` contract as written,
+  change `docs/api.md` and `lib/api.ts` in the same commit.
 - `lib/validate.ts` — trip and plan-item input validation, shared by every write.
 - `lib/itinerary.ts` — groups plan items into the trip's days (pure, tested).
 - `app/login`, `app/register`, `app/trips/**` — client-component pages. `app/trips/layout.tsx` checks the session

@@ -2,6 +2,24 @@
 
 TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团、邀请成员、按天排行程，到路线加油规划、寻找同行小组、盲盒行程和旅途中的任务 Bingo，帮助一群人把旅行从计划到完成都一起搞定。
 
+## 技术栈
+
+| 部分 | 选择 | 现状 |
+|---|---|---|
+| 框架 | Next.js 16（App Router）+ React 19 | 在用 |
+| 语言 | TypeScript | 在用 |
+| 样式 | Tailwind CSS | 待迁移，现有样式是 `app/globals.css` 里的纯 CSS |
+| 后端 | Next.js API 路由（`app/api/`），接口契约见 `docs/api.md` | 在用，数据暂存内存（`lib/mock-db.ts`） |
+| 数据库 | PostgreSQL，本地用 Docker 运行 | 待接入 |
+| ORM | Drizzle ORM，迁移用 drizzle-kit | 待接入 |
+| 登录 | Better Auth（邮箱 + 密码，接 Drizzle） | 待接入 |
+| 测试 | Node 自带的 `node:test` | 在用 |
+| 代码检查 | ESLint | 在用 |
+| 包管理 | npm | 在用 |
+
+- 部署暂不考虑，先在本地跑通。
+- 创新功能要用的服务做到时再定：地图、油价与加油站数据、AI（暂定 DeepSeek）、实时聊天、图片存储。
+
 ## 基础模块
 
 ### 用户注册与登录

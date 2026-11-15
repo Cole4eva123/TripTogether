@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BlindBoxOptionForm, BlindBoxSetup } from "@/components/BlindBoxForms";
+import BlindBoxDraw from "@/components/BlindBoxDraw";
 import { useMe } from "@/components/me";
 import { api, errorText } from "@/lib/api";
 import type { BlindBoxView } from "@/lib/blind-box-types";
@@ -42,13 +43,15 @@ export default function BlindBoxPage() {
     return () => { cancelled = true; clearInterval(timer); };
   }, [id, path, busy]);
 
-  async function submit(body: Record<string, unknown>, method = "PATCH") {
+  async function submit(body: Record<string, unknown>, method = "PATCH", presentReveal?: (box: BlindBoxView) => Promise<void>) {
     if (busy) return false;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       const result = await api<BoxResponse>(path, method, { roundId: data?.box?.id, ...body });
+      // Hold this page's reveal until the reels land; other members get the same server result by polling.
+      if (presentReveal && result.box?.result) await presentReveal(result.box);
       setData((previous) => previous && { ...previous, box: result.box });
       setAnother(false);
       setNotice(body.action === "save" ? "Mystery itinerary added. Open your trip to see the plans." : body.action === "submit" ? "Your idea is sealed until the reveal." : body.action === "reveal" ? "The surprise is ready for everyone." : method === "DELETE" ? "The blind box was reset." : "Blind box updated.");
@@ -93,6 +96,7 @@ export default function BlindBoxPage() {
                   </dl>
                   <p className="text-[14px] text-muted">{box.settings.preferences.join(" · ")}</p>
                 </section>
+                <BlindBoxDraw key={box.id} box={box} isOwner={isOwner} busy={busy} onDraw={(present) => submit({ action: "reveal" }, "PATCH", present)} />
                 {box.status === "collecting" ? (
                   <>
                     <BlindBoxOptionForm key={box.id} settings={box.settings} busy={busy} submit={submit} />
@@ -103,12 +107,6 @@ export default function BlindBoxPage() {
                         <button className="link-btn text-red disabled:opacity-60" disabled={busy} onClick={() => void submit({ action: "remove", optionId: option.id })}>Remove</button>
                       </li>)}</ul>
                     </section>}
-                    <section className="grid justify-items-start gap-3 rounded-md border-2 border-dashed border-green p-5">
-                      <h2>Ready for the detour?</h2>
-                      <p>{box.eligibleCount} matching {box.eligibleCount === 1 ? "option" : "options"}, including {box.demoCount} demo suggestions.</p>
-                      {!box.eligibleCount && <p className="text-muted">No matching options yet. Add a hidden idea for this destination, or ask the organizer to reset the limits.</p>}
-                      {isOwner ? <button className="btn" disabled={busy || !box.eligibleCount} onClick={() => void submit({ action: "reveal" })}>Draw and reveal for everyone</button> : <p className="text-muted">The organizer reveals the box when the group is ready.</p>}
-                    </section>
                   </>
                 ) : box.result && (
                   <>

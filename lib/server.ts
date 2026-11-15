@@ -1,7 +1,10 @@
 // Helpers for the route handlers in app/api.
-import { cookies } from "next/headers";
-import { sessionUser, tripFor } from "./mock-db";
+import { cookies, headers } from "next/headers";
+import { auth } from "./auth";
+import { ready } from "./db/client";
+import { tripFor } from "./store";
 
+/** The name of the mock store's session cookie. Better Auth now names and signs its own cookie. */
 export const SESSION_COOKIE = "tt_session";
 
 export const fail = (status: number, error: string) => Response.json({ error }, { status });
@@ -11,8 +14,11 @@ export const needLogin = () => fail(401, "Log in to continue.");
 export const noContent = () => new Response(null, { status: 204 });
 
 export async function currentUser() {
-  const id = (await cookies()).get(SESSION_COOKIE)?.value;
-  return id ? sessionUser(id) : null;
+  await ready();
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) return null;
+  const { id, name, email } = session.user;
+  return { id, name, email };
 }
 
 /**
@@ -22,7 +28,7 @@ export async function currentUser() {
 export async function memberTrip(id: string) {
   const me = await currentUser();
   if (!me) return needLogin();
-  const found = tripFor(id, me.id);
+  const found = await tripFor(id, me.id);
   if (!found) return fail(404, "This trip doesn't exist, or you're not a member of it.");
   return { me, ...found };
 }

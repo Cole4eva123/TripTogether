@@ -1,4 +1,4 @@
-import { leaveTrip } from "@/lib/mock-db";
+import { leaveTrip } from "@/lib/store";
 import { fail, memberTrip, noContent } from "@/lib/server";
 
 export async function DELETE(_req: Request, ctx: RouteContext<"/api/trips/[id]/members/me">) {
@@ -6,6 +6,6 @@ export async function DELETE(_req: Request, ctx: RouteContext<"/api/trips/[id]/m
   if (m instanceof Response) return m;
   if (m.trip.ownerId === m.me.id)
     return fail(409, "Organizers can't leave their own trip. Delete the trip instead.");
-  leaveTrip(m.trip.id, m.me.id);
+  await leaveTrip(m.trip.id, m.me.id);
   return noContent();
 }

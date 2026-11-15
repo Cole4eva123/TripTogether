@@ -1,0 +1,16 @@
+# Local PostgreSQL for TripTogether. Start it with `docker compose up -d`, then put
+#   DATABASE_URL=postgres://triptogether:triptogether@localhost:5432/triptogether
+# in .env.local. Without DATABASE_URL the app uses PGlite in .data/ instead (docs/backend.md).
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: triptogether
+      POSTGRES_PASSWORD: triptogether
+      POSTGRES_DB: triptogether
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

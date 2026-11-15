@@ -1,5 +1,8 @@
-import { createUser, startSession } from "@/lib/mock-db";
-import { fail, readJson, setSession } from "@/lib/server";
+import { headers } from "next/headers";
+import { APIError } from "better-auth/api";
+import { auth } from "@/lib/auth";
+import { ready } from "@/lib/db/client";
+import { fail, readJson } from "@/lib/server";
 
 export async function POST(req: Request) {
   const { name, email, password } = await readJson(req);
@@ -9,8 +12,17 @@ export async function POST(req: Request) {
   if (typeof password !== "string" || password.length < 8)
     return fail(400, "Use a password with at least 8 characters.");
 
-  const user = createUser(name.trim(), email.trim().toLowerCase(), password);
-  if (!user) return fail(409, "An account with this email already exists. Log in instead.");
-  await setSession(startSession(user.id));
-  return Response.json({ user }, { status: 201 });
+  await ready();
+  try {
+    // Better Auth hashes the password, creates the user and signs them in (the cookie is set by nextCookies).
+    const { user } = await auth.api.signUpEmail({
+      body: { name: name.trim(), email: email.trim().toLowerCase(), password },
+      headers: await headers(),
+    });
+    return Response.json({ user: { id: user.id, name: user.name, email: user.email } }, { status: 201 });
+  } catch (e) {
+    if (e instanceof APIError && e.body?.code?.startsWith("USER_ALREADY_EXISTS"))
+      return fail(409, "An account with this email already exists. Log in instead.");
+    throw e;
+  }
 }

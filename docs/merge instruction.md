@@ -2,7 +2,7 @@
 
 ## 分支和命名
 
-开发分支为 `gasoline_intelligence`，功能名称及 URL 使用 `gasoline-intelligence`。
+开发分支为 `feature/gasoline-intelligence`，功能名称及 URL 使用 `gasoline-intelligence`。
 本模块继续基于仓库现有的 Next.js App Router、React、TypeScript 和 Tailwind CSS v4 开发。
 以下 Git 命令供维护者后续准备合并时使用；本次整理没有执行分支合并或推送。
 
@@ -88,7 +88,7 @@ git branch --show-current
 git status --short
 ```
 
-分支应为 `gasoline_intelligence`。审阅本模块新增文件和共享文件中的修改，再选择性暂存。
+分支应为 `feature/gasoline-intelligence`。审阅本模块新增文件和共享文件中的修改，再选择性暂存。
 对于共享文件可使用 `git add -p`，逐段检查；本地原有的无关修改和删除应单独处理。
 暂存后再次确认提交内容：
 
@@ -103,7 +103,7 @@ git diff --cached
 ## 在功能分支同步目标分支
 
 以下以将来合入 `dev` 为例。先完成本模块提交，并确保工作区干净；所有同步及冲突处理仍在
-`gasoline_intelligence` 上进行：
+`feature/gasoline-intelligence` 上进行：
 
 ```powershell
 git branch --show-current
@@ -141,9 +141,9 @@ npm run build
 检查通过后，仅推送功能分支：
 
 ```powershell
-git push origin gasoline_intelligence
+git push origin feature/gasoline-intelligence
 ```
 
-随后创建 Pull Request，比较分支选择 `gasoline_intelligence`，目标分支选择团队确认的分支
+随后创建 Pull Request，比较分支选择 `feature/gasoline-intelligence`，目标分支选择团队确认的分支
 （例如 `dev`）。在说明中列出模块入口、共享文件的改动、配置变量和检查结果，
 由目标分支维护者完成最终审查及合并。

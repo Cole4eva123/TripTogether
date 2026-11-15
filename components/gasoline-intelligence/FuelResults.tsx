@@ -8,16 +8,39 @@ export const duration=(minutes:number) => {const total=Math.round(minutes);retur
 function arrival(value:string) {
   return new Date(value).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
 }
+function PreferredAmenities({station,input}:{station:Station;input:FuelPreferences}) {
+  const normalize=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,"");
+  const matches=station.amenities.filter(amenity=>input.amenities.some(preference=>{
+    const key=normalize(preference);return key && normalize(amenity).includes(key);
+  }));
+  return matches.length?<p className="mt-2 text-[12px] text-muted">{matches.join(" · ")}</p>:null;
+}
+function StationDetails({station,reason}:{station:Station;reason?:string}) {
+  const hours=station.open && !/not mapped|not confirmed|unknown/i.test(station.open);
+  if(!reason && !hours && !station.amenities.length && !station.source && !station.price)return null;
+  return <details className="mt-3 text-[12px]">
+    <summary className="cursor-pointer font-semibold text-green">Details &amp; sources</summary>
+    <div className="mt-2 grid gap-2 text-muted">
+      {reason && <p>{reason}</p>}
+      {!!station.amenities.length && <p>{station.amenities.join(" · ")}</p>}
+      {hours && <p>Hours: {station.open}</p>}
+      {station.price && <p>Price updated {arrival(station.price.observedAt)}</p>}
+      <div className="flex flex-wrap gap-4">
+        {station.source && <a href={station.source.url} target="_blank" rel="noreferrer">Station source</a>}
+        {station.price && <a href={station.price.source.url} target="_blank" rel="noreferrer">Price source</a>}
+      </div>
+    </div>
+  </details>;
+}
 export function RegionalPrices({search}:{search:FuelSearch}) {
-  if (!search.regions.length) return <p className="rounded-lg border border-line bg-white p-4 text-[14px] text-muted">No recent, sourced regional prices were found. No cheapest state can be identified from this search.</p>;
+  if (!search.regions.length) return <p className="text-[14px] text-muted">Regional prices unavailable.</p>;
   const cheapest=Math.min(...search.regions.map(r => r.average));
   return <section className="grid gap-3" aria-labelledby="regional-heading">
-    <h2 id="regional-heading">Prices along the route</h2>
-    <p className="text-[14px] text-muted">Compare the regions with available evidence. Station samples are not statewide averages; sample sizes and dates may differ.</p>
+    <h2 id="regional-heading">Regional prices</h2>
     <div className="flex flex-wrap gap-3">{search.regions.map(region => <div key={region.state} className={`min-w-35 rounded-lg border-2 p-3 ${region.average===cheapest ? "border-green bg-white" : "border-line bg-white"}`}>
       <p className="font-bold">{region.state}</p><p className="text-[24px] font-extrabold text-green">{money(region.average)}<span className="text-[13px] font-normal text-muted"> /gal</span></p>
       <p className="text-[12px] text-muted">{region.kind === "station sample" ? `${region.count} reported station${region.count===1?"":"s"}` : "Regional average"}</p>
-      {region.average===cheapest && <p className="text-[13px] font-bold text-green">Lowest available average</p>}
+      {region.average===cheapest && <p className="text-[13px] font-bold text-green">Lowest average</p>}
       {region.change !== null && Math.abs(region.change)>=0.15 && <p className={`text-[13px] font-semibold ${region.change>0?"text-red":"text-green"}`}>{region.change>0?"↑":"↓"} {money(Math.abs(region.change))} vs previous region</p>}
       {region.observedAt && <p className="text-[12px] text-muted">As of {new Date(region.observedAt).toLocaleDateString()}</p>}
       {region.source && <a className="text-[12px]" href={region.source.url} target="_blank" rel="noreferrer">Source</a>}
@@ -26,24 +49,22 @@ export function RegionalPrices({search}:{search:FuelSearch}) {
 }
 export function PlanSummary({plan,input}:{plan:FuelPlan;input:FuelPreferences}) {
   return <section className="grid gap-5" aria-labelledby="plan-heading">
-    <div><h2 id="plan-heading">Your road plan</h2><p className="text-[14px] text-muted">Arrival {arrival(plan.arrival)} · Times shown in your browser&apos;s time zone.</p></div>
+    <div><h2 id="plan-heading">Your plan</h2><p className="text-[14px] text-muted">ETA {arrival(plan.arrival)}</p></div>
     <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2">
-      {[["Road distance",`${plan.route.miles.toFixed(0)} mi`],["With breaks",duration(plan.totalMinutes)],["Trip budget",money(plan.totalCost)],["Fuel used value",money(plan.fuelConsumedCost)],["Buy on the road",money(plan.purchaseCost)],["Extra driving",`${plan.detourMiles.toFixed(1)} mi · ${duration(plan.detourMinutes)}`]].map(([label,value]) => <div key={label} className="rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
+      {[["Distance",`${plan.route.miles.toFixed(0)} mi`],["With breaks",duration(plan.totalMinutes)],["Estimated total",money(plan.totalCost)],["Fuel cost",money(plan.fuelConsumedCost)],["On-road purchases",money(plan.purchaseCost)],["Detour",`${plan.detourMiles.toFixed(1)} mi · ${duration(plan.detourMinutes)}`]].map(([label,value]) => <div key={label} className="rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
     </div>
-    <p className="text-[13px] text-muted">Trip budget = estimated value of all fuel consumed (including starting fuel) + {money(input.otherCosts)} other costs. Fuel bought on the road is shown separately. {plan.gallonsUsed.toFixed(1)} gal used; {plan.gallonsPurchased.toFixed(1)} gal purchased; {plan.fuelOnArrival.toFixed(1)} gal on arrival.</p>
-    {plan.stops.length===0 && <p className="rounded-lg border border-green bg-white p-4">You can reach the destination within your fuel reserve and break interval. No stop is needed.</p>}
+    <details className="text-[13px]"><summary className="cursor-pointer font-semibold text-green">Cost &amp; fuel details</summary><div className="mt-2 grid gap-1 text-muted"><p>Total: {money(plan.fuelConsumedCost)} fuel used + {money(input.otherCosts)} other costs.</p><p>{plan.gallonsUsed.toFixed(1)} gal used · {plan.gallonsPurchased.toFixed(1)} gal purchased · {plan.fuelOnArrival.toFixed(1)} gal on arrival</p></div></details>
+    {plan.stops.length===0 && <p className="rounded-lg border border-green bg-white p-4">No fuel or rest stops needed.</p>}
     <ol className="grid gap-4">{plan.stops.map(stop => <li key={stop.station.id} className="rounded-xl border-2 border-green bg-white p-5">
       <div className="flex items-start justify-between gap-3"><div><p className="text-[12px] font-bold uppercase tracking-wider text-muted">Stop {stop.number} · {stop.station.state || "State not mapped"}</p><h3 className="text-[20px] font-bold">{stop.station.name}</h3></div><p className="text-[22px] font-extrabold text-green">{money(stop.pricePerGallon)}<span className="text-[12px] font-normal">/gal</span></p></div>
       <p className="mt-1 text-[14px] text-muted">{stop.station.address || "Address not mapped"}</p>
       <p className="mt-3 text-[14px]">{stop.milesFromStart.toFixed(1)} mi from start · {stop.legMiles.toFixed(1)} mi / {duration(stop.legMinutes)} from {stop.number===1?"start":`stop ${stop.number-1}`}</p>
       <p className="text-[14px]">Arrive {arrival(stop.arrival)} · Rest {input.stopMinutes} min</p>
       <div className="mt-3 flex flex-wrap gap-2"><span className="rounded bg-paper px-2 py-1 text-[14px] font-semibold">Add {stop.buyGallons.toFixed(2)} gal · {money(stop.cost)}</span><span className="rounded bg-paper px-2 py-1 text-[14px]">Tank {stop.gallonsOnArrival.toFixed(1)} → {stop.fuelAfterStop.toFixed(1)} gal</span></div>
-      <p className="mt-3 text-[13px] text-muted">{stop.reason}</p>
-      <p className="mt-1 text-[12px] text-muted">Price: {stop.priceKind}{stop.station.price ? ` · observed ${arrival(stop.station.price.observedAt)}` : " · not a pump quote"}</p>
-      <div className="mt-2 flex flex-wrap gap-4 text-[13px]"><a href={stop.station.mapUrl} target="_blank" rel="noreferrer">Station on map</a>{stop.station.source && <a href={stop.station.source.url} target="_blank" rel="noreferrer">Station source</a>}{stop.station.price && <a href={stop.station.price.source.url} target="_blank" rel="noreferrer">Price source</a>}</div>
-      <p className="mt-2 text-[12px] text-muted">Hours: {stop.station.open}. Fuel grade availability must be confirmed at the station.</p>
+      <PreferredAmenities station={stop.station} input={input}/>
+      <div className="mt-2 flex flex-wrap items-center gap-4 text-[12px]"><span className="text-muted">{stop.priceKind}</span><a href={stop.station.mapUrl} target="_blank" rel="noreferrer">Open map</a></div>
+      <StationDetails station={stop.station} reason={stop.reason}/>
     </li>)}</ol>
-    <ul className="grid gap-2 rounded-lg border border-line bg-white p-4 text-[13px] text-muted">{plan.warnings.map(w => <li key={w}>• {w}</li>)}</ul>
   </section>;
 }
 export function StationChoice({station,input,search,selected,active,onSelect,onFocus}:{station:Station;input:FuelPreferences;search:FuelSearch;selected:boolean;active:boolean;onSelect:()=>void;onFocus:()=>void}) {
@@ -54,10 +75,9 @@ export function StationChoice({station,input,search,selected,active,onSelect,onF
       <div className="min-w-0 flex-1"><button type="button" className="text-left font-bold text-green underline" onClick={onFocus}>{station.name}</button><p className="text-[12px] text-muted">{station.address || "Address not mapped"} · {station.state || "State not mapped"}</p></div>
       <div className="text-right"><p className="font-bold">{price?`${money(price.value)}/gal`:"Unknown"}</p><p className="text-[11px] text-muted">{price?.kind}</p></div>
     </div>
-    <p className="mt-2 text-[12px] text-muted">{station.routeMiles.toFixed(1)} mi from start · {duration(station.routeMinutes)} along route · estimated detour {Math.ceil(station.detourMinutes)} min</p>
-    <p className="mt-1 text-[12px] text-muted">{station.amenities.length?station.amenities.join(" · "):"Facilities not mapped"}{station.membersOnly?" · Members only":""}</p>
-    {unavailable && <p className="mt-1 text-[12px] font-semibold text-red">{station.membersOnly&&!membership?"Requires membership":!price?"Enter an estimated price to select this station":"Exceeds your detour limit"}</p>}
-    {station.price && <a href={station.price.source.url} className="text-[12px]" target="_blank" rel="noreferrer">Price source · {new Date(station.price.observedAt).toLocaleDateString()}</a>}
-    {station.source && <a href={station.source.url} className="ml-3 text-[12px]" target="_blank" rel="noreferrer">Station source</a>}
+    <p className="mt-2 text-[12px] text-muted">{station.routeMiles.toFixed(1)} mi / {duration(station.routeMinutes)} from start · ~{Math.ceil(station.detourMinutes)} min detour</p>
+    <PreferredAmenities station={station} input={input}/>
+    {unavailable && <p className="mt-1 text-[12px] font-semibold text-red">{station.membersOnly&&!membership?"Requires membership":!price?"Add a fallback price to select":"Exceeds your detour limit"}</p>}
+    <StationDetails station={station}/>
   </li>;
 }

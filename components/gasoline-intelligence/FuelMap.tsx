@@ -22,7 +22,7 @@ export default function FuelMap({route,stations,selectedIds,activeId,onPick}:Pro
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(instance);
       layers.current=L.layerGroup().addTo(instance);
       setReady(true);
-    }).catch(() => setError("The interactive map could not load. Station details remain available below."));
+    }).catch(() => setError("Map unavailable. Use the station list below."));
     return () => {disposed=true;map.current?.remove();map.current=null;layers.current=null;fitted.current=null;};
   },[]);
   useEffect(() => {
@@ -51,15 +51,16 @@ export default function FuelMap({route,stations,selectedIds,activeId,onPick}:Pro
       const popup=document.createElement("div");
       const title=document.createElement("strong");title.textContent=station.name;
       const price=station.displayPrice;
-      const info=document.createElement("p");info.textContent=[station.address || "Address not mapped",station.state,`${station.routeMiles.toFixed(1)} mi along original route`,price?`${money.format(price.value)}/gal · ${price.kind}`:"Station price unknown"].filter(Boolean).join(" · ");
-      popup.append(title,info);marker.bindPopup(popup);
+      const info=document.createElement("p");info.textContent=[station.address || "Address not mapped",station.state,`~${station.routeMiles.toFixed(1)} mi from start`].filter(Boolean).join(" · ");
+      const cost=document.createElement("p");cost.className="font-semibold";cost.textContent=price?`${money.format(price.value)}/gal · ${price.kind}`:"Price unavailable";
+      popup.append(title,info,cost);marker.bindPopup(popup);
       marker.on("click",() => onPick(station.id));
       if (active) marker.openPopup();
     }
   },[ready,route,stations,selectedIds,activeId,onPick]);
   return <div className="overflow-hidden rounded-xl border-2 border-line bg-white">
     <div ref={element} className="relative z-0 h-[460px] w-full max-sm:h-[340px]" aria-label="Interactive map of the route and gas stations" />
-    <p className="px-4 py-2 text-[13px] text-muted">Green numbers: selected stops · Gray dots: alternatives. Click a station to see details. Map tiles: OpenStreetMap.</p>
+    <p className="px-4 py-2 text-[13px] text-muted">Scroll to zoom · Click a station to preview</p>
     {error && <p role="alert" className="p-4 font-semibold text-red">{error}</p>}
   </div>;
 }

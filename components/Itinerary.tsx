@@ -43,38 +43,41 @@ export default function Itinerary({
   );
 
   return (
-    <section className="itinerary" aria-labelledby="itinerary-heading">
+    <section className="grid content-start gap-7" aria-labelledby="itinerary-heading">
       <h2 id="itinerary-heading">Itinerary</h2>
-      <ol className="road">
+      <ol className="road road-itinerary">
         {days.map((day) => (
-          <li key={day.date} className="road-stop">
+          <li key={day.date} className="relative grid justify-items-start gap-3 pb-9">
             <span className={day.n ? "marker" : "marker marker-off"} aria-hidden>
               {day.n ?? "!"}
             </span>
-            <h3>
+            <h3 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[22px] leading-[1.2] font-extrabold">
               {day.n ? `Day ${day.n}` : "Outside the trip dates"}
-              <span className="day-date">{dayLabel(day.date)}</span>
+              <span className="text-[16px] font-semibold text-muted">{dayLabel(day.date)}</span>
             </h3>
 
             {day.items.length > 0 && (
-              <ul className="plans">
+              <ul className="grid w-full gap-2">
                 {day.items.map((item) =>
                   open === item.id ? (
                     <li key={item.id}>{form(day.n ? day.date : trip.startDate, item)}</li>
                   ) : (
-                    <li key={item.id} className="plan">
-                      <span className="plan-time">{timeLabel(item.time)}</span>
-                      <div className="plan-body">
-                        <p className="plan-title">{item.title}</p>
+                    <li
+                      key={item.id}
+                      className="grid grid-cols-[80px_minmax(0,1fr)_auto] gap-x-3.5 gap-y-1 rounded-md border border-line bg-white px-3.5 py-3 max-sm:grid-cols-[minmax(0,1fr)_auto]"
+                    >
+                      <span className="font-bold tabular-nums">{timeLabel(item.time)}</span>
+                      <div className="grid gap-0.5 wrap-anywhere max-sm:col-span-full max-sm:row-start-2">
+                        <p className="font-bold">{item.title}</p>
                         {item.place && <p>{item.place}</p>}
-                        {item.note && <p className="plan-note">{item.note}</p>}
-                        <p className="plan-by">Added by {item.addedBy}</p>
+                        {item.note && <p className="whitespace-pre-line">{item.note}</p>}
+                        <p className="text-[14px] text-muted">Added by {item.addedBy}</p>
                       </div>
-                      <div className="plan-actions">
+                      <div className="flex items-start gap-3.5">
                         <button className="link-btn" onClick={() => setOpen(item.id)}>
                           Edit
                         </button>
-                        <button className="link-btn link-danger" onClick={() => remove(item)}>
+                        <button className="link-btn text-red" onClick={() => remove(item)}>
                           Remove
                         </button>
                       </div>
@@ -85,11 +88,11 @@ export default function Itinerary({
             )}
 
             {day.n === null && (
-              <p className="hint">The trip dates changed. Move these plans to a trip day, or remove them.</p>
+              <p className="text-[14px] text-muted">The trip dates changed. Move these plans to a trip day, or remove them.</p>
             )}
             {day.n !== null && open === `new:${day.date}` && form(day.date)}
             {day.n !== null && open !== `new:${day.date}` && (
-              <button className="link-btn add-plan" onClick={() => setOpen(`new:${day.date}`)}>
+              <button className="link-btn text-[15px] no-underline hover:underline" onClick={() => setOpen(`new:${day.date}`)}>
                 + {day.items.length ? "Add another plan" : "Add a plan"}
               </button>
             )}

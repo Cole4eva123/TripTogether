@@ -8,9 +8,9 @@ import type { Trip } from "@/lib/types";
 export default function NewTripPage() {
   const router = useRouter();
   return (
-    <main className="page page-narrow">
+    <main className="mx-auto max-w-240 px-4 pt-4 pb-16 grid content-start gap-4 *:max-w-140">
       <h1>New trip</h1>
-      <p className="muted">You can change any of this later. Once it&apos;s created, you&apos;ll get a code to invite your group.</p>
+      <p className="text-muted">You can change any of this later. Once it&apos;s created, you&apos;ll get a code to invite your group.</p>
       <TripForm
         submitLabel="Create trip"
         cancelHref="/trips"

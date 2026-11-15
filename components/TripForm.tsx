@@ -48,13 +48,13 @@ export default function TripForm({
   }
 
   return (
-    <form ref={formRef} className="form" onSubmit={submit}>
-      <div className="row2">
-        <div className="field">
+    <form ref={formRef} className="mt-2 grid gap-5" onSubmit={submit}>
+      <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+        <div className="grid content-start gap-1.5">
           <label htmlFor="origin">Starting from</label>
           <input id="origin" name="origin" defaultValue={initial?.origin} placeholder="Champaign, IL" required />
         </div>
-        <div className="field">
+        <div className="grid content-start gap-1.5">
           <label htmlFor="destination">Going to</label>
           <input
             id="destination"
@@ -65,8 +65,8 @@ export default function TripForm({
           />
         </div>
       </div>
-      <div className="row2">
-        <div className="field">
+      <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+        <div className="grid content-start gap-1.5">
           <label htmlFor="startDate">Leave on</label>
           <input
             id="startDate"
@@ -77,17 +77,17 @@ export default function TripForm({
             required
           />
         </div>
-        <div className="field">
+        <div className="grid content-start gap-1.5">
           <label htmlFor="endDate">Back on</label>
           <input id="endDate" name="endDate" type="date" defaultValue={initial?.endDate} min={start} required />
         </div>
       </div>
       {error && (
-        <p className="error" role="alert">
+        <p className="font-semibold text-red" role="alert">
           {error}
         </p>
       )}
-      <div className="actions">
+      <div className="flex flex-wrap gap-3">
         <button className="btn" disabled={busy}>
           {submitLabel}
         </button>

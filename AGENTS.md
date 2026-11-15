@@ -12,8 +12,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技术栈 table): `README.md`.
 
-- Styling is moving to Tailwind CSS. Until that migration lands, styles are plain CSS in `app/globals.css`;
-  once Tailwind is installed, write new styles as Tailwind classes, not new CSS rules.
+- Styling is Tailwind CSS v4 utility classes in the markup. `app/globals.css` holds only the theme (palette,
+  breakpoints, font), element defaults, and the road-atlas component classes built from pseudo-elements and
+  layered shadows (`btn`, `link-btn`, `sign*`, `road*`, `marker`). Add new styles as utilities, not CSS rules.
 - Backend target: PostgreSQL (local, in Docker) through Drizzle ORM, auth through Better Auth. Deployment is
   out of scope for now.
 
@@ -39,7 +40,10 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
 A road atlas: contour-map paper (`public/contours.svg`), roads with a dashed yellow centre line, US highway
 guide signs. Each trip is a green guide sign (`components/TripSign.tsx`) with its invite code on a tab like an
 exit number, hung off a road on the trips list. The itinerary (`components/Itinerary.tsx`) is a road with a
-mile-marker post per day. Font Overpass. Tokens at the top of `app/globals.css`. Signs and roads are the loud
+mile-marker post per day. Font Overpass. The palette is the `@theme` block in `app/globals.css`, and it replaces Tailwind's default colours,
+so use `text-muted`, `bg-green`, `border-line` and so on. Breakpoints are `sm` 600px and `md` 860px, used
+desktop-first as `max-sm:` and `max-md:`. For a font size, write `text-[18px]`, not `text-lg`: the scale classes
+also set a line-height. Signs and roads are the loud
 elements; keep the rest quiet. UI copy is English, sentence case.
 
 ## Next 16 gotchas met so far

@@ -35,10 +35,10 @@ export default function TripPage() {
 
   if (!data || !me)
     return (
-      <main className="page">
+      <main className="mx-auto max-w-240 px-4 pt-4 pb-16">
         {error && (
           <>
-            <p className="error" role="alert">
+            <p className="font-semibold text-red" role="alert">
               {error}
             </p>
             <Link href="/trips">Back to your trips</Link>
@@ -70,54 +70,54 @@ export default function TripPage() {
   }
 
   return (
-    <main className="page">
-      <Link href="/trips" className="back">
+    <main className="mx-auto max-w-240 px-4 pt-4 pb-16">
+      <Link href="/trips" className="mb-14 inline-block">
         Back to your trips
       </Link>
       <TripSign trip={trip} />
       {isOwner && (
-        <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet btn-small trip-edit">
+        <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet btn-small mt-4">
           Edit trip
         </Link>
       )}
 
-      <div className="trip-layout">
+      <div className="mt-12 grid grid-cols-[minmax(0,1fr)_280px] gap-14 max-md:grid-cols-1 max-md:gap-10">
         <Itinerary trip={trip} items={items} onChange={load} />
 
-        <aside className="trip-side">
-          <section>
+        <aside className="grid content-start gap-9">
+          <section className="grid justify-items-start gap-3">
             <h2>Travelers</h2>
-            <ul className="members">
+            <ul className="w-full">
               {members.map((m) => (
-                <li key={m.id}>
+                <li key={m.id} className="flex justify-between gap-3 border-b border-line py-2.5">
                   <span>
                     {m.name}
-                    {m.id === me.id && <span className="muted"> (you)</span>}
+                    {m.id === me.id && <span className="text-muted"> (you)</span>}
                   </span>
-                  {m.id === trip.ownerId && <span className="muted">Organizer</span>}
+                  {m.id === trip.ownerId && <span className="text-muted">Organizer</span>}
                 </li>
               ))}
             </ul>
           </section>
 
-          <section>
+          <section className="grid justify-items-start gap-3">
             <h2>Invite your group</h2>
-            <p className="muted">Send this code to friends. They enter it on their trips page to join.</p>
-            <p className="code">{trip.inviteCode}</p>
+            <p className="text-muted">Send this code to friends. They enter it on their trips page to join.</p>
+            <p className="text-[36px] leading-[1.1] font-extrabold tracking-[0.12em]">{trip.inviteCode}</p>
             <button className="btn btn-quiet" onClick={copyCode}>
               {copied ? "Copied" : "Copy code"}
             </button>
           </section>
 
           {error && (
-            <p className="error" role="alert">
+            <p className="font-semibold text-red" role="alert">
               {error}
             </p>
           )}
-          <section className="trip-exit">
+          <section className="grid justify-items-start gap-3 border-t border-line pt-4">
             {isOwner ? (
               <button
-                className="link-btn link-danger"
+                className="link-btn text-red"
                 onClick={() =>
                   removeAndExit(
                     `Delete the trip to ${trip.destination} for everyone? This can't be undone.`,
@@ -129,7 +129,7 @@ export default function TripPage() {
               </button>
             ) : (
               <button
-                className="link-btn link-danger"
+                className="link-btn text-red"
                 onClick={() =>
                   removeAndExit(
                     `Leave the trip to ${trip.destination}? You'll need the code to rejoin.`,

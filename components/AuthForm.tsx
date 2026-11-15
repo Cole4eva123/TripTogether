@@ -48,21 +48,21 @@ export default function AuthForm({ mode }: { mode: keyof typeof modes }) {
   }
 
   return (
-    <main className="auth">
-      <p className="sign sign-small">TripTogether</p>
+    <main className="mx-auto grid max-w-100 gap-6 px-4 py-12">
+      <p className="sign sign-small justify-self-start">TripTogether</p>
       <h1>{m.title}</h1>
-      <form className="form" onSubmit={submit}>
+      <form className="grid gap-5" onSubmit={submit}>
         {m.askName && (
-          <div className="field">
+          <div className="grid content-start gap-1.5">
             <label htmlFor="name">Name</label>
             <input id="name" name="name" autoComplete="name" required />
           </div>
         )}
-        <div className="field">
+        <div className="grid content-start gap-1.5">
           <label htmlFor="email">Email</label>
           <input id="email" name="email" type="email" autoComplete="email" required />
         </div>
-        <div className="field">
+        <div className="grid content-start gap-1.5">
           <label htmlFor="password">Password</label>
           <input
             id="password"
@@ -72,10 +72,10 @@ export default function AuthForm({ mode }: { mode: keyof typeof modes }) {
             minLength={m.askName ? 8 : undefined}
             required
           />
-          {m.askName && <p className="hint">At least 8 characters.</p>}
+          {m.askName && <p className="text-[14px] text-muted">At least 8 characters.</p>}
         </div>
         {error && (
-          <p className="error" role="alert">
+          <p className="font-semibold text-red" role="alert">
             {error}
           </p>
         )}
@@ -83,7 +83,7 @@ export default function AuthForm({ mode }: { mode: keyof typeof modes }) {
           {m.submit}
         </button>
       </form>
-      <p className="muted">
+      <p className="text-muted">
         {m.switchText} <Link href={m.switchLink.href}>{m.switchLink.label}</Link>
       </p>
     </main>

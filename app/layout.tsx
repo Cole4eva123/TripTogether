@@ -3,7 +3,7 @@ import { Overpass } from "next/font/google";
 import "./globals.css";
 
 // Overpass is drawn from Highway Gothic, the lettering on US road signs.
-const overpass = Overpass({ variable: "--font-sans", subsets: ["latin"] });
+const overpass = Overpass({ variable: "--font-overpass", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "TripTogether",

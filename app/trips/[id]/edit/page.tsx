@@ -28,18 +28,18 @@ export default function EditTripPage() {
   const notOwner = trip && me && trip.ownerId !== me.id;
 
   return (
-    <main className="page page-narrow">
+    <main className="mx-auto max-w-240 px-4 pt-4 pb-16 grid content-start gap-4 *:max-w-140">
       <h1>Edit trip</h1>
       {error && (
         <>
-          <p className="error" role="alert">
+          <p className="font-semibold text-red" role="alert">
             {error}
           </p>
           <Link href="/trips">Back to your trips</Link>
         </>
       )}
       {notOwner && (
-        <p className="muted">
+        <p className="text-muted">
           Only the organizer can edit this trip. <Link href={`/trips/${id}`}>Back to the trip</Link>
         </p>
       )}

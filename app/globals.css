@@ -1,635 +1,273 @@
+@import "tailwindcss";
+
 /* TripTogether: a road atlas. Contour-map paper, roads with a dashed yellow centre line, green guide signs.
-   The signs and the road are the loud things; everything else stays quiet. */
-:root {
-  --paper: #eef2ec; /* road-atlas land */
-  --asphalt: #23272b;
-  --muted: #59625e;
-  --green: #0a6e4f; /* guide-sign green */
-  --green-dark: #08573f;
-  --white: #ffffff;
-  --line: #b7c1bb;
-  --red: #b3261e;
-  --lane: #f2b705; /* centre-line yellow */
-  --steel: #8b968f; /* sign arms */
-  --radius: 6px;
-  color-scheme: light;
+   The signs and the road are the loud things; everything else stays quiet.
+
+   Styling is Tailwind utility classes in the markup. This file holds only what utilities can't say well: the
+   palette, element defaults, and the road-atlas pieces built from pseudo-elements and layered shadows. */
+
+@theme {
+  /* Only the road-atlas palette, so a class like text-blue-500 doesn't exist to reach for. */
+  --color-*: initial;
+  --color-paper: #eef2ec; /* road-atlas land */
+  --color-asphalt: #23272b;
+  --color-muted: #59625e;
+  --color-green: #0a6e4f; /* guide-sign green */
+  --color-green-dark: #08573f;
+  --color-white: #ffffff;
+  --color-line: #b7c1bb;
+  --color-red: #b3261e;
+  --color-lane: #f2b705; /* centre-line yellow */
+  --color-steel: #8b968f; /* sign arms */
+
+  /* The layout's two breakpoints: one column under 860px, phone tweaks under 600px. */
+  --breakpoint-sm: 37.5rem;
+  --breakpoint-md: 53.75rem;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+@theme inline {
+  /* Overpass, set by next/font in app/layout.tsx. */
+  --font-sans: var(--font-overpass), system-ui, sans-serif;
 }
 
-body {
-  margin: 0;
-  background: var(--paper);
-  color: var(--asphalt);
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-/* The contour map, pinned to the viewport. A fixed layer rather than background-attachment: fixed, which iOS
-   ignores and then stretches the map over the whole page height. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: url("/contours.svg") center / cover;
-}
-
-h1,
-h2,
-p {
-  margin: 0;
-}
-h1 {
-  font-size: 32px;
-  line-height: 1.15;
-  font-weight: 800;
-}
-h2 {
-  font-size: 20px;
-  line-height: 1.25;
-  font-weight: 700;
-}
-
-a {
-  color: var(--green);
-  font-weight: 600;
-}
-a:hover {
-  color: var(--green-dark);
-}
-
-:focus-visible {
-  outline: 3px solid var(--asphalt);
-  outline-offset: 2px;
-}
-
-/* Layout */
-
-.page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 16px 16px 64px;
-}
-.page > :where(*) {
-  max-width: 720px;
-}
-.page-narrow {
-  display: grid;
-  gap: 16px;
-  align-content: start;
-}
-.page-narrow > * {
-  max-width: 560px;
-}
-.page-narrow .form {
-  margin-top: 8px;
-}
-
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 16px;
-}
-.topbar-user {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  min-width: 0;
-}
-.topbar-user span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.page-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.auth {
-  max-width: 400px;
-  margin: 0 auto;
-  padding: 48px 16px;
-  display: grid;
-  gap: 24px;
-}
-.auth .sign-small {
-  justify-self: start;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.muted {
-  color: var(--muted);
-}
-.hint {
-  color: var(--muted);
-  font-size: 14px;
-}
-.error {
-  color: var(--red);
-  font-weight: 600;
-}
-.empty {
-  margin-top: 40px;
-  max-width: 48ch;
-  color: var(--muted);
-}
-.back {
-  display: inline-block;
-  margin-bottom: 32px;
-}
-.trip-edit {
-  margin-top: 16px;
-}
-
-/* The guide sign. Real ones are green with a white border set in from the edge; two inset shadows draw that
-   border so :focus-visible can still use outline. */
-
-.sign {
-  --bg: var(--green);
-  display: block;
-  background: var(--bg);
-  color: var(--white);
-  border-radius: 12px;
-  box-shadow:
-    inset 0 0 0 6px var(--bg),
-    inset 0 0 0 9px var(--white);
-  text-decoration: none;
-}
-a.sign:hover {
-  --bg: var(--green-dark);
-  color: var(--white);
-}
-.sign-small {
-  display: inline-block;
-  padding: 7px 14px 5px;
-  border-radius: 8px;
-  box-shadow:
-    inset 0 0 0 3px var(--bg),
-    inset 0 0 0 5px var(--white);
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.sign-trip {
-  position: relative;
-  display: grid;
-  gap: 4px;
-  padding: 28px 72px 26px 30px;
-}
-
-.sign-title {
-  font-size: clamp(30px, 7vw, 44px);
-  line-height: 1.05;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  overflow-wrap: anywhere;
-}
-.sign-line {
-  font-size: 18px;
-  font-weight: 600;
-}
-.sign-count {
-  margin-left: 16px;
-  font-weight: 400;
-}
-.sign-arrow {
-  position: absolute;
-  top: 22px;
-  right: 30px;
-  font-size: 44px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-/* The invite code rides above the sign like an exit-number tab. */
-.sign-tab {
-  position: absolute;
-  bottom: calc(100% - 2px);
-  left: 30px;
-  padding: 9px 16px 5px;
-  background: var(--bg);
-  border-radius: 8px 8px 0 0;
-  box-shadow:
-    inset 0 0 0 4px var(--bg),
-    inset 0 0 0 6px var(--white);
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-/* The road: asphalt with white edge lines and a dashed yellow centre line, running down the left of a list. */
-.road {
-  --road-w: 34px;
-  --road-gap: 32px;
-  position: relative;
-  list-style: none;
-  margin: 0;
-  padding: 0 0 0 calc(var(--road-w) + var(--road-gap));
-  display: grid;
-}
-.road::before {
-  content: "";
-  position: absolute;
-  top: -40px;
-  bottom: -24px;
-  left: 0;
-  width: var(--road-w);
-  border-inline: 3px solid var(--white);
-  background:
-    linear-gradient(var(--lane) 55%, transparent 0) center top / 3px 26px repeat-y,
-    var(--asphalt);
-}
-
-.road-signs {
-  margin-top: 80px;
-  gap: 56px;
-}
-.road-signs > li {
-  position: relative;
-}
-/* A steel arm from the road out to each sign. */
-.road-signs > li::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: 100%;
-  width: var(--road-gap);
-  height: 8px;
-  margin-top: -4px;
-  background: var(--steel);
-}
-.page > .sign-trip {
-  margin-top: 24px;
-}
-
-/* Controls */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 2px 18px 0;
-  border: 2px solid var(--green);
-  border-radius: var(--radius);
-  background: var(--green);
-  color: var(--white);
-  font: inherit;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.btn:hover {
-  background: var(--green-dark);
-  border-color: var(--green-dark);
-  color: var(--white);
-}
-.btn-quiet {
-  background: transparent;
-  color: var(--green);
-}
-.btn-quiet:hover {
-  background: rgb(10 110 79 / 0.08);
-  color: var(--green-dark);
-}
-.btn-danger {
-  background: transparent;
-  border-color: var(--red);
-  color: var(--red);
-}
-.btn-danger:hover {
-  background: rgb(179 38 30 / 0.08);
-  border-color: var(--red);
-  color: var(--red);
-}
-.btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.form {
-  display: grid;
-  gap: 20px;
-}
-.field {
-  display: grid;
-  gap: 6px;
-  align-content: start;
-}
-label {
-  font-weight: 700;
-}
-input,
-select,
-textarea {
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 2px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--white);
-  color: inherit;
-  font: inherit;
-}
-input:hover,
-select:hover,
-textarea:hover {
-  border-color: var(--muted);
-}
-textarea {
-  resize: vertical;
-}
-.row2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.trips-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 16px 32px;
-  margin-top: 24px;
-}
-/* Line New trip up with the code box, under the join form's label. */
-.trips-bar > .btn {
-  margin-top: 29px;
-}
-.join {
-  display: grid;
-  gap: 6px;
-  flex: 1 1 280px;
-  max-width: 360px;
-}
-.join label {
-  font-weight: 600;
-  color: var(--muted);
-}
-.join-row {
-  display: flex;
-  gap: 8px;
-}
-.code-input {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-weight: 700;
-}
-.code-input::placeholder {
-  letter-spacing: 0.12em;
-  font-weight: 400;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.btn-small {
-  min-height: 36px;
-  padding: 2px 14px 0;
-  font-size: 15px;
-}
-.link-btn {
-  min-height: 24px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--green);
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-.link-danger {
-  color: var(--red);
-}
-.add-plan {
-  font-size: 15px;
-  text-decoration: none;
-}
-.add-plan:hover {
-  text-decoration: underline;
-}
-.trip-exit {
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-
-/* Trip page */
-
-.trip-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 56px;
-  margin-top: 48px;
-  max-width: none;
-}
-.trip-side {
-  display: grid;
-  gap: 36px;
-  align-content: start;
-}
-.trip-side section {
-  display: grid;
-  gap: 12px;
-  justify-items: start;
-}
-
-.itinerary {
-  display: grid;
-  gap: 28px;
-  align-content: start;
-}
-.itinerary .road::before {
-  top: -8px;
-}
-.road-stop {
-  position: relative;
-  display: grid;
-  gap: 12px;
-  justify-items: start;
-  padding-bottom: 36px;
-}
-/* A mile-marker post on the road for each day. */
-.marker {
-  --bg: var(--green);
-  position: absolute;
-  top: -6px;
-  left: calc((var(--road-w) - 32px) / 2 - var(--road-w) - var(--road-gap));
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 42px;
-  padding-top: 2px;
-  border-radius: 5px;
-  background: var(--bg);
-  box-shadow:
-    inset 0 0 0 2px var(--bg),
-    inset 0 0 0 4px var(--white);
-  color: var(--white);
-  font-size: 18px;
-  font-weight: 800;
-}
-.marker-off {
-  --bg: var(--red);
-}
-.road-stop h3 {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  margin: 0;
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-.day-date {
-  color: var(--muted);
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.plans {
-  display: grid;
-  gap: 8px;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.plan {
-  display: grid;
-  grid-template-columns: 80px minmax(0, 1fr) auto;
-  gap: 4px 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--white);
-}
-.plan-time {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-.plan-body {
-  display: grid;
-  gap: 2px;
-  overflow-wrap: anywhere;
-}
-.plan-title {
-  font-weight: 700;
-}
-.plan-note {
-  white-space: pre-line;
-}
-.plan-by {
-  color: var(--muted);
-  font-size: 14px;
-}
-.plan-actions {
-  display: flex;
-  align-items: start;
-  gap: 14px;
-}
-.plan-form {
-  display: grid;
-  gap: 14px;
-  width: 100%;
-  padding: 16px;
-  border: 2px solid var(--green);
-  border-radius: var(--radius);
-  background: var(--white);
-}
-.plan-form-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
-  gap: 12px;
-}
-.members {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-}
-.members li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-.code {
-  font-size: 36px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  line-height: 1.1;
-}
-
-@media (max-width: 860px) {
-  .trip-layout {
-    grid-template-columns: 1fr;
-    gap: 40px;
+@layer base {
+  :root {
+    color-scheme: light;
   }
-}
 
-@media (max-width: 600px) {
+  body {
+    background: var(--color-paper);
+    color: var(--color-asphalt);
+    line-height: 1.5;
+  }
+
+  /* The contour map, pinned to the viewport. A fixed layer rather than background-attachment: fixed, which iOS
+     ignores and then stretches the map over the whole page height. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: url("/contours.svg") center / cover;
+  }
+
   h1 {
-    font-size: 28px;
+    font-size: 32px;
+    line-height: 1.15;
+    font-weight: 800;
+    @variant max-sm {
+      font-size: 28px;
+    }
   }
-  .trips-bar > .btn {
-    margin-top: 0;
+  h2 {
+    font-size: 20px;
+    line-height: 1.25;
+    font-weight: 700;
   }
-  .row2,
-  .plan-form-row {
-    grid-template-columns: 1fr;
+
+  a {
+    color: var(--color-green);
+    font-weight: 600;
+    text-decoration: underline;
+    &:hover {
+      color: var(--color-green-dark);
+    }
   }
-  .road {
-    --road-w: 22px;
-    --road-gap: 22px;
+
+  :focus-visible {
+    outline: 3px solid var(--color-asphalt);
+    outline-offset: 2px;
   }
-  .plan {
-    grid-template-columns: minmax(0, 1fr) auto;
+
+  label {
+    font-weight: 700;
   }
-  .plan-body {
-    grid-column: 1 / -1;
-    grid-row: 2;
+  input,
+  select,
+  textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 2px solid var(--color-line);
+    border-radius: 6px;
+    background: var(--color-white);
+    &:hover {
+      border-color: var(--color-muted);
+    }
+  }
+  textarea {
+    resize: vertical;
+  }
+}
+
+@layer components {
+  /* Buttons. Variants are classes added after .btn: btn-quiet, btn-small. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 2px 18px 0;
+    border: 2px solid var(--color-green);
+    border-radius: 6px;
+    background: var(--color-green);
+    color: var(--color-white);
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    &:hover {
+      background: var(--color-green-dark);
+      border-color: var(--color-green-dark);
+      color: var(--color-white);
+    }
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+  .btn-quiet {
+    background: transparent;
+    color: var(--color-green);
+    &:hover {
+      background: rgb(10 110 79 / 0.08);
+      color: var(--color-green-dark);
+    }
+  }
+  .btn-small {
+    min-height: 36px;
+    padding: 2px 14px 0;
+    font-size: 15px;
+  }
+  /* A button that reads as a link. */
+  .link-btn {
+    min-height: 24px;
+    color: var(--color-green);
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  /* The guide sign. Real ones are green with a white border set in from the edge; two inset shadows draw that
+     border so :focus-visible can still use outline. */
+  .sign {
+    --bg: var(--color-green);
+    display: block;
+    background: var(--bg);
+    color: var(--color-white);
+    border-radius: 12px;
+    box-shadow:
+      inset 0 0 0 6px var(--bg),
+      inset 0 0 0 9px var(--color-white);
+    text-decoration: none;
+  }
+  a.sign:hover {
+    --bg: var(--color-green-dark);
+    color: var(--color-white);
+  }
+  .sign-small {
+    display: inline-block;
+    padding: 7px 14px 5px;
+    border-radius: 8px;
+    box-shadow:
+      inset 0 0 0 3px var(--bg),
+      inset 0 0 0 5px var(--color-white);
+    font-size: 18px;
+    font-weight: 800;
   }
   .sign-trip {
-    padding: 24px 56px 22px 24px;
+    position: relative;
+    display: grid;
+    gap: 4px;
+    max-width: 720px;
+    padding: 28px 72px 26px 30px;
+    @variant max-sm {
+      padding: 24px 56px 22px 24px;
+    }
   }
-  .sign-arrow {
-    right: 22px;
-    font-size: 36px;
-  }
+  /* The invite code rides above the sign like an exit-number tab. */
   .sign-tab {
-    left: 24px;
+    position: absolute;
+    bottom: calc(100% - 2px);
+    left: 30px;
+    padding: 9px 16px 5px;
+    background: var(--bg);
+    border-radius: 8px 8px 0 0;
+    box-shadow:
+      inset 0 0 0 4px var(--bg),
+      inset 0 0 0 6px var(--color-white);
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    @variant max-sm {
+      left: 24px;
+    }
   }
-  .sign-count {
-    display: block;
-    margin-left: 0;
+
+  /* The road: asphalt with white edge lines and a dashed yellow centre line, running down the left of a list.
+     Its width and the gap to the list are variables because the arms and mile markers line up with them. */
+  .road {
+    --road-w: 34px;
+    --road-gap: 32px;
+    position: relative;
+    display: grid;
+    padding-left: calc(var(--road-w) + var(--road-gap));
+    @variant max-sm {
+      --road-w: 22px;
+      --road-gap: 22px;
+    }
+    &::before {
+      content: "";
+      position: absolute;
+      top: -40px;
+      bottom: -24px;
+      left: 0;
+      width: var(--road-w);
+      border-inline: 3px solid var(--color-white);
+      background:
+        linear-gradient(var(--color-lane) 55%, transparent 0) center top / 3px 26px repeat-y,
+        var(--color-asphalt);
+    }
+  }
+  /* The itinerary's road starts right under its heading. */
+  .road-itinerary::before {
+    top: -8px;
+  }
+  /* A steel arm from the road out to each sign. */
+  .road-signs > li {
+    position: relative;
+    &::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 100%;
+      width: var(--road-gap);
+      height: 8px;
+      margin-top: -4px;
+      background: var(--color-steel);
+    }
+  }
+  /* A mile-marker post on the road for each day, centred on the road from inside the day's list item. */
+  .marker {
+    --bg: var(--color-green);
+    position: absolute;
+    top: -6px;
+    left: calc((var(--road-w) - 32px) / 2 - var(--road-w) - var(--road-gap));
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 42px;
+    padding-top: 2px;
+    border-radius: 5px;
+    background: var(--bg);
+    box-shadow:
+      inset 0 0 0 2px var(--bg),
+      inset 0 0 0 4px var(--color-white);
+    color: var(--color-white);
+    font-size: 18px;
+    font-weight: 800;
+  }
+  .marker-off {
+    --bg: var(--color-red);
   }
 }

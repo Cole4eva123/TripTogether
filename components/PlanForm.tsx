@@ -43,9 +43,9 @@ export default function PlanForm({
   }
 
   return (
-    <form className="plan-form" onSubmit={submit}>
-      <div className="plan-form-row">
-        <div className="field">
+    <form className="grid w-full gap-3.5 rounded-md border-2 border-green bg-white p-4" onSubmit={submit}>
+      <div className="grid grid-cols-[minmax(0,1fr)_150px] gap-3 max-sm:grid-cols-1">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={f("date")}>Day</label>
           <select id={f("date")} name="date" defaultValue={date}>
             {days
@@ -57,14 +57,14 @@ export default function PlanForm({
               ))}
           </select>
         </div>
-        <div className="field">
+        <div className="grid content-start gap-1.5">
           <label htmlFor={f("time")}>
-            Time <span className="hint">optional</span>
+            Time <span className="text-[14px] text-muted">optional</span>
           </label>
           <input id={f("time")} name="time" type="time" defaultValue={item?.time ?? ""} />
         </div>
       </div>
-      <div className="field">
+      <div className="grid content-start gap-1.5">
         <label htmlFor={f("title")}>What</label>
         <input
           id={f("title")}
@@ -75,9 +75,9 @@ export default function PlanForm({
           required
         />
       </div>
-      <div className="field">
+      <div className="grid content-start gap-1.5">
         <label htmlFor={f("place")}>
-          Where <span className="hint">optional</span>
+          Where <span className="text-[14px] text-muted">optional</span>
         </label>
         <input
           id={f("place")}
@@ -87,18 +87,18 @@ export default function PlanForm({
           maxLength={120}
         />
       </div>
-      <div className="field">
+      <div className="grid content-start gap-1.5">
         <label htmlFor={f("note")}>
-          Note <span className="hint">optional</span>
+          Note <span className="text-[14px] text-muted">optional</span>
         </label>
         <textarea id={f("note")} name="note" defaultValue={item?.note} rows={2} maxLength={1000} />
       </div>
       {error && (
-        <p className="error" role="alert">
+        <p className="font-semibold text-red" role="alert">
           {error}
         </p>
       )}
-      <div className="actions">
+      <div className="flex flex-wrap gap-3">
         <button className="btn" disabled={busy}>
           {item ? "Save plan" : "Add plan"}
         </button>

@@ -42,20 +42,20 @@ export default function TripsPage() {
   }
 
   return (
-    <main className="page">
+    <main className="mx-auto max-w-240 px-4 pt-4 pb-16">
       <h1>Your trips</h1>
 
-      <div className="trips-bar">
-        <Link href="/trips/new" className="btn">
+      <div className="mt-6 flex flex-wrap items-start gap-x-8 gap-y-4">
+        <Link href="/trips/new" className="btn mt-[29px] max-sm:mt-0">
           New trip
         </Link>
-        <form className="join" onSubmit={join}>
-          <label htmlFor="code">Or join one with a code</label>
-          <div className="join-row">
+        <form className="grid max-w-90 flex-[1_1_280px] gap-1.5" onSubmit={join}>
+          <label htmlFor="code" className="font-semibold text-muted">Or join one with a code</label>
+          <div className="flex gap-2">
             <input
               id="code"
               name="code"
-              className="code-input"
+              className="font-bold tracking-[0.12em] uppercase placeholder:font-normal"
               placeholder="K7Q2MX"
               maxLength={6}
               autoComplete="off"
@@ -67,7 +67,7 @@ export default function TripsPage() {
             </button>
           </div>
           {joinError && (
-            <p className="error" role="alert">
+            <p className="font-semibold text-red" role="alert">
               {joinError}
             </p>
           )}
@@ -75,17 +75,17 @@ export default function TripsPage() {
       </div>
 
       {loadError && (
-        <p className="error" role="alert">
+        <p className="font-semibold text-red" role="alert">
           {loadError}
         </p>
       )}
       {trips?.length === 0 && (
-        <p className="empty">
+        <p className="mt-10 max-w-[48ch] text-muted">
           No trips yet. Start one with <strong>New trip</strong>, or enter the invite code a friend sent you.
         </p>
       )}
       {!!trips?.length && (
-        <ul className="road road-signs">
+        <ul className="road road-signs mt-20 max-w-180 gap-14">
           {trips.map((t) => (
             <li key={t.id}>
               <TripSign trip={t} href={`/trips/${t.id}`} />

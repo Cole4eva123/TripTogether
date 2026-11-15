@@ -16,14 +16,14 @@ export default function TripSign({ trip, href }: { trip: Trip; href?: string }) 
         <span className="sr-only">Invite code </span>
         {trip.inviteCode}
       </span>
-      <span className="sign-arrow" aria-hidden>
+      <span className="absolute top-[22px] right-[30px] text-[44px] leading-none font-extrabold max-sm:right-[22px] max-sm:text-[36px]" aria-hidden>
         ↑
       </span>
-      <Title className="sign-title">{trip.destination}</Title>
-      <span className="sign-line">From {trip.origin}</span>
-      <span className="sign-line">
+      <Title className="text-[clamp(30px,7vw,44px)] leading-[1.05] font-extrabold tracking-[-0.01em] wrap-anywhere">{trip.destination}</Title>
+      <span className="text-[18px] font-semibold">From {trip.origin}</span>
+      <span className="text-[18px] font-semibold">
         {dateFmt.formatRange(day(trip.startDate), day(trip.endDate))}
-        <span className="sign-count">
+        <span className="ml-4 font-normal max-sm:ml-0 max-sm:block">
           {trip.memberCount} {trip.memberCount === 1 ? "traveler" : "travelers"}
         </span>
       </span>

@@ -29,12 +29,12 @@ export default function TripsLayout({ children }: LayoutProps<"/trips">) {
 
   return (
     <MeContext value={me}>
-      <header className="topbar">
+      <header className="mx-auto flex max-w-240 items-center justify-between gap-4 p-4">
         <Link href="/trips" className="sign sign-small">
           TripTogether
         </Link>
-        <div className="topbar-user">
-          <span>{me?.name}</span>
+        <div className="flex min-w-0 items-center gap-2 text-muted">
+          <span className="truncate">{me?.name}</span>
           <button className="btn btn-quiet" onClick={logOut}>
             Log out
           </button>

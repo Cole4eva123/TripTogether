@@ -18,7 +18,7 @@ export type VehicleSuggestion = {
 export type FuelPreferences = {
   origin: string;
   destination: string;
-  departure: string;
+  departure: string; // YYYY-MM-DD; ISO timestamps remain accepted for older clients.
   vehicle: Vehicle;
   initialFuelPercent: number;
   reservePercent: number;

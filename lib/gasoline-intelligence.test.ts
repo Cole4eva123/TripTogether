@@ -86,3 +86,12 @@ test("server requires vehicle confirmation and rejects nonfinite or excessive pa
     assert.throws(()=>parseFuelPreferences({...input,vehicleConfirmed:true,...bad}));
   }
 });
+test("departure preserves the trip's calendar day and validates real dates",()=>{
+  const body={...input,vehicleConfirmed:true};
+  assert.equal(parseFuelPreferences({...body,departure:"2026-11-27"}).departure,"2026-11-27");
+  assert.equal(parseFuelPreferences({...body,departure:"2024-02-29"}).departure,"2024-02-29");
+  assert.equal(parseFuelPreferences(body).departure,input.departure);
+  for(const departure of ["2026-02-29","2026-02-31","2026-13-01",""]) {
+    assert.throws(()=>parseFuelPreferences({...body,departure}),/Departure date|departure date/);
+  }
+});

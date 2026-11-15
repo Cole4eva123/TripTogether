@@ -36,8 +36,11 @@ export function parseVehicle(value: unknown): Vehicle {
 export function parseFuelPreferences(value: unknown): FuelPreferences {
   const v = object(value);
   if (v.vehicleConfirmed !== true) throw new FuelError("Confirm your vehicle and fuel specifications first.");
-  const departure = text(v.departure, "Departure time", 40);
-  if (!Number.isFinite(Date.parse(departure))) throw new FuelError("Choose a valid departure date and time.");
+  const departure = text(v.departure, "Departure date", 40);
+  const departureMs=Date.parse(departure);
+  if (!Number.isFinite(departureMs) || (/^\d{4}-\d{2}-\d{2}$/.test(departure) && new Date(departureMs).toISOString().slice(0,10)!==departure)) {
+    throw new FuelError("Choose a valid departure date.");
+  }
   const amenities = Array.isArray(v.amenities) ? v.amenities : [];
   if (amenities.length > 6 || amenities.some(a => typeof a !== "string" || a.length > 60)) {
     throw new FuelError("Choose up to six stop preferences (60 characters each).");

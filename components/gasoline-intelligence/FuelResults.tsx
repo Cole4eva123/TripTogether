@@ -48,8 +48,10 @@ export function RegionalPrices({search}:{search:FuelSearch}) {
   </section>;
 }
 export function PlanSummary({plan,input}:{plan:FuelPlan;input:FuelPreferences}) {
+  const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(input.departure);
+  const departureDay=dateOnly?new Date(`${input.departure}T00:00:00Z`).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"}):null;
   return <section className="grid gap-5" aria-labelledby="plan-heading">
-    <div><h2 id="plan-heading">Your plan</h2><p className="text-[14px] text-muted">ETA {arrival(plan.arrival)}</p></div>
+    <div><h2 id="plan-heading">Your plan</h2><p className="text-[14px] text-muted">{dateOnly?`Departure ${departureDay}`:`ETA ${arrival(plan.arrival)}`}</p></div>
     <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2">
       {[["Distance",`${plan.route.miles.toFixed(0)} mi`],["With breaks",duration(plan.totalMinutes)],["Estimated total",money(plan.totalCost)],["Fuel cost",money(plan.fuelConsumedCost)],["On-road purchases",money(plan.purchaseCost)],["Detour",`${plan.detourMiles.toFixed(1)} mi · ${duration(plan.detourMinutes)}`]].map(([label,value]) => <div key={label} className="rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
     </div>
@@ -59,7 +61,7 @@ export function PlanSummary({plan,input}:{plan:FuelPlan;input:FuelPreferences}) 
       <div className="flex items-start justify-between gap-3"><div><p className="text-[12px] font-bold uppercase tracking-wider text-muted">Stop {stop.number} · {stop.station.state || "State not mapped"}</p><h3 className="text-[20px] font-bold">{stop.station.name}</h3></div><p className="text-[22px] font-extrabold text-green">{money(stop.pricePerGallon)}<span className="text-[12px] font-normal">/gal</span></p></div>
       <p className="mt-1 text-[14px] text-muted">{stop.station.address || "Address not mapped"}</p>
       <p className="mt-3 text-[14px]">{stop.milesFromStart.toFixed(1)} mi from start · {stop.legMiles.toFixed(1)} mi / {duration(stop.legMinutes)} from {stop.number===1?"start":`stop ${stop.number-1}`}</p>
-      <p className="text-[14px]">Arrive {arrival(stop.arrival)} · Rest {input.stopMinutes} min</p>
+      <p className="text-[14px]">{dateOnly?`Arrive after ${duration(stop.minutesFromStart)}`:`Arrive ${arrival(stop.arrival)}`} · Rest {input.stopMinutes} min</p>
       <div className="mt-3 flex flex-wrap gap-2"><span className="rounded bg-paper px-2 py-1 text-[14px] font-semibold">Add {stop.buyGallons.toFixed(2)} gal · {money(stop.cost)}</span><span className="rounded bg-paper px-2 py-1 text-[14px]">Tank {stop.gallonsOnArrival.toFixed(1)} → {stop.fuelAfterStop.toFixed(1)} gal</span></div>
       <PreferredAmenities station={stop.station} input={input}/>
       <div className="mt-2 flex flex-wrap items-center gap-4 text-[12px]"><span className="text-muted">{stop.priceKind}</span><a href={stop.station.mapUrl} target="_blank" rel="noreferrer">Open map</a></div>

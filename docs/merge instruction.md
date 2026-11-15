@@ -41,13 +41,14 @@
 
 ### 旅行信息
 
-旅行详情入口通过查询参数传递出发地和目的地：
+旅行详情入口通过查询参数传递出发地、目的地和旅行开始日期：
 
 ```text
-/trips/gasoline-intelligence?origin=...&destination=...
+/trips/gasoline-intelligence?origin=...&destination=...&startDate=2026-11-27
 ```
 
-旅行详情使用 `URLSearchParams` 编码参数。加油模块当前不修改旅行、成员或共享行程数据。
+旅行详情使用 `URLSearchParams` 编码参数，`startDate` 直接来自旅行的 `YYYY-MM-DD` 开始日期。
+加油模块只选择年月日；停靠时刻按出发后的累计用时展示。加油模块当前不修改旅行、成员或共享行程数据。
 搜索及规划结果保存在进程内，搜索有效期为 30 分钟，服务重启后失效。如果后续需要保存规划，
 应沿用团队的数据库和 ORM，在服务层增加持久化及旅行成员权限检查。
 
@@ -67,7 +68,7 @@
 | 文件 | 合并时的处理方式 |
 |---|---|
 | `app/trips/layout.tsx` | 保留目标分支的登录、用户信息、退出和其他导航，再加入 Gasoline Intelligence 入口；窄屏导航允许换行 |
-| `app/trips/[id]/page.tsx` | 保留目标分支的数据加载、权限和行程逻辑，再加入传递 `origin`、`destination` 的入口链接 |
+| `app/trips/[id]/page.tsx` | 保留目标分支的数据加载、权限和行程逻辑，再加入传递 `origin`、`destination`、`startDate` 的入口链接 |
 | `package.json` | 沿用团队确定的框架版本和脚本，补入运行依赖 `leaflet` 与开发依赖 `@types/leaflet` |
 | `package-lock.json` | 先解决 `package.json`，再执行 `npm install --package-lock-only` 生成一致的锁文件，随后运行 `npm ci` 检查 |
 | `README.md`、`docs/api.md` | 保留团队其他模块的内容，将本模块的说明合并进去 |

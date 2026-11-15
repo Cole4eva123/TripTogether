@@ -79,6 +79,10 @@ The fuel planner uses the existing session cookie. All three endpoints return `4
 Bodies and response shapes are defined in `lib/fuel-types.ts`; provider configuration, estimates and
 planning behavior are documented in `docs/gasoline-intelligence.md`.
 
+`FuelPreferences.departure` is a calendar date (`YYYY-MM-DD`), passed through from the trip's `startDate`.
+Legacy ISO timestamp values remain accepted. With a date-only departure, the UI displays elapsed travel
+time at each stop rather than an assumed departure/arrival clock time.
+
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/gasoline-intelligence/vehicle` | `{ description: string }` (up to 500 characters) | `200 VehicleSuggestion` with cited research and editable partial vehicle specs | `400` invalid input; `429` rate limit; `502` upstream failure; `503` missing DeepSeek key |

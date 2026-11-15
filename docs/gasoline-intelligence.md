@@ -3,7 +3,7 @@
 中文合并说明见 [merge instruction.md](<merge instruction.md>)。
 
 This module lives at `/trips/gasoline-intelligence`, behind the existing sign-in. The trip detail page passes its starting
-point and destination to the planner. It does not change shared itineraries, authentication or storage.
+point, destination and `startDate` to the planner. It does not change shared itineraries, authentication or storage.
 
 ## Local setup
 
@@ -98,8 +98,10 @@ apply to manual edits. A maximum of 23 stops is allowed per travel day.
 
 The trip budget estimates the value of **all fuel consumed**, including starting fuel, plus other costs
 entered by the user. Cash spent buying fuel on the road is shown separately and is not added twice.
-Tolls, meals and accommodation are not automatically priced. Arrival times include breaks and are
-displayed in the browser's time zone, with a time-zone label.
+Tolls, meals and accommodation are not automatically priced. Departure is a calendar date (`YYYY-MM-DD`)
+prefilled from the trip's `startDate`; standalone use defaults to today. Stops display elapsed time since
+departure, including previous breaks, without assuming a clock time. Calendar dates are shown without
+time-zone conversion. Older API clients can still send an ISO timestamp and receive clock-based arrivals.
 
 ## API and lifecycle
 

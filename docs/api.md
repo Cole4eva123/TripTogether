@@ -1,18 +1,17 @@
 # API contract
 
 The frontend calls these endpoints and nothing else (`lib/api.ts`). They live in `app/api/` as Next.js route
-handlers. Today they run on `lib/mock-db.ts`, an in-memory store that empties on every restart.
-
-**Building the real backend:** replace `lib/mock-db.ts` (and `currentUser` in `lib/server.ts`) with a database. Keep
-every path, status code and response shape below, and the frontend needs no changes.
+handlers, backed by PostgreSQL through Drizzle, with accounts through Better Auth (`docs/backend.md`). Every path,
+status code and response shape below is the one the in-memory `lib/mock-db.ts` answered, so the frontend needed
+no changes.
 
 ## Conventions
 
 - Bodies are JSON. Shapes are in `lib/types.ts`: `User`, `Trip`, `Member`, `TripInput`, `PlanItem`, `PlanInput`.
 - Dates are `YYYY-MM-DD` strings, with no time or time zone.
 - Every error is `{ "error": string }`, written for the person using the app. The frontend shows it as-is.
-- The session is an httpOnly cookie, `tt_session`, set by register and login. Every endpoint outside `/api/auth`
-  returns `401 { error }` without it.
+- The session is Better Auth's signed httpOnly cookie, `better-auth.session_token`, set by register and login.
+  Every endpoint outside `/api/auth` returns `401 { error }` without it.
 - A trip someone isn't a member of answers `404`, the same as a trip that doesn't exist, so trip ids aren't
   probeable.
 - Validate trip bodies with `parseTripInput` and plan bodies with `parsePlanInput`, both in `lib/validate.ts`
@@ -28,8 +27,7 @@ every path, status code and response shape below, and the frontend needs no chan
 | POST | `/api/auth/logout` | none | `204`, clears cookie | none |
 | GET | `/api/auth/me` | none | `200 { user }` | `401` |
 
-Emails are trimmed and lowercased before they're stored or compared. Passwords must be stored hashed (the mock
-keeps them in plain text).
+Emails are trimmed and lowercased before they're stored or compared. Better Auth stores passwords hashed.
 
 ## Trips
 
@@ -72,3 +70,34 @@ order; the frontend groups and sorts them (`lib/itinerary.ts`).
 - `time` is `HH:MM` on a 24-hour clock, or empty/null for "any time that day" (stored as `null`).
 - `title` is required, up to 120 characters; `place` up to 120; `note` up to 1000. Missing `place` and `note`
   are stored as `""`.
+
+## Travel Bingo
+
+Each region has a library of things to do there. A trip draws a Bingo card from its region's library; members
+check squares off as they do them, and a full row, column or diagonal is a Bingo. Anyone can send a task in; it
+joins the library once an admin approves it. Admins are the accounts listed in `ADMIN_EMAILS`.
+
+The rules are pure functions in `lib/bingo.ts`, the store is `lib/bingo-store.ts`, and the shapes are in
+`lib/bingo-types.ts`: `BingoCard`, `BingoCell`, `BingoTask`, `BingoRegion`. The library starts with the tasks in
+`lib/bingo-catalog.ts`.
+
+| Method | Path | Body | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/trips/:id/bingo` | none | `200 { card, regions: BingoRegion[], suggestedRegion }`; `card` is `null` before one is drawn | `404` trip |
+| POST | `/api/trips/:id/bingo` | `{ region, size? }` | `201 { card }`; replaces the trip's card | `400` no region, size not 3/4/5, or the region has too few tasks; `404` trip |
+| PATCH | `/api/trips/:id/bingo/cells/:cellId` | `{ action: "complete" \| "undo" \| "replace", taskId? }` | `200 { card }` | `400` bad action, or `taskId` not in the card's region; `404` trip, or a square not on its card; `409` that task is already on the card, or no task is left to swap in |
+| GET | `/api/bingo/tasks?region=` | none | `200 { regions, tasks, mine, isAdmin }`: every region, the approved tasks of `region` (empty without it), and everything I sent in | `401` |
+| POST | `/api/bingo/tasks` | `{ region, title, description }` | `201 { task }`, waiting for review | `400` invalid input; `409` the region already has it, or it's already waiting |
+| GET | `/api/bingo/review` | none | `200 { tasks }`, the ones waiting, oldest first | `403` not an admin |
+| PATCH | `/api/bingo/review/:taskId` | `{ action: "approve" \| "reject", note? }` | `200 { task }` | `400`; `403` not an admin; `404`; `409` already reviewed |
+
+- Any member may draw, redraw, check off, undo and swap. Drawing again replaces the card and its progress.
+- `size` is 3 (the default), 4 or 5; the card holds `size²` different tasks, so the region needs at least that
+  many approved ones.
+- `suggestedRegion` is the region the trip's destination names ("Chicago, IL" is in Chicago), or `null`.
+- A card's `cells` come in position order, row by row from 0. `completed` counts the squares checked off, and
+  `lines` lists every finished line as its positions, so `lines.length` is the number of Bingos.
+- `replace` without `taskId` swaps in a random task from the region that isn't on the card. Either way the square
+  starts over, unchecked.
+- A task sent in under another spelling of an existing region ("chicago, il") joins that region. Titles are
+  compared without case. A rejected task keeps the admin's `reviewNote` and may be sent in again.

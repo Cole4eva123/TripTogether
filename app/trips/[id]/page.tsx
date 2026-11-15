@@ -109,6 +109,14 @@ export default function TripPage() {
             </button>
           </section>
 
+          <section className="grid justify-items-start gap-3">
+            <h2>Travel Bingo</h2>
+            <p className="text-muted">Draw a card of things to do in {trip.destination} and check them off together.</p>
+            <Link href={`/trips/${trip.id}/bingo`} className="btn btn-quiet">
+              Open Bingo card
+            </Link>
+          </section>
+
           {error && (
             <p className="font-semibold text-red" role="alert">
               {error}

@@ -1,0 +1,56 @@
+// The tasks Travel Bingo ships with, so a card can be drawn before anyone has sent tasks in. Each region has more
+// than nine, so a 3×3 card still has spares to swap in. lib/bingo-store.ts adds them once, as approved tasks.
+// The regions match the demo trips in scripts/seed.sh.
+
+export const STARTER_TASKS: Record<string, [title: string, description: string][]> = {
+  Chicago: [
+    ["Watch the sunrise at Navy Pier", "Get to the end of the pier before the sun comes up over the lake."],
+    ["See the skyline from a rooftop at night", "Any rooftop bar or observation deck counts."],
+    ["Take a group photo at Cloud Gate", "Everyone has to be in the reflection."],
+    ["Eat a deep-dish pizza", "Split one between the whole group."],
+    ["Ride the 'L' around the Loop", "The Brown Line gives the best view of the buildings."],
+    ["Take an architecture boat tour", "The river tours leave from near the Michigan Avenue bridge."],
+    ["Walk the Riverwalk end to end", ""],
+    ["Find the Picasso in Daley Plaza", "Argue about what it is."],
+    ["Visit the Art Institute", "Find the painting each of you likes most."],
+    ["Try a Chicago-style hot dog", "No ketchup."],
+    ["Cross the Chicago River on foot three times", ""],
+    ["Catch live blues or jazz", "A club, a street corner or a park all count."],
+  ],
+  Nashville: [
+    ["Hear live music on Broadway", "Walk in anywhere with a band playing."],
+    ["Eat hot chicken", "Each person picks their own heat level."],
+    ["Take a photo at a mural", "The 'I believe in Nashville' wall is the classic."],
+    ["See the Parthenon in Centennial Park", "A full-size copy of the one in Athens."],
+    ["Walk across the John Seigenthaler Pedestrian Bridge", "Best at sunset."],
+    ["Visit the Country Music Hall of Fame", ""],
+    ["Two-step at a honky-tonk", "Everyone in the group dances at least once."],
+    ["Have a meat-and-three lunch", ""],
+    ["Find a record store and buy one record", ""],
+    ["See a show at the Ryman", "Or take the daytime tour."],
+  ],
+  "Great Smoky Mountains": [
+    ["Hike to a waterfall", "Laurel Falls and Grotto Falls are good first ones."],
+    ["Watch the sunrise from a scenic overlook", ""],
+    ["Spot a black bear from a safe distance", "Stay at least 50 yards away."],
+    ["Drive Cades Cove Loop", "Go early, before the traffic."],
+    ["Climb the tower at Clingmans Dome", "The highest point in the park."],
+    ["Cross a log footbridge", ""],
+    ["Have a picnic by a creek", ""],
+    ["See synchronous fireflies", "Only in late May and early June."],
+    ["Visit a historic cabin or church", "Cades Cove and Cataloochee have several."],
+    ["Stand on the Appalachian Trail", "Newfound Gap is the easy place to do it."],
+  ],
+  "New York": [
+    ["Walk across the Brooklyn Bridge", ""],
+    ["Eat a slice standing up", "Folded, the New York way."],
+    ["See the city from an observation deck", ""],
+    ["Ride the Staten Island Ferry past the Statue of Liberty", "It's free."],
+    ["Take a group photo in Times Square", ""],
+    ["Have a picnic in Central Park", ""],
+    ["Walk the High Line", ""],
+    ["Eat a bagel with lox", ""],
+    ["See a Broadway or off-Broadway show", ""],
+    ["Find a hidden speakeasy", ""],
+  ],
+};

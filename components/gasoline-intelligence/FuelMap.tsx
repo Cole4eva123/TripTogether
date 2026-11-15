@@ -4,23 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { FuelStop, RoadRoute, Station } from "@/lib/fuel-types";
-import { formatDistance, resultValidity, type DistanceUnit, type StationDistances } from "@/lib/fuel-display";
+import { formatDistance, type DistanceUnit, type StationDistances } from "@/lib/fuel-display";
 import { duration } from "./FuelResults";
 
 type MapStation = Station & { displayPrice:{value:number;kind:FuelStop["priceKind"]}|null;distances:StationDistances };
-type Props = { route:RoadRoute|null;stations:MapStation[];selectedIds:string[];activeId:string|null;onPick:(id:string) => void;distanceUnit:DistanceUnit;onDistanceUnitChange:(unit:DistanceUnit)=>void;expiresAt:string|null };
+type Props = { route:RoadRoute|null;stations:MapStation[];selectedIds:string[];activeId:string|null;onPick:(id:string) => void;distanceUnit:DistanceUnit };
 const money=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
-function SearchValidity({expiresAt}:{expiresAt:string}) {
-  const [now,setNow]=useState<number|null>(null);
-  useEffect(()=>{
-    const tick=()=>setNow(Date.now());
-    tick();
-    const timer=window.setInterval(tick,1000);
-    return ()=>window.clearInterval(timer);
-  },[expiresAt]);
-  return <span role="timer" aria-live="off">{now===null?"Results valid":resultValidity(expiresAt,now)}</span>;
-}
-export default function FuelMap({route,stations,selectedIds,activeId,onPick,distanceUnit,onDistanceUnitChange,expiresAt}:Props) {
+export default function FuelMap({route,stations,selectedIds,activeId,onPick,distanceUnit}:Props) {
   const element=useRef<HTMLDivElement>(null), map=useRef<Leaflet.Map|null>(null), library=useRef<typeof Leaflet|null>(null);
   const layers=useRef<Leaflet.LayerGroup|null>(null), fitted=useRef<RoadRoute|null>(null);
   const [ready,setReady]=useState(false), [error,setError]=useState("");
@@ -81,22 +71,10 @@ export default function FuelMap({route,stations,selectedIds,activeId,onPick,dist
     }
   },[ready,route,stations,selectedIds,activeId,onPick,distanceUnit]);
   return <div className="overflow-hidden rounded-xl border-2 border-line bg-white">
-    <div className="relative">
-      <div ref={element} className="relative z-0 h-[460px] w-full max-sm:h-[340px]" aria-label="Interactive map of the route and gas stations" />
-      <label className="absolute right-3 bottom-6 z-10 rounded-md bg-white shadow-lg">
-        <span className="sr-only">Distance unit</span>
-        <select className="min-h-9! w-auto! px-2! py-1! text-[13px]" value={distanceUnit} onChange={event=>onDistanceUnitChange(event.target.value as DistanceUnit)}>
-          <option value="mi">Miles (mi)</option><option value="km">Kilometers (km)</option>
-        </select>
-      </label>
-    </div>
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pt-3 text-[13px]">
+    <div ref={element} className="relative z-0 h-[460px] w-full max-sm:h-[340px]" aria-label="Interactive map of the route and gas stations" />
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-[13px]">
       {route && <p className="font-semibold">{formatDistance(route.miles,distanceUnit,0)} · {duration(route.minutes)} driving</p>}
       <p className="text-muted">Scroll to zoom. Click a station to preview.</p>
-    </div>
-    <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 px-4 py-2 text-center text-[12px] text-muted">
-      <span>Map: OpenStreetMap · Routing: OSRM</span>
-      {expiresAt && <><span aria-hidden="true">·</span><SearchValidity expiresAt={expiresAt}/></>}
     </div>
     {error && <p role="alert" className="p-4 font-semibold text-red">{error}</p>}
   </div>;

@@ -61,7 +61,8 @@ References: [OSRM route API](https://project-osrm.org/docs/v5.5.2/api/),
 ## Vehicle specifications and prices
 
 The driver describes their car (including year/trim/engine if known). MPG, tank capacity and fuel grade
-remain visible and editable; other specifications and sources are folded away. There is no confirmation
+remain visible and editable; other specifications and sources are folded away by default. Research
+notes and their linked sources share a pale green panel inside the folded vehicle details. There is no confirmation
 step. Missing specifications remain blank and must be filled in before planning. Pure EVs
 need a separate charging planner. Full-tank range is MPG × US gallons; the default reserve is 15%.
 
@@ -97,16 +98,18 @@ Manual station selection is ordered along the original route. **Recalculate sele
 the edits; the old totals are hidden while edits are pending. The same reserve and driving-time checks
 apply to manual edits. A maximum of 23 stops is allowed per travel day.
 
-The map's lower-right selector switches displayed distances between miles and kilometers throughout
+The mi/km pill switch beside the candidate count switches displayed distances throughout
 the planner; calculations and API fields remain in miles. Station popups and cards separate the address,
 distance from start, distance from the previous selected stop, and distance to the destination. Verified
 stops use the recomputed road legs; candidates and pending edits show approximate distances with `~`.
-Cost and fuel details stay expanded, and **Choose your stops** follows the recommended itinerary.
+Regional price cards share equal widths and heights. Cost and fuel details stay expanded, followed by
+**Your Recommended Stops** in the same heading style as **Your Plan**. **Choose your stops** follows the recommended itinerary.
 Hovering over **One-click plan** for one second shows its explanation in a rounded theme-colored
 tooltip; keyboard focus also reveals it, and Escape dismisses it. The map's lower-left summary keeps
 the displayed route's distance and driving time alongside the zoom and preview instructions.
-The centered map footer identifies OpenStreetMap tiles and OSRM routing, with a live countdown to
-the search's `expiresAt`. An expired result prompts a new search; the countdown does not renew it.
+The live countdown to the search's `expiresAt` follows the fuel grade in the candidate summary.
+An expired result prompts a new search; the countdown does not renew it. The muted page footer
+credits OpenStreetMap, OSRM and DeepSeek and notes public-service availability and local rate limits.
 
 The trip budget estimates the value of **all fuel consumed**, including starting fuel, plus other costs
 entered by the user. Cash spent buying fuel on the road is shown separately and is not added twice.

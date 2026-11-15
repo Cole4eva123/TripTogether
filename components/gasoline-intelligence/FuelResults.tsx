@@ -38,7 +38,7 @@ export function RegionalPrices({search}:{search:FuelSearch}) {
   const cheapest=Math.min(...search.regions.map(r => r.average));
   return <section className="grid gap-3" aria-labelledby="regional-heading">
     <h2 id="regional-heading">Regional prices</h2>
-    <div className="flex flex-wrap gap-3">{search.regions.map(region => <div key={region.state} className={`min-w-35 rounded-lg border-2 p-3 ${region.average===cheapest ? "border-green bg-white" : "border-line bg-white"}`}>
+    <div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">{search.regions.map(region => <div key={region.state} className={`min-w-0 rounded-lg border-2 p-3 ${region.average===cheapest ? "border-green bg-white" : "border-line bg-white"}`}>
       <p className="font-bold">{region.state}</p><p className="text-[24px] font-extrabold text-green">{money(region.average)}<span className="text-[13px] font-normal text-muted"> /gal</span></p>
       <p className="text-[12px] text-muted">{region.kind === "station sample" ? `${region.count} reported station${region.count===1?"":"s"}` : "Regional average"}</p>
       {region.average===cheapest && <p className="text-[13px] font-bold text-green">Lowest average</p>}
@@ -52,13 +52,14 @@ export function PlanSummary({plan,input,distanceUnit}:{plan:FuelPlan;input:FuelP
   const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(input.departure);
   const departureDay=dateOnly?new Date(`${input.departure}T00:00:00Z`).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"}):null;
   return <section className="grid gap-5" aria-labelledby="plan-heading">
-    <div><h2 id="plan-heading">Your plan</h2><p className="text-[14px] text-muted">{dateOnly?`Departure ${departureDay}`:`ETA ${arrival(plan.arrival)}`}</p></div>
+    <div><h2 id="plan-heading">Your Plan</h2><p className="text-[14px] text-muted">{dateOnly?`Departure ${departureDay}`:`ETA ${arrival(plan.arrival)}`}</p></div>
     <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-2">
       {[["Distance",formatDistance(plan.route.miles,distanceUnit,0)],["With breaks",duration(plan.totalMinutes)],["Estimated total",money(plan.totalCost)],["Fuel cost",money(plan.fuelConsumedCost)],["On-road purchases",money(plan.purchaseCost)],["Detour",`${formatDistance(plan.detourMiles,distanceUnit)} · ${duration(plan.detourMinutes)}`]].map(([label,value]) => <div key={label} className="rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
     </div>
     <div className="text-[13px]"><h3 className="font-semibold text-green">Cost &amp; fuel details</h3><div className="mt-2 grid gap-1 text-muted"><p>Total: {money(plan.fuelConsumedCost)} fuel used + {money(input.otherCosts)} other costs.</p><p>{plan.gallonsUsed.toFixed(1)} gal used · {plan.gallonsPurchased.toFixed(1)} gal purchased · {plan.fuelOnArrival.toFixed(1)} gal on arrival</p></div></div>
+    <h2 id="recommended-stops-heading">Your Recommended Stops</h2>
     {plan.stops.length===0 && <p className="rounded-lg border border-green bg-white p-4">No fuel or rest stops needed.</p>}
-    <ol className="grid gap-4">{plan.stops.map(stop => <li key={stop.station.id} className="rounded-xl border-2 border-green bg-white p-5">
+    <ol className="grid gap-4" aria-labelledby="recommended-stops-heading">{plan.stops.map(stop => <li key={stop.station.id} className="rounded-xl border-2 border-green bg-white p-5">
       <div className="flex items-start justify-between gap-3"><div><p className="text-[12px] font-bold uppercase tracking-wider text-muted">Stop {stop.number}</p><h3 className="text-[20px] font-bold">{stop.station.name}</h3></div><p className="text-[22px] font-extrabold text-green">{money(stop.pricePerGallon)}<span className="text-[12px] font-normal">/gal</span></p></div>
       <p className="mt-1 text-[14px] text-muted">{stop.station.address || "Address not mapped"}</p>
       <div className="mt-3 grid gap-1 text-[14px]">

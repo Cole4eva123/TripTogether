@@ -15,6 +15,7 @@ import type {
   VehicleSuggestion,
 } from "@/lib/fuel-types";
 import FuelMap from "./FuelMap";
+import FuelSearchBar from "./FuelSearchBar";
 import OneClickPlanButton from "./OneClickPlanButton";
 import { duration, PlanSummary, RegionalPrices, StationChoice } from "./FuelResults";
 
@@ -102,9 +103,7 @@ export default function GasolineIntelligence() {
             .map(([key, value]) => [key, String(value)]),
         ),
       });
-      if (vehicleDetails.current)
-        vehicleDetails.current.open =
-          !result.vehicle.year || !result.vehicle.make || !result.vehicle.model;
+      if (vehicleDetails.current) vehicleDetails.current.open = false;
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -145,7 +144,7 @@ export default function GasolineIntelligence() {
         discountCents: Number(value),
       })),
     };
-    setBusy("Finding fuel stops… This usually takes 1–3 minutes.");
+    setBusy("Finding your route, stations and sourced fuel prices. This may take 1–3 minutes…");
     setPlan(null);
     setSearch(null);
     setSelectedIds([]);
@@ -367,7 +366,7 @@ export default function GasolineIntelligence() {
                     ))}
                   </div>
                   {suggestion && (
-                    <div className="grid gap-2 text-[12px] text-muted">
+                    <div className="grid gap-3 rounded-xl bg-paper p-4 text-[13px] text-muted">
                       <p>{suggestion.notes}</p>
                       {suggestion.sources.map((s) => (
                         <a key={s.url} href={s.url} target="_blank" rel="noreferrer">
@@ -618,8 +617,6 @@ export default function GasolineIntelligence() {
               activeId={activeId}
               onPick={pick}
               distanceUnit={distanceUnit}
-              onDistanceUnitChange={setDistanceUnit}
-              expiresAt={search?.expiresAt ?? null}
             />
             {!search && !busy && (
               <p className="text-[14px] text-muted">Enter your vehicle and route to get started.</p>
@@ -644,11 +641,13 @@ export default function GasolineIntelligence() {
           )}
           {search && plannedInput && (
             <>
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[14px]">
-                <span className="text-muted">
-                  {search.stations.length} nearby candidates · {plannedInput.vehicle.grade} fuel
-                </span>
-              </div>
+              <FuelSearchBar
+                count={search.stations.length}
+                grade={plannedInput.vehicle.grade}
+                expiresAt={search.expiresAt}
+                distanceUnit={distanceUnit}
+                onDistanceUnitChange={setDistanceUnit}
+              />
               <RegionalPrices search={search} />
               {currentPlan && <PlanSummary plan={currentPlan} input={plannedInput} distanceUnit={distanceUnit} />}
               <section className="grid gap-3" aria-labelledby="adjust-heading">
@@ -712,6 +711,10 @@ export default function GasolineIntelligence() {
           )}
         </div>
       </div>
+      <footer className="mt-10 text-[12px] leading-relaxed text-muted">
+        <p>Map and facility data © OpenStreetMap contributors; driving estimates by OSRM. Price reports and vehicle research by DeepSeek with linked sources.</p>
+        <p>Public map services may be busy; local demo use is rate limited.</p>
+      </footer>
     </main>
   );
 }

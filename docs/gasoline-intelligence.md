@@ -80,6 +80,11 @@ cents per gallon; zero means membership access only. There is no assumed univers
 Hourly mode targets 60 minutes; one-click mode accepts a 60–180 minute preference. Actual road legs
 must stay at or below three hours and retain the fuel reserve. Sparse coverage may prevent a plan;
 the app returns a clear error rather than an unsafe sequence. Fuel needs can require an earlier stop.
+Before price enrichment, the search checks whether eligible candidates cover the whole route. If they
+leave an unreachable section, it performs up to two focused station-search rounds, at most six route
+anchors per round, and deduplicates the additional candidates. It preserves the requested reserve,
+detour limit and three-hour driving cap. An unresolved gap is reported with its mile range rather than
+being described as a problem with the starting fuel level.
 The recommendation is a cost-based heuristic, not proof of a global optimum or a complete station census.
 
 Candidate detours are estimates based on distance from the route. After selection, OSRM recomputes

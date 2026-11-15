@@ -63,13 +63,13 @@ export async function identifyVehicle(description: string): Promise<VehicleSugge
   };
 }
 export type ResearchedStation = {name:string;brand:string;address:string;state:string;source:Source;amenities:string[]};
-export async function researchStationAddresses(route: RoadRoute, towns:string[]): Promise<ResearchedStation[]> {
+export async function researchStationAddresses(route: RoadRoute, towns:string[],focused=false): Promise<ResearchedStation[]> {
   const key=process.env.DEEPSEEK_API_KEY;
   if(!key)throw new FuelError("Configure DeepSeek to research station addresses.",503);
   type WebResult={title:string;url:string;content?:string;summary?:string;snippet?:string};
   const responses=await Promise.all([...new Set(towns)].map(town=>providerJson<{results:WebResult[]}>("https://api.deepseek.com/v1/tools/search","DeepSeek station search",{
     method:"POST",headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},
-    body:JSON.stringify({query:`site:gasbuddy.com gas stations ${town}`.slice(0,128),count:4,need_content:true}),
+    body:JSON.stringify({query:(focused?`${town} highway gas station truck stop Shell BP Love's Pilot address`:`site:gasbuddy.com gas stations ${town}`).slice(0,128),count:focused?6:4,need_content:true}),
   },45000)));
   const sources:Source[]=[],pages:{title:string;url:string;content:string}[]=[];
   for(const response of responses)for(const result of response.results ?? []) {

@@ -15,6 +15,7 @@
 | `components/gasoline-intelligence/` | 页面主组件 `GasolineIntelligence.tsx`、交互地图 `FuelMap.tsx`、结果组件 `FuelResults.tsx` |
 | `lib/gasoline-intelligence.ts` | 规划算法、续航检查、价格比较、建议加油量和费用计算 |
 | `lib/gasoline-intelligence.test.ts` | 规划逻辑测试，继续由现有 `npm test` 脚本发现 |
+| `lib/fuel-coverage.ts`、`lib/fuel-coverage.test.ts` | 检查路线候选站覆盖、针对断档补搜及回归测试，沿用现有服务层和测试命令 |
 | `lib/fuel-types.ts`、`lib/fuel-validation.ts` | 加油业务的数据类型和输入校验 |
 | `lib/fuel-service.ts` | 会话检查、查询编排、用户隔离、临时缓存及限流 |
 | `lib/fuel-ai.ts`、`lib/fuel-maps.ts`、`lib/fuel-http.ts` | 外部服务访问和结果校验，供服务端接口调用 |

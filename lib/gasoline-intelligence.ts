@@ -2,6 +2,12 @@ import type { Coordinate, FuelPlan, FuelPreferences, FuelSearch, RegionPrice, Ro
 import { FuelError } from "./fuel-validation.ts";
 
 export const METERS_PER_MILE = 1609.344;
+export const MAX_DRIVING_MINUTES = 180;
+export type PlanningSearch = Pick<FuelSearch,"route"|"stations"|"regions">;
+export type CoverageGap = {
+  fromMiles:number;toMiles:number;fromMinutes:number;toMinutes:number;
+  drivingMinutes:number;maxMiles:number;reason:"driving time"|"fuel range";
+};
 export function distanceMiles(a: Coordinate, b: Coordinate) {
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
@@ -53,14 +59,34 @@ export function regionalPrices(stations: Station[], reports: RegionPrice[] = [])
   });
   return result.map((r,i) => ({ ...r, change: i ? r.average-result[i-1].average : null }));
 }
-export function eligibleStations(search: FuelSearch, input: FuelPreferences) {
+export function eligibleStations(search: PlanningSearch, input: FuelPreferences) {
   return search.stations.filter(s => s.detourMinutes <= input.maxDetourMinutes &&
     (!s.membersOnly || membershipFor(s,input)) && stationPrice(s,input,search.regions));
 }
 
+export function findCoverageGaps(search:PlanningSearch,input:FuelPreferences):CoverageGap[] {
+  const stations=eligibleStations(search,input).sort((a,b)=>a.routeMiles-b.routeMiles);
+  const positions=[{miles:0,minutes:0,detourMiles:0,detourMinutes:0},
+    ...stations.map(s=>({miles:s.routeMiles,minutes:s.routeMinutes,detourMiles:s.detourMiles,detourMinutes:s.detourMinutes})),
+    {miles:search.route.miles,minutes:search.route.minutes,detourMiles:0,detourMinutes:0}];
+  const gaps:CoverageGap[]=[];
+  for(let i=1;i<positions.length;i++) {
+    const from=positions[i-1],to=positions[i];
+    const miles=to.miles-from.miles+(from.detourMiles+to.detourMiles)/2;
+    const minutes=to.minutes-from.minutes+(from.detourMinutes+to.detourMinutes)/2;
+    const availablePercent=i===1?input.initialFuelPercent-input.reservePercent:100-input.reservePercent;
+    const maxMiles=input.vehicle.tankGallons*availablePercent/100*input.vehicle.mpg;
+    if(minutes>MAX_DRIVING_MINUTES || miles>maxMiles)gaps.push({
+      fromMiles:from.miles,toMiles:to.miles,fromMinutes:from.minutes,toMinutes:to.minutes,
+      drivingMinutes:minutes,maxMiles,reason:minutes>MAX_DRIVING_MINUTES?"driving time":"fuel range",
+    });
+  }
+  return gaps;
+}
+
 // A forward shortest-path search balances price, extra driving and evenly spaced breaks.
 // Reachability is conservative; final quantities use the road legs returned by the routing service.
-export function selectStops(search: FuelSearch, input: FuelPreferences): Station[] {
+export function selectStops(search: PlanningSearch, input: FuelPreferences): Station[] {
   const stations = eligibleStations(search,input).sort((a,b) => a.routeMiles-b.routeMiles);
   const usableRange = input.vehicle.tankGallons * (1-input.reservePercent/100) * input.vehicle.mpg;
   const startingRange = input.vehicle.tankGallons * (input.initialFuelPercent-input.reservePercent)/100 * input.vehicle.mpg;
@@ -76,7 +102,7 @@ export function selectStops(search: FuelSearch, input: FuelPreferences): Station
       const from = pos(i), before = nodes[i];
       const miles = to.miles-from.miles + (before?.detourMiles ?? 0)/2 + (station?.detourMiles ?? 0)/2;
       const minutes = to.minutes-from.minutes + (before?.detourMinutes ?? 0)/2 + (station?.detourMinutes ?? 0)/2;
-      if (miles < 0 || (station && miles < 0.05) || miles > (i === 0 ? startingRange : usableRange) || minutes > 180) continue;
+      if (miles < 0 || (station && miles < 0.05) || miles > (i === 0 ? startingRange : usableRange) || minutes > MAX_DRIVING_MINUTES) continue;
       const price = (station && stationPrice(station,input,search.regions)?.value) ?? input.estimatedPrice ?? 4;
       const matches = station ? input.amenities.filter(p => station.amenities.some(a => normalize(a).includes(normalize(p)))).length : 0;
       const spacing = 10 * (minutes/input.intervalMinutes - 1)**2;
@@ -86,7 +112,11 @@ export function selectStops(search: FuelSearch, input: FuelPreferences): Station
       if (cost < costs[j]) { costs[j]=cost; previous[j]=i; }
     }
   }
-  if (!Number.isFinite(costs.at(-1))) throw new FuelError("No safe combination was found within the fuel reserve and three-hour driving limit. Try a larger detour limit, more starting fuel, or add an estimated fuel price for stations without quotes.",422);
+  if (!Number.isFinite(costs.at(-1))) {
+    const gap=findCoverageGaps(search,input)[0];
+    const detail=gap?` Eligible station coverage is missing between miles ${gap.fromMiles.toFixed(0)} and ${gap.toMiles.toFixed(0)} (${Math.round(gap.drivingMinutes)} driving minutes between available stops), exceeding ${gap.reason==="driving time"?"the three-hour driving limit":"the available fuel range"}.`:"";
+    throw new FuelError(`No safe combination was found.${detail} Search again to look for more stations in the missing section, or review the detour, membership and price settings.`,422);
+  }
   const selected: Station[] = [];
   for (let j = nodes.length-1; previous[j] > 0; j=previous[j]) selected.unshift(nodes[previous[j]]!);
   if (selected.length > 23) throw new FuelError("This route needs too many stops. Split it into separate travel days.");

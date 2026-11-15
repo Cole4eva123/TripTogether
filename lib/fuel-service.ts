@@ -1,11 +1,12 @@
-import { randomUUID } from "node:crypto";
-import type { FuelPlan, FuelPreferences, FuelSearch, Station } from "./fuel-types";
+import { createHash, randomUUID } from "node:crypto";
+import type { FuelPlan, FuelPreferences, FuelSearch, RoadRoute, RoutePoint, Station } from "./fuel-types";
 import { addressFor, findStations, geocode, geocodedState, nearbyTown, normalizeState, roadRoute } from "./fuel-maps";
 import { researchPrices, researchStationAddresses } from "./fuel-ai";
 import { buildFuelPlan, eligibleStations, projectOnRoute, regionalPrices, selectStops } from "./gasoline-intelligence";
 import { FuelError, object, text } from "./fuel-validation";
 import { currentUser, needLogin } from "./server";
 import { statePriceReports } from "./fuel-region-provider";
+import { fillStationCoverage, pointAlongRoute } from "./fuel-coverage";
 
 type StoredSearch = { ownerId:string;input:FuelPreferences;search:FuelSearch;expires:number;plans:Map<string,FuelPlan> };
 type ServiceState = { searches:Map<string,StoredSearch>;limits:Map<string,{start:number;count:number}> };
@@ -24,7 +25,29 @@ export async function fuelUser(action: string, limit = 6) {
 export function fuelFailure(error: unknown) {
   return Response.json({error:error instanceof FuelError ? error.message : "The fuel planner could not complete the request. Try again."},{status:error instanceof FuelError ? error.status : 500});
 }
+async function webStations(route:RoadRoute,points:RoutePoint[],focused=false) {
+  const towns:string[]=[];
+  for(const point of points)towns.push(await nearbyTown(point));
+  const stations:Station[]=[];
+  let unmatchedAddresses=0;
+  for(const draft of await researchStationAddresses(route,towns,focused)) {
+    try {
+      const location=await geocode(draft.address),projection=projectOnRoute(location,route);
+      if(projection.offRoute>3 || projection.miles>=route.miles-0.2)continue;
+      const detourMiles=projection.offRoute*2.6;
+      // Stable IDs let repeated searches add candidates without overwriting an unrelated web:0 stop.
+      const id=createHash("sha256").update(draft.address.toLowerCase().replace(/[^a-z0-9]/g,"")).digest("hex").slice(0,20);
+      stations.push({id:`web:${id}`,name:draft.name,brand:draft.brand,address:draft.address,state:normalizeState(draft.state),
+        location,routeMiles:projection.miles,routeMinutes:projection.minutes,detourMiles,detourMinutes:detourMiles/25*60+2,
+        amenities:draft.amenities,membersOnly:/costco|sam.?s club/i.test(draft.name),price:null,open:"Hours not confirmed",
+        mapUrl:`https://www.openstreetmap.org/?mlat=${location.lat}&mlon=${location.lng}#map=18/${location.lat}/${location.lng}`,source:draft.source});
+    }catch{unmatchedAddresses++;}
+  }
+  stations.sort((a,b)=>a.routeMiles-b.routeMiles);
+  return {stations,unmatchedAddresses};
+}
 export async function searchFuel(ownerId: string, input: FuelPreferences): Promise<FuelSearch> {
+  const reportRequest=statePriceReports(input.vehicle.grade).catch(()=>[]);
   const origin=await geocode(input.origin), destination=await geocode(input.destination);
   const route=await roadRoute(origin,destination);
   const warnings=["Detours shown for candidate stations are geometric estimates. The final plan recalculates actual road distances and times."];
@@ -36,28 +59,19 @@ export async function searchFuel(ownerId: string, input: FuelPreferences): Promi
   catch(error) {
     if(!process.env.DEEPSEEK_API_KEY)throw error;
     warnings.push("Station candidates use cited web locators and geocoded addresses. Facilities are included only when explicitly reported on the station source page; other nearby amenities may be missing.");
-    stations=[];
-    const towns:string[]=[];
     const count=Math.min(12,Math.max(3,Math.ceil(route.minutes/60)+1));
-    for(let i=0;i<count;i++) {
-      const target=route.minutes*i/(count-1);
-      const point=route.points.reduce((best,p)=>Math.abs(p.minutes-target)<Math.abs(best.minutes-target)?p:best,route.points[0]);
-      towns.push(await nearbyTown(point));
-    }
-    let unmatchedAddresses=0;
-    for(const draft of await researchStationAddresses(route,towns)) {
-      try {
-        const location=await geocode(draft.address),projection=projectOnRoute(location,route);
-        if(projection.offRoute>3 || projection.miles>=route.miles-0.2)continue;
-        const detourMiles=projection.offRoute*2.6;
-        stations.push({id:`web:${stations.length}`,name:draft.name,brand:draft.brand,address:draft.address,state:normalizeState(draft.state),
-          location,routeMiles:projection.miles,routeMinutes:projection.minutes,detourMiles,detourMinutes:detourMiles/25*60+2,
-          amenities:draft.amenities,membersOnly:/costco|sam.?s club/i.test(draft.name),price:null,open:"Hours not confirmed",
-          mapUrl:`https://www.openstreetmap.org/?mlat=${location.lat}&mlon=${location.lng}#map=18/${location.lat}/${location.lng}`,source:draft.source});
-      }catch{unmatchedAddresses++;}
-    }
-    if(unmatchedAddresses)warnings.push(`${unmatchedAddresses} web station addresses could not be geocoded and were excluded.`);
-    stations.sort((a,b)=>a.routeMiles-b.routeMiles);
+    const found=await webStations(route,Array.from({length:count},(_,i)=>pointAlongRoute(route,route.minutes*i/(count-1))));
+    stations=found.stations;
+    if(found.unmatchedAddresses)warnings.push(`${found.unmatchedAddresses} web station addresses could not be geocoded and were excluded.`);
+  }
+  const officialReports=await reportRequest;
+  if(process.env.DEEPSEEK_API_KEY) {
+    const expanded=await fillStationCoverage({route,stations,regions:officialReports},input,async points=>{
+      const found=await webStations(route,points,true);
+      if(found.unmatchedAddresses)warnings.push(`${found.unmatchedAddresses} extra station addresses could not be geocoded and were excluded.`);
+      return found.stations;
+    });
+    stations=expanded.stations;warnings.push(...expanded.warnings);
   }
   if (!stations.length) throw new FuelError("No mapped gas stations were found near this route. Try more specific locations or split the trip.",404);
   // Reverse-geocode only the stations about to be researched, with caching and a shared 1/s limit.
@@ -65,7 +79,7 @@ export async function searchFuel(ownerId: string, input: FuelPreferences): Promi
   for (const index of indexes) {
     try { stations[index]=await addressFor(stations[index]); } catch { warnings.push("Some station addresses or states could not be resolved."); break; }
   }
-  const [prices,officialReports]=await Promise.all([researchPrices(stations,input.vehicle.grade),statePriceReports(input.vehicle.grade).catch(()=>[])]);
+  const prices=await researchPrices(stations,input.vehicle.grade);
   stations=prices.stations;
   if (prices.warning) warnings.push(prices.warning);
   const now=Date.now(), id=randomUUID();

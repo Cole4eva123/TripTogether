@@ -72,3 +72,20 @@ order; the frontend groups and sorts them (`lib/itinerary.ts`).
 - `time` is `HH:MM` on a 24-hour clock, or empty/null for "any time that day" (stored as `null`).
 - `title` is required, up to 120 characters; `place` up to 120; `note` up to 1000. Missing `place` and `note`
   are stored as `""`.
+
+## Gasoline intelligence
+
+The fuel planner uses the existing session cookie. All three endpoints return `401` when signed out.
+Bodies and response shapes are defined in `lib/fuel-types.ts`; provider configuration, estimates and
+planning behavior are documented in `docs/gasoline-intelligence.md`.
+
+| Method | Path | Body | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/gasoline-intelligence/vehicle` | `{ description: string }` (up to 500 characters) | `200 VehicleSuggestion` with cited research and editable partial vehicle specs | `400` invalid input; `429` rate limit; `502` upstream failure; `503` missing DeepSeek key |
+| POST | `/api/gasoline-intelligence/search` | `FuelPreferences & { vehicleConfirmed: true }` | `200 FuelSearch`, including an opaque user-bound search ID, route, stations, regions and warnings | `400` invalid settings; `404` location/stations not found; `429`; `502` map failure |
+| POST | `/api/gasoline-intelligence/plan` | `{ searchId, stationIds?: string[] }` | `200 FuelPlan` with road-verified stops, quantities, costs and arrival times | `400` invalid selection; `410` expired/unavailable search; `422` insufficient range or over three hours between stops; `429`; `502` upstream failure |
+
+Searches last 30 minutes and are not persisted. Search/vehicle/plan rate limits are respectively
+4/6/20 requests per five minutes per user. Failed price research does not fabricate prices: it returns a
+warning and permits a regional or user-entered estimate. Membership eligibility, prices and route
+coordinates are resolved on the server, not trusted from a planning request.

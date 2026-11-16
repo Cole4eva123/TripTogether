@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import TripNav from "@/components/TripNav";
 import { MeContext } from "@/components/me";
 import { api, ApiError, errorText } from "@/lib/api";
 import type { User } from "@/lib/types";
@@ -29,15 +30,23 @@ export default function TripsLayout({ children }: LayoutProps<"/trips">) {
 
   return (
     <MeContext value={me}>
-      <header className="mx-auto flex max-w-240 items-center justify-between gap-4 p-4">
+      {/* The brand goes back to your trips, which is the front page. The lobby sits on the right of it,
+          next to your name, so the one place worth going to is the one thing you can reach from anywhere. */}
+      <header className="mx-auto flex max-w-240 flex-wrap items-center gap-x-4 gap-y-2 p-4">
         <Link href="/trips" className="sign sign-small">
           TripTogether
         </Link>
-        <div className="flex min-w-0 items-center gap-2 text-muted">
-          <span className="truncate">{me?.name}</span>
-          <button className="btn btn-quiet" onClick={logOut}>
-            Log out
-          </button>
+        <div className="ml-auto flex min-w-0 items-center gap-4">
+          {/* The nav marks the page you're on, which it can only know at runtime. */}
+          <Suspense fallback={<div className="min-w-[140px]" />}>
+            <TripNav />
+          </Suspense>
+          <div className="flex min-w-0 items-center gap-2 text-muted">
+            <span className="truncate">{me?.name}</span>
+            <button className="btn btn-quiet whitespace-nowrap" onClick={logOut}>
+              Log out
+            </button>
+          </div>
         </div>
       </header>
       {children}

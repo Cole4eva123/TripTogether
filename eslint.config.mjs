@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The browser scripts are plain CommonJS tools, not part of the app.
+    "scripts/browser/**",
+    // So is the test runner, which shells out to Node with the test files.
+    "scripts/test.cjs",
+    "scripts/check-lobby-scope.cjs",
   ]),
 ]);
 

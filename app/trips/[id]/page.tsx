@@ -98,6 +98,9 @@ export default function TripPage() {
                 </li>
               ))}
             </ul>
+            <Link href={`/trips/${trip.id}/chat`} className="btn btn-small justify-self-start">
+              Open the chat group
+            </Link>
           </section>
 
           <section className="grid justify-items-start gap-3">

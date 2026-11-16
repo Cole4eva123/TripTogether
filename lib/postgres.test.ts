@@ -1,0 +1,27 @@
+import assert from "node:assert/strict";
+import { test, after } from "node:test";
+import { spawnSync } from "node:child_process";
+import { createUser, createTrip, startSession, resetStore, tripFor } from "../tests/fixtures/shared-backend.ts";
+import { publishPost, createJoinRequest, respondToRequest, addTripMessage } from "./match-db.ts";
+import { closeDatabase } from "./postgres.ts";
+after(closeDatabase);
+test("PostgreSQL atomically accepts once, prevents duplicate requests and retains data in a new process", async () => {
+ await resetStore();
+ const owner=(await createUser("Owner","pg-owner@example.com","roadtrip1"))!;
+ const applicant=(await createUser("Applicant","pg-applicant@example.com","roadtrip1"))!;
+ const trip=await createTrip(owner.id,{origin:"Boston",destination:"Chicago",startDate:"2027-06-01",endDate:"2027-06-05"});
+ const post=(await publishPost(owner.id,trip.id,"PostgreSQL verification"))!;
+ const requests=await Promise.all(Array.from({length:5},()=>createJoinRequest(applicant.id,post.id,"Hello")));
+ assert.equal(requests.filter(Boolean).length,1);
+ const request=requests.find(Boolean)!;
+ const answers=await Promise.all([respondToRequest(request.id,owner.id,"accept"),respondToRequest(request.id,owner.id,"accept")]);
+ assert.equal(answers.filter(Boolean).length,1);
+ assert.ok(await tripFor(trip.id,applicant.id));
+ await addTripMessage(trip.id,applicant.id,"Survives a new process");
+ const token=await startSession(applicant.id);
+ const script=`import {sessionUser,tripFor} from './tests/fixtures/shared-backend.ts';import {messagesForTrip} from './lib/match-db.ts';import {closeDatabase} from './lib/postgres.ts'; const user=await sessionUser(${JSON.stringify(token)});const trip=await tripFor(${JSON.stringify(trip.id)},user.id);const messages=await messagesForTrip(${JSON.stringify(trip.id)});console.log(JSON.stringify({user,trip,messages}));await closeDatabase();`;
+ const child=spawnSync(process.execPath,["--experimental-strip-types","--no-warnings","--input-type=module","-e",script],{encoding:"utf8",env:process.env});
+ assert.equal(child.status,0,child.stderr);
+ const saved=JSON.parse(child.stdout);
+ assert.equal(saved.user.id,applicant.id);assert.equal(saved.trip.members.length,2);assert.equal(saved.messages[0].body,"Survives a new process");
+});

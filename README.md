@@ -63,3 +63,10 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 - 每个地区维护一个任务库，存放当地可以做的事（例如芝加哥：去海军码头看日出、晚上去某栋楼的楼顶看夜景、拍一张全组合照）
 - 小组出发前生成一张 Bingo 卡，旅行中完成任务即打卡，连成一线即完成 Bingo
 - 任务由用户上传，经 app 审核后加入任务库
+
+
+## Shared lobby 开发交付
+
+功能规则以已确认的 Shared lobby 版本为准。仅交付功能 2，不改登录或其他基础模块。
+数据库使用 PostgreSQL + Drizzle，版本迁移使用 drizzle-kit。团队适配接口与验证步骤见
+`docs/lobby-integration.md`。Better Auth 与共享旅行后端由组长接入；未接入时相关接口明确返回 503。

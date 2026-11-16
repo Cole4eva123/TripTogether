@@ -1,4 +1,4 @@
-import type { PlanInput, Trip, TripInput } from "./types";
+import type { PlanInput, Trip, TripInput } from "./types.ts";
 
 const MAX_TRIP_DAYS = 60;
 const DAY_MS = 86_400_000;
@@ -43,4 +43,43 @@ export function parsePlanInput(
   if (title.length > 120 || place.length > 120 || note.length > 1000)
     return "That's too long. Keep the plan under 120 characters and the note under 1000.";
   return { date, time, title, place, note };
+}
+
+// --- Lobby and matching (feature 2) ---
+
+/** What a body says when publishing a trip to the lobby. */
+export type PublishInput = { tripId: string; note: string };
+
+/** Checks a publish body. Returns the cleaned input, or the message to show the user. */
+export function parsePublishInput(body: Record<string, unknown>): PublishInput | string {
+  const tripId = text(body.tripId);
+  const note = text(body.note);
+  if (!tripId) return "Pick a trip to publish.";
+  if (note.length > 500) return "Keep your note under 500 characters.";
+  return { tripId, note };
+}
+
+/** What a body says when asking to join a trip in the lobby. */
+export type JoinRequestInput = { postId: string; message: string };
+
+/**
+ * Checks a join-request body. Returns the cleaned input, or the message to show the user.
+ *
+ * The message is optional: a person may ask to join a trip without saying anything, and the trip's owner
+ * can read the card in the lobby to see who they are.
+ */
+export function parseJoinRequestInput(body: Record<string, unknown>): JoinRequestInput | string {
+  const postId = text(body.postId);
+  const message = text(body.message);
+  if (!postId) return "Pick a trip in the lobby to ask about.";
+  if (message.length > 500) return "Keep your message under 500 characters.";
+  return { postId, message };
+}
+
+/** Checks a chat body. Returns the cleaned text, or the message to show the user. */
+export function parseChatInput(body: Record<string, unknown>): string | { body: string } {
+  const message = text(body.body);
+  if (!message) return "Write something first.";
+  if (message.length > 2000) return "That's too long. Keep a message under 2000 characters.";
+  return { body: message };
 }

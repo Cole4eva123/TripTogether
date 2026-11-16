@@ -1,4 +1,4 @@
-// Trips, members and the itinerary, kept in PostgreSQL through Drizzle. It takes over from lib/mock-db.ts with the
+// Trips, members and the itinerary, kept in PostgreSQL through Drizzle. It took over from the in-memory store with the
 // same functions under the same names, async now, so the route handlers only had to add `await`.
 // Users and sessions belong to Better Auth (lib/auth.ts); this file only reads names from the users table.
 import { randomInt } from "node:crypto";

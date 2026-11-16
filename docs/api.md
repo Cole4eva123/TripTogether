@@ -2,7 +2,7 @@
 
 The frontend calls these endpoints and nothing else (`lib/api.ts`). They live in `app/api/` as Next.js route
 handlers, backed by PostgreSQL through Drizzle, with accounts through Better Auth (`docs/backend.md`). Every path,
-status code and response shape below is the one the in-memory `lib/mock-db.ts` answered, so the frontend needed
+status code and response shape below is the one the earlier in-memory store answered, so the frontend needed
 no changes.
 
 ## Conventions

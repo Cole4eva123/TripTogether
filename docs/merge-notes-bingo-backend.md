@@ -19,9 +19,9 @@ Everything else on the branch is a new file.
 | `app/trips/page.tsx` | two lines: the import of `components/bingo/AdminLinks` and `<BingoAdminLinks />` at the foot of `<main>` (a small admin-only line into the Bingo task library) | none expected: the lobby branches edit the top and the middle of the same file. Keep both |
 | `docs/api.md` | the intro and the cookie/password lines updated for the real backend; "Travel Bingo" section appended at the end | small: other branches append their own section at the end. Keep all of them |
 | `package.json`, `package-lock.json` | new dependencies and `db:generate` | gasoline adds dependencies too. Keep both lists in `package.json`, then delete `package-lock.json` and run `npm install` rather than merging the lockfile by hand |
-| `.gitignore` | `.data` | trivial |
 
-`lib/mock-db.ts` is **not changed** and no longer used by any route. Delete it once every branch has moved off it.
+On `dev`, after the merge: PGlite is gone (the app and the tests run on PostgreSQL only, `docs/backend.md`), and
+`lib/mock-db.ts` is deleted, so a branch that still imports it moves to `lib/store.ts` as it merges.
 
 ## BlindBox
 

@@ -1,11 +1,11 @@
 // Travel Bingo's data: the task library, its review queue, and each trip's card. In PostgreSQL like the rest
 // (tables in lib/db/schema.ts); the rules themselves are the pure functions in lib/bingo.ts.
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { STARTER_TASKS } from "./bingo-catalog.ts";
 import { canonicalRegion, drawCard, finishedLines, pickReplacement, type TaskInput } from "./bingo.ts";
 import type { BingoCard, BingoRegion, BingoTask } from "./bingo-types.ts";
-import { db, ready } from "./db/client.ts";
+import { db, isUniqueViolation, ready } from "./db/client.ts";
 import { bingoCards, bingoCells, bingoTasks, users } from "./db/schema.ts";
 import { isId } from "./store.ts";
 
@@ -31,7 +31,7 @@ function bingoReady(): Promise<void> {
     const rows = Object.entries(STARTER_TASKS).flatMap(([region, tasks]) =>
       tasks.map(([title, description]) => ({ region, title, description, status: "approved" as const })),
     );
-    await db.insert(bingoTasks).values(rows);
+    await db.insert(bingoTasks).values(rows).onConflictDoNothing(); // another process may be seeding at the same time
   })().catch((e) => {
     g.__bingoReady = undefined;
     throw e;
@@ -118,6 +118,13 @@ async function mustBeNew(region: string, title: string, except?: string) {
   }
 }
 
+/** For a write the unique index refused: someone sent the same task in since mustBeNew looked, so say which. */
+const sameSentMeanwhile = (region: string, title: string, except?: string) => async (e: unknown): Promise<never> => {
+  if (!isUniqueViolation(e)) throw e;
+  await mustBeNew(region, title, except);
+  throw new BingoError(409, "Someone just sent that task in too. Reload the page."); // and it was turned down since
+};
+
 /**
  * Adds a task. A member's waits for an admin's review; an admin's goes straight into the library, approved by
  * them.
@@ -135,7 +142,8 @@ export async function submitTask(userId: string, input: TaskInput, admin = false
       submittedById: userId,
       ...(admin ? { status: "approved" as const, reviewedById: userId, reviewedAt: new Date() } : {}),
     })
-    .returning({ id: bingoTasks.id });
+    .returning({ id: bingoTasks.id })
+    .catch(sameSentMeanwhile(region, input.title));
   return (await taskById(row.id))!;
 }
 
@@ -155,7 +163,8 @@ export async function editTask(taskId: string, input: TaskInput): Promise<BingoT
   await db
     .update(bingoTasks)
     .set({ region, title: input.title, description: input.description })
-    .where(eq(bingoTasks.id, taskId));
+    .where(eq(bingoTasks.id, taskId))
+    .catch(sameSentMeanwhile(region, input.title, taskId));
   return (await taskById(taskId))!;
 }
 
@@ -325,6 +334,28 @@ function mustOwnCheck(cell: { completedAt: Date | null; completedById: string | 
   }
 }
 
+type Cell = typeof bingoCells.$inferSelect;
+
+/** Matches the square while its check is the one in `cell`: none, a member's, or one whose member has left. */
+function sameCheckAs(cell: Cell) {
+  if (!cell.completedAt) return isNull(bingoCells.completedAt);
+  if (cell.completedById) return eq(bingoCells.completedById, cell.completedById);
+  return and(isNotNull(bingoCells.completedAt), isNull(bingoCells.completedById));
+}
+
+/**
+ * Writes `values` to the square only if its check is still what mustOwnCheck looked at, so an undo or a swap never
+ * wipes a check someone else made in between.
+ */
+async function setIfUnchanged(cell: Cell, values: Partial<Cell>) {
+  const rows = await db
+    .update(bingoCells)
+    .set(values)
+    .where(and(eq(bingoCells.id, cell.id), sameCheckAs(cell)))
+    .returning({ id: bingoCells.id });
+  if (!rows.length) throw new BingoError(409, "Someone else just changed this square. Reload the page.");
+}
+
 /**
  * Checks a square off, or takes the check back. Any member may check a square off; checking one that is
  * already done changes nothing, so it keeps the member who did it. Undoing follows mustOwnCheck.
@@ -333,12 +364,14 @@ export async function markCell(tripId: string, cellId: string, actor: Actor, don
   await bingoReady();
   const { cell } = await cellOn(tripId, cellId);
   if (done) {
-    if (!cell.completedAt) {
-      await db.update(bingoCells).set({ completedById: actor.id, completedAt: new Date() }).where(eq(bingoCells.id, cellId));
-    }
+    // Someone checking it off at the same moment keeps it: the first one wins, the second changes nothing.
+    await db
+      .update(bingoCells)
+      .set({ completedById: actor.id, completedAt: new Date() })
+      .where(and(eq(bingoCells.id, cellId), isNull(bingoCells.completedAt)));
   } else if (cell.completedAt) {
     mustOwnCheck(cell, actor);
-    await db.update(bingoCells).set({ completedById: null, completedAt: null }).where(eq(bingoCells.id, cellId));
+    await setIfUnchanged(cell, { completedById: null, completedAt: null });
   }
   return (await cardFor(tripId))!;
 }
@@ -369,6 +402,6 @@ export async function replaceCell(
     next = pickReplacement(pool, onCard);
     if (!next) throw new BingoError(409, `Every ${card.region} task is already on the card. Add more tasks first.`);
   }
-  await db.update(bingoCells).set({ taskId: next, completedById: null, completedAt: null }).where(eq(bingoCells.id, cellId));
+  await setIfUnchanged(cell, { taskId: next, completedById: null, completedAt: null });
   return (await cardFor(tripId))!;
 }

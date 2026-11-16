@@ -9,10 +9,10 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 | 框架 | Next.js 16（App Router）+ React 19 | 在用 |
 | 语言 | TypeScript | 在用 |
 | 样式 | Tailwind CSS v4 | 在用 |
-| 后端 | Next.js API 路由（`app/api/`），接口契约见 `docs/api.md` | 在用，数据暂存内存（`lib/mock-db.ts`） |
-| 数据库 | PostgreSQL，本地用 Docker 运行 | 待接入 |
-| ORM | Drizzle ORM，迁移用 drizzle-kit | 待接入 |
-| 登录 | Better Auth（邮箱 + 密码，接 Drizzle） | 待接入 |
+| 后端 | Next.js API 路由（`app/api/`），接口契约见 `docs/api.md` | 在用 |
+| 数据库 | PostgreSQL，本地用 Apple container（或 Docker）运行 | 在用 |
+| ORM | Drizzle ORM，迁移用 drizzle-kit | 在用 |
+| 登录 | Better Auth（邮箱 + 密码，接 Drizzle） | 在用 |
 | 测试 | Node 自带的 `node:test` | 在用 |
 | 代码检查 | ESLint | 在用 |
 | 包管理 | npm | 在用 |

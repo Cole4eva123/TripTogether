@@ -1,13 +1,15 @@
-// Travel Bingo's store against a real PostgreSQL: an in-memory PGlite with the app's migrations applied.
+// Travel Bingo's store against the PostgreSQL test database, emptied and migrated for this file (lib/db/test-db.ts).
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
+import { eq } from "drizzle-orm";
 
-process.env.DATABASE_URL = "memory://";
-const { db, ready } = await import("./db/client.ts");
-const { users } = await import("./db/schema.ts");
+const { freshDatabase } = await import("./db/test-db.ts");
+const { isUniqueViolation } = await import("./db/client.ts");
+const { bingoCells, bingoTasks, users } = await import("./db/schema.ts");
 const store = await import("./store.ts");
 const bingo = await import("./bingo-store.ts");
 const { STARTER_TASKS } = await import("./bingo-catalog.ts");
+let db: Awaited<ReturnType<typeof freshDatabase>>;
 
 const MAYA = "user-maya";
 const SAM = "user-sam";
@@ -15,7 +17,7 @@ const ADMIN = "user-admin";
 let tripId = "";
 
 before(async () => {
-  await ready();
+  db = await freshDatabase();
   await db.insert(users).values([
     { id: MAYA, name: "Maya Chen", email: "maya@example.com" },
     { id: SAM, name: "Sam Okafor", email: "sam@example.com" },
@@ -107,6 +109,23 @@ test("only the member who checked a square off, or an admin, can undo it", async
   assert.equal(card.completed, 1);
 });
 
+test("an undo never wipes a check someone else made after it looked", async () => {
+  const square = (await bingo.cardFor(tripId))!.cells[5];
+  await bingo.markCell(tripId, square.id, sam, true);
+  let undo: Promise<unknown> = Promise.resolve();
+  // While the square is locked, Sam's undo reads it as his and then waits; meanwhile his check gives way to Maya's.
+  await db.transaction(async (tx) => {
+    await tx.select().from(bingoCells).where(eq(bingoCells.id, square.id)).for("update");
+    undo = bingo.markCell(tripId, square.id, sam, false);
+    undo.catch(() => {}); // awaited below
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await tx.update(bingoCells).set({ completedById: MAYA, completedAt: new Date() }).where(eq(bingoCells.id, square.id));
+  });
+  await rejects(undo, 409);
+  assert.equal((await bingo.cardFor(tripId))!.cells[5].completedById, MAYA);
+  await bingo.markCell(tripId, square.id, maya, false);
+});
+
 test("a square can be swapped for a random task or a chosen one, and starts over", async () => {
   let card = (await bingo.cardFor(tripId))!;
   const square = card.cells[0]; // checked off above
@@ -164,6 +183,13 @@ test("a task sent in waits for review, then joins the library when approved", as
   assert.ok((await bingo.tasksIn("Chicago")).some((t) => t.id === task.id));
   await rejects(bingo.reviewTask(task.id, ADMIN, "reject", ""), 409);
   await rejects(bingo.reviewTask("not-an-id", ADMIN, "approve", ""), 404);
+});
+
+test("the database refuses a second live copy of a region's task, whatever its case", async () => {
+  // submitTask checks first; this index covers two people sending the same task in at the same moment.
+  await db.insert(bingoTasks).values({ region: "Chicago", title: "Ride the Brown Line loop" });
+  await assert.rejects(db.insert(bingoTasks).values({ region: "Chicago", title: "ride the brown line LOOP" }), isUniqueViolation);
+  await db.insert(bingoTasks).values({ region: "Chicago", title: "Ride the brown line loop", status: "rejected" }); // turned-down copies don't count
 });
 
 test("a turned-down task stays out, says why, and can be sent in again", async () => {

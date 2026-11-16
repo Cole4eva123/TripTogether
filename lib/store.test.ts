@@ -1,18 +1,18 @@
-// The trip store against a real PostgreSQL: an in-memory PGlite with the app's migrations applied.
+// The trip store against the PostgreSQL test database, emptied and migrated for this file (lib/db/test-db.ts).
 import assert from "node:assert/strict";
 import { before, test } from "node:test";
 
-process.env.DATABASE_URL = "memory://";
-const { db, ready } = await import("./db/client.ts");
+const { freshDatabase } = await import("./db/test-db.ts");
 const { users } = await import("./db/schema.ts");
 const store = await import("./store.ts");
+let db: Awaited<ReturnType<typeof freshDatabase>>;
 
 const MAYA = "user-maya";
 const SAM = "user-sam";
 const trip = { origin: "Champaign, IL", destination: "Chicago", startDate: "2026-11-27", endDate: "2026-11-30" };
 
 before(async () => {
-  await ready();
+  db = await freshDatabase();
   // Better Auth owns sign-up; here the users are put in directly.
   await db.insert(users).values([
     { id: MAYA, name: "Maya Chen", email: "maya@example.com" },

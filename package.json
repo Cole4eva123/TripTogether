@@ -8,11 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings --test lib/*.test.ts",
+    "test": "node --experimental-strip-types --no-warnings --test --test-concurrency=1 lib/*.test.ts",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.16",
     "better-auth": "^1.7.25",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.6",

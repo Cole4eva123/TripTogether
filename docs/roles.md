@@ -7,8 +7,9 @@ stored on the account:
   code is a member. The same person can be the organizer of one trip and a member of another.
 - **Admin**, site-wide: the accounts whose email is in `ADMIN_EMAILS`. Admins look after the Bingo task library.
 
-The two are independent. An admin has no extra say over trips, and an organizer has no extra say over the task
-library. The organizer/member split follows the proposal's Appendix A; admins are Appendix B's "Task Review
+The two are independent. An admin can't edit, delete or manage the members of someone else's trip, and an
+organizer has no extra say over the task library. The one overlap is a trip's Bingo card, below: an admin who is
+a member of the trip may also redraw it and undo anyone's square. The organizer/member split follows the proposal's Appendix A; admins are Appendix B's "Task Review
 (admin)".
 
 ## Where each role comes from

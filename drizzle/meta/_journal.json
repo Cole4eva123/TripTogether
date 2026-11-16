@@ -8,6 +8,13 @@
       "when": 1794793486996,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794804858775,
+      "tag": "0001_bingo_task_unique",
+      "breakpoints": true
     }
   ]
 }

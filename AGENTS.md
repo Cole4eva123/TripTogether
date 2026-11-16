@@ -15,21 +15,25 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
 - Styling is Tailwind CSS v4 utility classes in the markup. `app/globals.css` holds only the theme (palette,
   breakpoints, font), element defaults, and the road-atlas component classes built from pseudo-elements and
   layered shadows (`btn`, `link-btn`, `sign*`, `road*`, `marker`). Add new styles as utilities, not CSS rules.
-- Backend target: PostgreSQL (local, in Docker) through Drizzle ORM, auth through Better Auth. Deployment is
-  out of scope for now.
+- Backend: PostgreSQL only (local, in Apple's `container` or Docker) through Drizzle ORM, auth through Better Auth.
+  No embedded stand-in such as PGlite. Setup, settings and tests: `docs/backend.md`. Deployment is out of scope for now.
 
 ## Commands
 
-- `npm run dev` (port 3000), `npm run lint`, `npm run typecheck`, `npm test` (node:test on `lib/*.test.ts`)
+- `npm run dev` (port 3000), `npm run lint`, `npm run typecheck`, `npm test` (node:test on `lib/*.test.ts`, one file at a time; the store tests need
+  the local PostgreSQL and its `triptogether_test` database)
 - `sh scripts/seed.sh http://localhost:3000` fills a running dev server with demo users and trips
 
 ## Layout
 
 - `app/api/` — route handlers. Their contract (paths, status codes, shapes, error messages) is `docs/api.md`.
   The frontend depends only on that contract, through `lib/api.ts`.
-- `lib/mock-db.ts` — in-memory store behind the route handlers, standing in for the real backend. Replace it with
-  Postgres via Drizzle; keep the contract. If Better Auth can't serve the `/api/auth/*` contract as written,
-  change `docs/api.md` and `lib/api.ts` in the same commit.
+- `lib/db/schema.ts` — every table; `npm run db:generate` turns a change into a migration in `drizzle/`, which the
+  app applies on the first request. `lib/db/client.ts` is the pool; `lib/db/test-db.ts` sets up the store tests.
+- `lib/store.ts` — trips, members and the itinerary. `lib/auth.ts` — Better Auth, called from `app/api/auth/*`.
+- Travel Bingo: `lib/bingo.ts` (the rules, pure), `lib/bingo-store.ts` (task library, review queue, cards),
+  `app/api/bingo/**`, `app/api/trips/[id]/bingo/**`, `app/trips/bingo/**`, `app/trips/[id]/bingo`,
+  `components/bingo/**`. Admins are the emails in `ADMIN_EMAILS`; roles are in `docs/roles.md`.
 - `lib/validate.ts` — trip and plan-item input validation, shared by every write.
 - `lib/itinerary.ts` — groups plan items into the trip's days (pure, tested).
 - `app/login`, `app/register`, `app/trips/**` — client-component pages. `app/trips/layout.tsx` checks the session

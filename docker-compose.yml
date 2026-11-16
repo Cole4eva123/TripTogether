@@ -1,6 +1,6 @@
 # Local PostgreSQL for TripTogether. Start it with `docker compose up -d`, then put
 #   DATABASE_URL=postgres://triptogether:triptogether@localhost:5432/triptogether
-# in .env.local. Without DATABASE_URL the app uses PGlite in .data/ instead (docs/backend.md).
+# in .env.local (docs/backend.md; Apple's `container` CLI works as well).
 services:
   db:
     image: postgres:18

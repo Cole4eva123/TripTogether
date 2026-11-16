@@ -153,6 +153,8 @@ export const bingoTasks = pgTable(
   (t) => [
     check("bingo_tasks_status_check", sql`${t.status} in ('pending', 'approved', 'rejected')`),
     index("bingo_tasks_region_status_idx").on(t.region, t.status),
+    // One live copy of a task per region, whatever its case: the check in submitTask can race, this can't.
+    uniqueIndex("bingo_tasks_region_title_key").on(t.region, sql`lower(${t.title})`).where(sql`${t.status} <> 'rejected'`),
   ],
 );
 

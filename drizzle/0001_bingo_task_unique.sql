@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "bingo_tasks_region_title_key" ON "bingo_tasks" USING btree ("region",lower("title")) WHERE "bingo_tasks"."status" <> 'rejected';

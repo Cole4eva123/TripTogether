@@ -8,7 +8,7 @@ point, destination and `startDate` to the planner. It does not change shared iti
 ## Local setup
 
 1. Run `npm ci`.
-2. Copy `.env.example` to `.env.local` and fill in `DEEPSEEK_API_KEY`.
+2. Copy `.env.example` to `.env.local` and fill in `DEEPSEEK_API_KEY`. For Google route/station prices and map setup, follow [Google Maps setup](google-maps-setup.md).
 3. Run `npm run dev`, sign in, then choose **Gasoline Intelligence**.
 
 Configure the DeepSeek key and use `deepseek-flash`, which supports the server-side web tools.
@@ -17,6 +17,20 @@ are ignored by Git. Existing local keys are not overwritten.
 
 ## Data providers and limits
 
+- **Google (preferred when configured):** `FUEL_DATA_PROVIDER=google` selects Routes API, Places API (New)
+  and the Maps JavaScript map. `auto` selects Google when the server key exists, otherwise it keeps the
+  original providers below; `openstreetmap` explicitly keeps them. Both server and restricted browser
+  keys are required before paid search requests begin. Each search uses one Routes request and one to
+  three parallel Text Search requests, with up to 20 places per section. Price, address, grade and date
+  come directly from each US Place's `fuelOptions`; no station-by-station model research, regional HTML
+  lookup or reverse geocoding runs on this path. Invalid, missing or stale quotes remain unknown. Regional
+  cards summarize the returned priced stations in route order, with sample counts, rather than claiming
+  statewide coverage. Known store/restaurant types and an explicit `restroom:true` are used as facilities;
+  no brand-based restroom assumption is made. The final route through stops uses Google road legs.
+  Provider failures do not silently switch to web research. Google station data is drawn only on the
+  Google map, keeping its branding and returned third-party attributions. The API does not guarantee
+  every station has a quote. See [setup and billing](google-maps-setup.md).
+- **Original provider path:** the services below remain available without Google configuration.
 - **Nominatim:** resolves the two locations in the US and missing addresses for sampled/selected stations.
   An identifying User-Agent, a shared single-request queue (at least 1.1 seconds apart), bounded cache,
   and explicit submit-only searches are implemented. There is no autocomplete or background polling.
@@ -99,7 +113,7 @@ detour limit and three-hour driving cap. An unresolved gap is reported with its 
 being described as a problem with the starting fuel level.
 The recommendation is a cost-based heuristic, not proof of a global optimum or a complete station census.
 
-Candidate detours are estimates based on distance from the route. After selection, OSRM recomputes
+Candidate detours are estimates based on distance from the route. After selection, the selected route provider recomputes
 the entire route through the stops. Quantities, arrival times, distance since the previous stop and fuel
 feasibility use these actual road legs. At each stop buy enough to reach the next cheaper selected
 station with reserve, or cover the remaining trip up to tank capacity. Rest stops can buy zero gallons.
@@ -116,7 +130,9 @@ The mi/km pill switch beside the candidate count switches displayed distances th
 the planner; calculations and API fields remain in miles. Station popups and cards separate the address,
 distance from start, distance from the previous selected stop, and distance to the destination. Verified
 stops use the recomputed road legs; candidates and pending edits show approximate distances with `~`.
-Regional price cards share equal widths and heights. **Fuel cost** is only the sum of purchased gallons
+Regional price cards follow the first-encounter order of states along the trip, including origin and
+destination states without station anchors. Unknown-position regions stay last; price deltas are computed
+after ordering. Cards share equal widths and heights. **Fuel cost** is only the sum of purchased gallons
 times each station's price. Three separate cards show fuel used, purchased and on arrival. The former
 **Cost & fuel details** block is removed, followed by
 **Your Recommended Stops** in the same heading style as **Your Plan**. Stops appear as compact cards linked
@@ -128,8 +144,8 @@ Hovering over **One-click plan** for one second shows its explanation in a round
 tooltip; keyboard focus also reveals it, and Escape dismisses it. The map's lower-left summary keeps
 the displayed route's distance and driving time alongside the zoom and preview instructions.
 The live countdown to the search's `expiresAt` follows the fuel grade in the candidate summary.
-An expired result prompts a new search; the countdown does not renew it. The muted page footer
-credits OpenStreetMap, OSRM and DeepSeek and notes public-service availability and local rate limits.
+An expired result prompts a new search; the countdown does not renew it. The muted page footer credits
+the active providers: Google Maps and DeepSeek, or OpenStreetMap, OSRM and DeepSeek with public-service limits.
 
 Only road fuel purchases are charged. There is no starting-fuel valuation, total-trip cost, driving-time
 charge, toll, meal or accommodation calculation; a zero-purchase plan has fuel cost zero.
@@ -140,7 +156,8 @@ time-zone conversion. Older API clients can still send an ISO timestamp and rece
 
 ## API and lifecycle
 
-All endpoints require the existing session cookie. Keys never reach the browser. Searches expire after
+All endpoints require the existing session cookie. Server keys never reach the browser; the separate,
+website-restricted Maps JavaScript key is public by design. Searches expire after
 30 minutes and are bound to their user in a bounded process-local cache. Requests are rate limited per
 signed-in user; selections and costs cannot be supplied by an untrusted client as authoritative data.
 Nothing in this module is persisted across server restarts.

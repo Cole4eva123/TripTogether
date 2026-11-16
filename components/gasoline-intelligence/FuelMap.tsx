@@ -7,11 +7,16 @@ import type { FuelStop, RoadRoute, Station } from "@/lib/gasoline-intelligence/t
 import { formatDistance, type DistanceUnit, type StationDistances } from "@/lib/gasoline-intelligence/display";
 import { duration } from "./FuelResults";
 import { createMapDisclosure } from "./AnimatedDisclosure";
+import GoogleFuelMap from "./GoogleFuelMap";
 
-type MapStation = Station & { displayPrice:{value:number;kind:FuelStop["priceKind"]}|null;distances:StationDistances };
-type Props = { route:RoadRoute|null;stations:MapStation[];selectedIds:string[];activeId:string|null;onPick:(id:string) => void;distanceUnit:DistanceUnit };
+export type MapStation = Station & { displayPrice:{value:number;kind:FuelStop["priceKind"]}|null;distances:StationDistances };
+export type FuelMapProps = { route:RoadRoute|null;stations:MapStation[];selectedIds:string[];activeId:string|null;onPick:(id:string) => void;distanceUnit:DistanceUnit;provider?:"google"|"openstreetmap" };
 const money=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
-export default function FuelMap({route,stations,selectedIds,activeId,onPick,distanceUnit}:Props) {
+export default function FuelMap(props:FuelMapProps) {
+  return props.provider==="google" ? <GoogleFuelMap {...props} /> : <OpenStreetMapFuelMap {...props} />;
+}
+
+function OpenStreetMapFuelMap({route,stations,selectedIds,activeId,onPick,distanceUnit}:FuelMapProps) {
   const element=useRef<HTMLDivElement>(null), map=useRef<Leaflet.Map|null>(null), library=useRef<typeof Leaflet|null>(null);
   const layers=useRef<Leaflet.LayerGroup|null>(null), fitted=useRef<RoadRoute|null>(null);
   const [ready,setReady]=useState(false), [error,setError]=useState("");

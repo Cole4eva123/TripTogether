@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { FuelPlan, FuelPreferences, FuelSearch, RegionPrice, Station } from "./types";
+import type { FuelPlan, FuelPreferences, FuelSearch, RegionPrice, RoadRoute, Station } from "./types";
 import { addressFor, findStations, geocode, geocodedState, roadRoute } from "./maps";
 import { researchPrices } from "./ai";
 import { buildFuelPlan, eligibleStations, hasVerifiedStationPrice, regionalPrices, selectStops } from "./planner";
@@ -9,6 +9,8 @@ import { statePriceReports } from "./region-provider";
 import { fillStationCoverage, pointAlongRoute, unpricedCandidatesForGaps } from "./coverage";
 import { webStations } from "./stations";
 import { PLAN_BUDGET_MS, SEARCH_BUDGET_MS, remainingFuelMs, withFuelBudget } from "./budget";
+import { fuelDataProvider } from "./provider";
+import { googleRoadRoute, googleSearchRoute } from "./google";
 
 type StoredSearch = { ownerId:string;input:FuelPreferences;search:FuelSearch;expires:number;plans:Map<string,FuelPlan> };
 type ServiceState = { searches:Map<string,StoredSearch>;limits:Map<string,{start:number;count:number}> };
@@ -35,6 +37,15 @@ export async function searchFuel(ownerId: string, input: FuelPreferences): Promi
   }
 }
 async function searchWithinBudget(ownerId: string, input: FuelPreferences): Promise<FuelSearch> {
+  if (fuelDataProvider(process.env) === "google") {
+    const { route, stations, warnings } = await googleSearchRoute(input);
+    if (!stations.length) throw new FuelError("No Google gas stations were found near this route. Try more specific locations or split the trip.", 404);
+    warnings.push("Candidate detours are approximate. The final plan verifies road distances and driving times.");
+    if (!stations.some(hasVerifiedStationPrice)) warnings.push("Google has no recent prices for the selected fuel grade on these stations. Unknown prices are excluded from recommendations.");
+    // Google already supplies station addresses and prices. Avoid web research,
+    // reverse geocoding and regional HTML fetches on this path.
+    return storeSearch(ownerId, input, route, stations, regionalPrices(stations), warnings, "google");
+  }
   const origin=await geocode(input.origin), destination=await geocode(input.destination);
   // Warm the provider cache while routing/discovery runs; later calls ask for every route state.
   void statePriceReports(input.vehicle.grade,[geocodedState(input.origin),geocodedState(input.destination)].filter(Boolean)).catch(()=>[]);
@@ -102,11 +113,15 @@ async function searchWithinBudget(ownerId: string, input: FuelPreferences): Prom
     }
     // Do not start another paid discovery chain after quote lookup. A later explicit search can retry.
   }
-  const now=Date.now(), id=randomUUID();
   const routeStates=new Set([...stations.map(s=>s.state),geocodedState(input.origin),geocodedState(input.destination)]);
   const reports=[...officialReports.filter(r=>routeStates.has(r.state)),...prices.reports.filter(r=>!officialReports.some(a=>a.state===r.state))];
   if(!officialReports.length)warnings.push(input.requireStationPrices!==false ? "Regional comparison prices are unavailable. Recommended stops still require verified station-specific quotes." : "Regional price providers are unavailable or outdated; only other cited reports and your estimate can be used.");
-  const search: FuelSearch={id,expiresAt:new Date(now+1800000).toISOString(),route,stations,regions:regionalPrices(stations,reports),warnings:[...new Set(warnings)],searchedAt:new Date(now).toISOString()};
+  const orderedStates=[geocodedState(input.origin),...[...stations].sort((a,b)=>a.routeMiles-b.routeMiles).map(station=>station.state),geocodedState(input.destination)].filter(Boolean);
+  return storeSearch(ownerId,input,route,stations,regionalPrices(stations,reports,orderedStates),warnings,"openstreetmap");
+}
+function storeSearch(ownerId:string,input:FuelPreferences,route:RoadRoute,stations:Station[],regions:RegionPrice[],warnings:string[],provider:NonNullable<FuelSearch["provider"]>):FuelSearch {
+  const now=Date.now(), id=randomUUID();
+  const search:FuelSearch={id,provider,expiresAt:new Date(now+1800000).toISOString(),route,stations,regions,warnings:[...new Set(warnings)],searchedAt:new Date(now).toISOString()};
   for (const [key,entry] of service.searches) if (entry.expires < now) service.searches.delete(key);
   if (service.searches.size >= 24) service.searches.delete(service.searches.keys().next().value!);
   service.searches.set(id,{ownerId,input,search,expires:now+1800000,plans:new Map()});
@@ -139,8 +154,8 @@ async function planWithinBudget(ownerId: string, value: unknown): Promise<FuelPl
   const key=selected.map(s => s.id).join(";");
   const cached=entry.plans.get(key);
   if (cached && !("totalCost" in cached) && !("fuelConsumedCost" in cached) && (input.requireStationPrices===false || (input.requireStationPrices===true && cached.stops.every(stop=>stop.priceKind==="web report" && hasVerifiedStationPrice(stop.station))))) return cached;
-  const route=selected.length ? await roadRoute(search.route.origin,search.route.destination,selected) : search.route;
-  for (let i=0;i<selected.length;i++) {
+  const route=selected.length ? await (search.provider==="google" ? googleRoadRoute : roadRoute)(search.route.origin,search.route.destination,selected) : search.route;
+  for (let i=0;search.provider!=="google" && i<selected.length;i++) {
     try { selected[i]=await addressFor(selected[i]); } catch { /* Keep mapped coordinates if the address service is unavailable. */ }
   }
   const plan=buildFuelPlan(search,input,selected,route);

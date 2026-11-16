@@ -79,6 +79,12 @@ The fuel planner uses the existing session cookie. All three endpoints return `4
 Bodies and response shapes are defined in `lib/gasoline-intelligence/types.ts`; provider configuration, estimates and
 planning behavior are documented in `docs/gasoline-intelligence.md`.
 
+`FuelSearch.provider` identifies `google` or `openstreetmap`; clients must display Google station data
+on the Google map. Optional `Station.attributions` contains provider names and links to retain with
+the map. Google mode returns station-specific Places `fuelOptions` prices without DeepSeek price
+research, regional HTML requests or OSM geocoding. Missing Google keys return `503`; upstream failures
+do not silently switch providers. See `docs/google-maps-setup.md` for configuration.
+
 `FuelPreferences.departure` is a calendar date (`YYYY-MM-DD`), passed through from the trip's `startDate`.
 Legacy ISO timestamp values remain accepted. With a date-only departure, the UI displays elapsed travel
 time at each stop rather than an assumed departure/arrival clock time.

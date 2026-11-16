@@ -50,7 +50,7 @@ export function stationPrice(station: Station, input: FuelPreferences, regions: 
     kind: station.price ? "web report" as const : regional ? "regional estimate" as const : "user estimate" as const,
   };
 }
-export function regionalPrices(stations: Station[], reports: RegionPrice[] = []): RegionPrice[] {
+export function regionalPrices(stations: Station[], reports: RegionPrice[] = [], orderedStates: string[] = []): RegionPrice[] {
   const grouped = new Map<string, Station[]>();
   for (const s of stations) {
     if (!s.state || !s.price) continue;
@@ -62,10 +62,15 @@ export function regionalPrices(stations: Station[], reports: RegionPrice[] = [])
     observedAt: entries.map(s => s.price!.observedAt).sort()[0], change: null,
   }));
   for (const report of reports) if (!grouped.has(report.state)) result.push(report);
-  result.sort((a,b) => {
-    const first = (state: string) => stations.find(s => s.state === state)?.routeMiles ?? Infinity;
-    return first(a.state)-first(b.state);
-  });
+  // The service can include endpoint states with no station. Otherwise, use the earliest mapped
+  // occurrence of each state, including unpriced stations; source/price order must not drive the cards.
+  const routeOrder = new Map<string, number>();
+  const mappedStates = [...stations].filter(station => Number.isFinite(station.routeMiles))
+    .sort((a,b) => a.routeMiles-b.routeMiles).map(station => station.state);
+  for (const state of [...orderedStates,...mappedStates]) {
+    if (state && !routeOrder.has(state)) routeOrder.set(state,routeOrder.size);
+  }
+  result.sort((a,b) => (routeOrder.get(a.state) ?? Number.MAX_SAFE_INTEGER) - (routeOrder.get(b.state) ?? Number.MAX_SAFE_INTEGER));
   return result.map((r,i) => ({ ...r, change: i ? r.average-result[i-1].average : null }));
 }
 export function eligibleStations(search: PlanningSearch, input: FuelPreferences, requirePrice=true) {

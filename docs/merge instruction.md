@@ -24,6 +24,8 @@
 | `lib/gasoline-intelligence/stations.ts` | 独立的网页站点目录回退及地址缓存，仍通过 API 获取资料 |
 | `lib/gasoline-intelligence/eia.ts`、`lib/gasoline-intelligence/eia.test.ts` | 可选 EIA 官方 JSON API 的州、油品、日期和单位校验 |
 | `lib/gasoline-intelligence/service.ts` | 会话检查、查询编排、用户隔离、临时缓存及限流 |
+| `lib/gasoline-intelligence/provider.ts`、`lib/gasoline-intelligence/google.ts`、`lib/gasoline-intelligence/google-data.ts` | 独立数据源选择、结构化路线与单站油价适配及纯数据解析；保留原数据源实现 |
+| `components/gasoline-intelligence/GoogleFuelMap.tsx` | 由现有 `FuelMap.tsx` 按搜索数据源选择的地图实现，不修改页面接口或共享框架 |
 | `lib/gasoline-intelligence/ai.ts`、`lib/gasoline-intelligence/maps.ts`、`lib/gasoline-intelligence/http.ts` | 外部服务访问和结果校验，供服务端接口调用 |
 | `lib/gasoline-intelligence/region-provider.ts`、`lib/gasoline-intelligence/regions.ts`、`lib/gasoline-intelligence/regions.test.ts` | 州均价获取、解析和测试 |
 | `docs/gasoline-intelligence.md`、`docs/api.md` | 配置说明、业务行为和接口契约 |

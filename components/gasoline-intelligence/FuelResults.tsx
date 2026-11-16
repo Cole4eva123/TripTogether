@@ -59,7 +59,7 @@ export function PlanSummary({plan,input,distanceUnit}:{plan:FuelPlan;input:FuelP
         <p className="mt-2 text-[12px] leading-snug">{dateOnly?`Arrive after ${duration(stop.minutesFromStart)}`:`Arrive ${arrival(stop.arrival)}`} · Rest {input.stopMinutes} min</p>
         <div className="mt-3 grid gap-1 rounded-lg bg-paper p-2 text-[12px] leading-snug"><p className="font-semibold">Add {stop.buyGallons.toFixed(2)} gal · {money(stop.cost)}</p><p>Tank {stop.gallonsOnArrival.toFixed(1)} → {stop.fuelAfterStop.toFixed(1)} gal</p></div>
         <PreferredAmenities station={stop.station} input={input}/>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3 text-[12px]"><span className="text-muted">{stop.priceKind}</span><a href={stop.station.mapUrl} target="_blank" rel="noreferrer">Open map</a></div>
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3 text-[12px]"><span className="text-muted">{stop.priceKind === "web report" ? "Station quote" : stop.priceKind}</span><a href={stop.station.mapUrl} target="_blank" rel="noreferrer">Open map</a></div>
       </article>
       {index<plan.stops.length-1 && <span aria-hidden="true" className="grid w-9 shrink-0 place-items-center text-[26px] font-bold text-green max-sm:h-10 max-sm:w-full"><span className="max-sm:hidden">→</span><span className="hidden max-sm:block">↓</span></span>}
     </li>)}</ol>

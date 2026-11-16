@@ -82,6 +82,31 @@ test("regional samples expose sample size and price changes without pretending t
   assert.equal(regions[0].average,3.9);assert.equal(regions[0].count,2);
   assert.equal(regions[0].kind,"station sample");assert.ok(Math.abs(regions[1].change!+0.8)<0.00001);
 });
+test("regional cards follow the earliest route occurrence even when stations arrive unsorted or unpriced",()=>{
+  const stations=[{...station("mo-late",220,4),state:"MO"},station("il",120,3.5),{...station("mo-early",20),state:"MO",price:null}];
+  const originalIds=stations.map(station=>station.id);
+  const regions=regionalPrices(stations);
+  assert.deepEqual(regions.map(region=>region.state),["MO","IL"]);
+  assert.equal(regions[0].average,4);
+  assert.equal(regions[0].count,1);
+  assert.equal(regions[0].change,null);
+  assert.equal(regions[1].change,-0.5);
+  assert.deepEqual(stations.map(station=>station.id),originalIds);
+});
+test("explicit route state order includes endpoints without stations and recomputes adjacent price changes",()=>{
+  const reports=[
+    {state:"IN",average:3.1},{state:"IL",average:3.3},{state:"OK",average:3.7},{state:"MO",average:3.5},{state:"KY",average:3.4},
+  ].map(report=>({...report,count:0,kind:"regional report" as const,source:{title:report.state,url:`https://example.com/${report.state}`},observedAt:"2026-11-15T00:00:00Z",change:null}));
+  const stations=[station("il",150,4),{...station("mo",70,4.1),state:"MO"}];
+  const regions=regionalPrices(stations,reports,["OK","MO","IL","MO","IN"]);
+  assert.deepEqual(regions.map(region=>region.state),["OK","MO","IL","IN","KY"]);
+  assert.equal(regions[0].source?.title,"OK");
+  assert.equal(regions[0].change,null);
+  assert.ok(Math.abs(regions[1].change!+0.2)<0.00001);
+  assert.ok(Math.abs(regions[2].change!+0.2)<0.00001);
+  assert.ok(Math.abs(regions[3].change!+0.2)<0.00001);
+  assert.deepEqual(reports.map(region=>region.state),["IN","IL","OK","MO","KY"]);
+});
 test("server accepts vehicle specifications without confirmation and rejects invalid parameters",()=>{
   assert.equal(parseFuelPreferences(input).vehicle.make,"Toyota");
   for(const bad of [{intervalMinutes:200},{estimatedPrice:NaN},{reservePercent:0},{vehicle:{...input.vehicle,mpg:0}},{vehicle:{...input.vehicle,tankGallons:0}},{vehicle:{...input.vehicle,grade:"unknown"}}]) {

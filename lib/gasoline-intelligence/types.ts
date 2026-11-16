@@ -52,6 +52,7 @@ export type Station = {
   open: string;
   mapUrl: string;
   source?: Source;
+  attributions?: Source[];
 };
 export type RoutePoint = Coordinate & { miles: number; minutes: number };
 export type RoadRoute = {
@@ -73,6 +74,7 @@ export type RegionPrice = {
 };
 export type FuelSearch = {
   id: string;
+  provider?: "google" | "openstreetmap";
   expiresAt: string;
   route: RoadRoute;
   stations: Station[];

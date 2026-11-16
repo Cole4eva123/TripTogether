@@ -1,6 +1,48 @@
 // Travel Bingo's rules, as pure functions: drawing a card, swapping a square, finding finished lines, matching a
 // trip's destination to a region, and checking what people send in. Tested in lib/bingo.test.ts.
-import { normalizePlace } from "./matching.ts";
+
+// Place names, read the same way the lobby's matcher reads them (lib/matching.ts on the lobby branches), so
+// "Chicago, IL" names the Chicago library. A copy, since this branch has no lobby.
+
+/** The nickname people write for a place, mapped to what people type in the destination field. */
+const ALIASES: Record<string, string> = {
+  nyc: "new york",
+  sf: "san francisco",
+  "la": "los angeles",
+  dc: "washington dc",
+  vegas: "las vegas",
+  "the big apple": "new york",
+  "the bay area": "san francisco",
+};
+
+/** The full names of the US states, so "Chicago, Illinois" reads the same as "Chicago, IL". */
+const STATE_NAMES = new Set([
+  "alabama", "alaska", "arizona", "arkansas", "california", "colorado", "connecticut", "delaware",
+  "florida", "georgia", "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas", "kentucky",
+  "louisiana", "maine", "maryland", "massachusetts", "michigan", "minnesota", "mississippi",
+  "missouri", "montana", "nebraska", "nevada", "new hampshire", "new jersey", "new mexico", "new york",
+  "north carolina", "north dakota", "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island",
+  "south carolina", "south dakota", "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+  "west virginia", "wisconsin", "wyoming",
+]);
+
+/**
+ * A place as Bingo reads it: lower case, without punctuation or a trailing state code, with the
+ * well-known nicknames folded in. "Chicago, IL" and "chicago" are the same place.
+ */
+function normalizePlace(s: string): string {
+  let out = s.toLowerCase().trim();
+  out = out.replace(/[.,/#!?;:'"()\[\]]+/g, " "); // punctuation becomes a space
+  out = out.replace(/\s+/g, " ").trim();
+  // A trailing state code or name: "Chicago, IL", "Chicago IL", "Chicago, Illinois".
+  const parts = out.split(" ");
+  if (parts.length > 1) {
+    const last = parts[parts.length - 1];
+    if (/^[a-z]{2,3}$/.test(last) || STATE_NAMES.has(last)) parts.pop();
+  }
+  out = parts.join(" ").trim();
+  return ALIASES[out] ?? out;
+}
 
 /** Card sizes on offer. The proposal's default is 3×3. */
 export const BINGO_SIZES = [3, 4, 5] as const;

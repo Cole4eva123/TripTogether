@@ -42,7 +42,7 @@ export function buildFuelPreferences(
 ): FuelPreferences {
   return {
     origin: settings.origin, destination: settings.destination, departure: settings.departure,
-    vehicle: { ...vehicle, year: Number(vehicle.year), mpg: Number(vehicle.mpg), tankGallons: Number(vehicle.tankGallons), grade: vehicle.grade as Vehicle["grade"] },
+    vehicle: { ...vehicle, year: vehicle.year.trim() ? Number(vehicle.year) : null, mpg: Number(vehicle.mpg), tankGallons: Number(vehicle.tankGallons), grade: vehicle.grade as Vehicle["grade"] },
     initialFuelPercent: Number(settings.initialFuelPercent), reservePercent: Number(settings.reservePercent),
     stopMinutes: Number(settings.stopMinutes),
     estimatedPrice: settings.estimatedPrice.trim() ? Number(settings.estimatedPrice) : null,

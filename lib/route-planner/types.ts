@@ -2,7 +2,7 @@ export type Coordinate = { lat: number; lng: number };
 export type FuelGrade = "regular" | "midgrade" | "premium" | "diesel";
 export type Source = { title: string; url: string };
 export type Vehicle = {
-  year: number;
+  year: number | null; // year, make, model and trim only describe the car; the plan never reads them
   make: string;
   model: string;
   trim: string;

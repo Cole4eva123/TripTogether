@@ -248,7 +248,6 @@ export default function RoutePlanner() {
                           type={type}
                           value={vehicle[key]}
                           onChange={(e) => changeVehicle(key, e.target.value)}
-                          required={key !== "trim"}
                           min={key === "year" ? 1980 : undefined}
                           max={key === "year" ? new Date().getFullYear() + 2 : undefined}
                         />

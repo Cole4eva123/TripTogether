@@ -150,6 +150,8 @@ test("explicit route state order includes endpoints without stations and recompu
 });
 test("server accepts vehicle specifications without confirmation and rejects invalid parameters",()=>{
   assert.equal(parseFuelPreferences(input).vehicle.make,"Toyota");
+  assert.deepEqual(parseFuelPreferences({...input,vehicle:{mpg:30,tankGallons:14,grade:"regular"}}).vehicle,{year:null,make:"",model:"",trim:"",mpg:30,tankGallons:14,grade:"regular"});
+  assert.throws(()=>parseFuelPreferences({...input,vehicle:{...input.vehicle,year:1900}}));
   for(const bad of [{estimatedPrice:NaN},{reservePercent:0},{vehicle:{...input.vehicle,mpg:0}},{vehicle:{...input.vehicle,tankGallons:0}},{vehicle:{...input.vehicle,grade:"unknown"}}]) {
     assert.throws(()=>parseFuelPreferences({...input,...bad}));
   }

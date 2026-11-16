@@ -24,6 +24,8 @@ test("restored optional preferences still support custom facilities, discounts a
   assert.deepEqual(input.amenities, ["Restroom", "McDonald's"]);
   assert.deepEqual(input.memberships, [{ brand: "Shell", discountCents: 10 }]);
   assert.equal(input.estimatedPrice, null);
+  const bare = buildFuelPreferences(settings, vehicleToFields({ mpg: 34, tankGallons: 13.2 }));
+  assert.equal(parseFuelPreferences(bare).vehicle.year, null); // a car with no year, make or model still plans
   assert.equal(vehicleToFields({ make: "Toyota" }).mpg, "");
   assert.equal(vehicleToFields({ make: "Toyota" }).tankGallons, "");
 });

@@ -22,13 +22,13 @@ function number(value: unknown, label: string, min: number, max: number) {
 }
 export function parseVehicle(value: unknown): Vehicle {
   const v = object(value);
-  if (!Number.isInteger(v.year)) throw new FuelError("Model year must be a whole number.");
+  if (v.year != null && !Number.isInteger(v.year)) throw new FuelError("Model year must be a whole number.");
+  const optional = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";
   const grade = v.grade as FuelGrade;
   if (!["regular", "midgrade", "premium", "diesel"].includes(grade)) throw new FuelError("Choose a fuel grade.");
   return {
-    year: number(v.year, "Model year", 1980, new Date().getFullYear() + 2),
-    make: text(v.make, "Make", 60), model: text(v.model, "Model", 80),
-    trim: typeof v.trim === "string" ? v.trim.trim().slice(0, 100) : "",
+    year: v.year == null ? null : number(v.year, "Model year", 1980, new Date().getFullYear() + 2),
+    make: optional(v.make, 60), model: optional(v.model, 80), trim: optional(v.trim, 100),
     mpg: number(v.mpg, "Highway fuel economy (MPG)", 5, 100),
     tankGallons: number(v.tankGallons, "Fuel tank (US gallons)", 3, 100), grade,
   };

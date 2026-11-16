@@ -26,7 +26,7 @@ function SearchValidity({ expiresAt }: { expiresAt: string }) {
 export default function FuelSearchBar({ count, grade, expiresAt, distanceUnit, onDistanceUnitChange }: Props) {
   return <div className="flex items-center justify-between gap-3">
     <p className="min-w-0 flex-1 text-[14px] text-muted">
-      {count} nearby candidates · {grade} fuel · <SearchValidity expiresAt={expiresAt} />
+      {count} stations compared for {grade} fuel. <SearchValidity expiresAt={expiresAt} />
     </p>
     <fieldset className="shrink-0">
       <legend className="sr-only">Distance unit</legend>

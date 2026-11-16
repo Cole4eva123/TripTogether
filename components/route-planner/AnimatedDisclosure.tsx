@@ -1,9 +1,8 @@
 "use client";
 
-import { forwardRef, useId, useImperativeHandle, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 
-export type AnimatedDisclosureHandle = { open: boolean };
 type Props = { title: string; children: ReactNode; className?: string; summaryClassName?: string };
 const bodyBase = "grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none";
 const bodyOpen = "grid-rows-[1fr] opacity-100";
@@ -11,10 +10,9 @@ const bodyClosed = "grid-rows-[0fr] opacity-0";
 const triggerStyle = "flex cursor-pointer items-center justify-between gap-2 py-1 text-left text-[13px] font-semibold text-green";
 
 /** Keeps the content mounted while height animates, and opens invalid required fields before focus. */
-const AnimatedDisclosure = forwardRef<AnimatedDisclosureHandle, Props>(function AnimatedDisclosure({ title, children, className = "", summaryClassName = "" }, ref) {
+export default function AnimatedDisclosure({ title, children, className = "", summaryClassName = "" }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
-  useImperativeHandle(ref, () => ({ get open() { return open; }, set open(value: boolean) { setOpen(value); } }), [open]);
   return <div className={className} onInvalidCapture={() => { flushSync(() => setOpen(true)); }}>
     <button type="button" aria-expanded={open} aria-controls={id} className={`${triggerStyle} w-full ${summaryClassName}`} onClick={() => setOpen(value => !value)}>
       <span>{title}</span>
@@ -26,8 +24,7 @@ const AnimatedDisclosure = forwardRef<AnimatedDisclosureHandle, Props>(function 
       <div className="min-h-0 overflow-hidden"><div className="pt-3">{children}</div></div>
     </div>
   </div>;
-});
-export default AnimatedDisclosure;
+}
 
 let mapDisclosureId = 0;
 /** The map owns its popup DOM; use the same animation and keyboard-accessible button there. */

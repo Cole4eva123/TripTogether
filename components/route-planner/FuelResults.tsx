@@ -1,76 +1,129 @@
 "use client";
 
-import type { FuelPlan, FuelPreferences, FuelSearch, Station } from "@/lib/route-planner/types";
+import type { FuelPlan, FuelPreferences, FuelSearch } from "@/lib/route-planner/types";
 import { formatDistance, type DistanceUnit } from "@/lib/route-planner/display";
 import AnimatedDisclosure from "./AnimatedDisclosure";
 
-export const money=(n:number) => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(n);
-export const duration=(minutes:number) => {const total=Math.round(minutes);return `${Math.floor(total/60)}h ${total%60}m`;};
-function arrival(value:string) {
-  return new Date(value).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZoneName:"short"});
+const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+export const duration = (minutes: number) => {
+  const total = Math.round(minutes);
+  return `${Math.floor(total / 60)}h ${total % 60}m`;
+};
+const gallons = (n: number) => `${n.toFixed(1)} gal`;
+
+// The round post at each end of the road, centred on it the way `.marker` is.
+const endpoint =
+  "absolute top-0.5 left-[calc((var(--road-w)_-_20px)_/_2_-_var(--road-w)_-_var(--road-gap))] size-5 rounded-full border-4 border-white bg-green";
+
+/** Each state's average pump price along the route, on one line. */
+export function RegionalPrices({ search }: { search: FuelSearch }) {
+  if (!search.regions.length) return null;
+  const cheapest = Math.min(...search.regions.map((region) => region.average));
+  return (
+    <ul className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-[15px]" aria-label="Average price by state">
+      <li className="text-muted">Average by state</li>
+      {search.regions.map((region) => (
+        <li key={region.state} className={region.average === cheapest ? "font-bold text-green" : ""}>
+          <span className="font-bold">{region.state}</span>{" "}
+          <span className="tabular-nums">{money(region.average)}</span>
+          {region.average === cheapest && " lowest"}
+        </li>
+      ))}
+    </ul>
+  );
 }
-export function PreferredAmenities({station,input}:{station:Station;input:FuelPreferences}) {
-  const normalize=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,"");
-  const matches=station.amenities.filter(amenity=>input.amenities.some(preference=>{
-    const key=normalize(preference);return key && normalize(amenity).includes(key);
-  }));
-  return matches.length?<p className="mt-2 text-[12px] text-muted">{matches.join(" · ")}</p>:null;
-}
-export function RegionalPrices({search}:{search:FuelSearch}) {
-  if (!search.regions.length) return <p className="text-[14px] text-muted">Regional prices unavailable.</p>;
-  const cheapest=Math.min(...search.regions.map(r => r.average));
-  return <section className="grid gap-3" aria-labelledby="regional-heading">
-    <h2 id="regional-heading">Regional prices</h2>
-    <div className="grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3">{search.regions.map(region => <div key={region.state} className={`min-w-0 rounded-lg border-2 p-3 ${region.average===cheapest ? "border-green bg-white" : "border-line bg-white"}`}>
-      <p className="font-bold">{region.state}</p><p className="text-[24px] font-extrabold text-green">{money(region.average)}<span className="text-[13px] font-normal text-muted"> /gal</span></p>
-      <p className="text-[12px] text-muted">{region.kind === "station sample" ? `${region.count} reported station${region.count===1?"":"s"}` : "Regional average"}</p>
-      {region.average===cheapest && <p className="text-[13px] font-bold text-green">Lowest average</p>}
-      {region.change !== null && Math.abs(region.change)>=0.15 && <p className={`text-[13px] font-semibold ${region.change>0?"text-red":"text-green"}`}>{region.change>0?"↑":"↓"} {money(Math.abs(region.change))} vs previous region</p>}
-      {region.observedAt && <p className="text-[12px] text-muted">As of {new Date(region.observedAt).toLocaleDateString()}</p>}
-      {region.source && <a className="text-[12px]" href={region.source.url} target="_blank" rel="noreferrer">Source</a>}
-    </div>)}</div>
-  </section>;
-}
-export function PlanSummary({plan,input,distanceUnit}:{plan:FuelPlan;input:FuelPreferences;distanceUnit:DistanceUnit}) {
-  const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(input.departure);
-  const departureDay=dateOnly?new Date(`${input.departure}T00:00:00Z`).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"}):null;
-  const needsFuel=plan.gallonsPurchased>0.000001;
-  const fuelMetrics=[
-    ...(needsFuel?[{label:"Fuel cost",value:money(plan.purchaseCost),unit:""}]:[]),
-    {label:"Fuel used",value:plan.gallonsUsed.toFixed(1),unit:" gal"},
-    ...(needsFuel?[{label:"Fuel purchased",value:plan.gallonsPurchased.toFixed(1),unit:" gal"}]:[]),
-    {label:"Fuel on arrival",value:plan.fuelOnArrival.toFixed(1),unit:" gal"},
-  ];
-  return <section className="grid gap-5" aria-labelledby="plan-heading">
-    <div><h2 id="plan-heading">Your Plan</h2><p className="text-[14px] text-muted">{dateOnly?`Departure ${departureDay}`:`ETA ${arrival(plan.arrival)}`}</p></div>
-    <div className="grid grid-cols-2 gap-3">
-      {[["Distance",formatDistance(plan.route.miles,distanceUnit,0)],["Estimated Duration with Breaks",duration(plan.totalMinutes)]].map(([label,value]) => <div key={label} className="min-w-0 rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
-    </div>
-    {(plan.detourMiles>=0.05 || plan.detourMinutes>=0.5) && <p className="text-[13px] text-muted">Detour: {formatDistance(plan.detourMiles,distanceUnit)} · {duration(plan.detourMinutes)}</p>}
-    {!needsFuel && <p className="rounded-lg border border-green/20 bg-green/5 p-4 text-[14px] leading-relaxed text-green">Your current fuel is enough to reach your destination without dropping below your selected {input.reservePercent}% reserve.</p>}
-    <div className={`grid gap-3 ${needsFuel?"grid-cols-4 max-sm:grid-cols-2":"grid-cols-2"}`}>
-      {fuelMetrics.map(({label,value,unit}) => <div key={label} className="min-w-0 rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}{unit && <span className="text-[12px] font-normal">{unit}</span>}</p></div>)}
-    </div>
-    <h2 id="recommended-stops-heading">Cheapest fuel stops</h2>
-    {plan.stops.length===0 && <p className="rounded-lg border border-green bg-white p-4">No fuel stops needed.</p>}
-    <ol className="flex items-stretch overflow-x-auto pb-3 max-sm:flex-col max-sm:overflow-visible max-sm:pb-0" aria-labelledby="recommended-stops-heading">{plan.stops.map((stop,index) => <li key={stop.station.id} className="flex shrink-0 items-stretch max-sm:flex-col">
-      <article className="flex w-64 min-w-0 flex-col rounded-xl border-2 border-green bg-white p-4 max-sm:w-full">
-        <div className="flex items-center justify-between gap-2"><p className="text-[12px] font-bold uppercase tracking-wider text-muted">Stop {stop.number}</p><p className="text-[20px] font-extrabold text-green">{money(stop.pricePerGallon)}<span className="text-[11px] font-normal">/gal</span></p></div>
-        <h3 className="mt-1 text-[18px] leading-tight font-bold">{stop.station.name}</h3>
-        <p className="mt-2 text-[12px] leading-snug text-muted">{stop.station.address || "Address not mapped"}</p>
-        <AnimatedDisclosure title="Distance Details" className="mt-3">
-        <div className="grid gap-1 text-[12px] leading-snug">
-          <p>{formatDistance(stop.milesFromStart,distanceUnit)} from start</p>
-          <p>{formatDistance(stop.legMiles,distanceUnit)} / {duration(stop.legMinutes)} from {stop.number===1?"start":`stop ${stop.number-1}`}</p>
-          <p>{formatDistance(plan.route.miles-stop.milesFromStart,distanceUnit)} to destination</p>
-        </div>
-        </AnimatedDisclosure>
-        <p className="mt-2 text-[12px] leading-snug">{dateOnly?`Arrive after ${duration(stop.minutesFromStart)}`:`Arrive ${arrival(stop.arrival)}`} · Stop {input.stopMinutes} min</p>
-        <div className="mt-3 grid gap-1 rounded-lg bg-paper p-2 text-[12px] leading-snug"><p className="font-semibold">Add {stop.buyGallons.toFixed(2)} gal · {money(stop.cost)}</p><p>Tank {stop.gallonsOnArrival.toFixed(1)} → {stop.fuelAfterStop.toFixed(1)} gal</p></div>
-        <PreferredAmenities station={stop.station} input={input}/>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-3 text-[12px]"><span className="text-muted">{stop.priceKind === "web report" ? "Station quote" : stop.priceKind}</span><a href={stop.station.mapUrl} target="_blank" rel="noreferrer">Open map</a></div>
-      </article>
-      {index<plan.stops.length-1 && <span aria-hidden="true" className="grid w-9 shrink-0 place-items-center text-[26px] font-bold text-green max-sm:h-10 max-sm:w-full"><span className="max-sm:hidden">→</span><span className="hidden max-sm:block">↓</span></span>}
-    </li>)}</ol>
-  </section>;
+
+/** The plan: what it costs on a guide sign, then the drive as a road with a marker post at every fuel stop. */
+export function PlanSummary({
+  plan,
+  input,
+  warnings,
+  distanceUnit,
+}: {
+  plan: FuelPlan;
+  input: FuelPreferences;
+  warnings: string[];
+  distanceUnit: DistanceUnit;
+}) {
+  const miles = (n: number, decimals = 0) => formatDistance(n, distanceUnit, decimals);
+  const needsFuel = plan.gallonsPurchased > 0.000001;
+  return (
+    <section className="grid gap-6" aria-labelledby="plan-heading">
+      <div className="sign grid gap-1 px-7 pt-6 pb-5">
+        <h2 id="plan-heading" className="text-[44px] leading-none font-extrabold tabular-nums max-sm:text-[36px]">
+          {needsFuel ? money(plan.purchaseCost) : "No fuel stops needed"}
+        </h2>
+        <p className="text-[17px] font-semibold">
+          {needsFuel
+            ? `in fuel, buying ${gallons(plan.gallonsPurchased)} at ${plan.stops.length === 1 ? "one stop" : `${plan.stops.length} stops`}`
+            : `The fuel in the tank gets you there above your ${input.reservePercent}% reserve.`}
+        </p>
+        <p className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[15px]">
+          <span>{miles(plan.route.miles)}</span>
+          <span>{duration(plan.totalMinutes)} with stops</span>
+          {plan.detourMiles >= 0.05 && <span>{miles(plan.detourMiles, 1)} of detour</span>}
+        </p>
+      </div>
+
+      {warnings.length > 0 && (
+        <ul className="grid gap-1 text-[14px] text-muted">
+          {warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      )}
+
+      <ol className="road road-itinerary mt-2 mb-6 max-w-2xl">
+        <li className="relative pb-8">
+          <span className={endpoint} aria-hidden />
+          <p className="font-bold">{input.origin}</p>
+          <p className="text-[14px] text-muted">
+            Leave with {gallons((input.vehicle.tankGallons * input.initialFuelPercent) / 100)} in the tank
+          </p>
+        </li>
+        {plan.stops.map((stop) => (
+          <li key={stop.station.id} className="relative pb-8">
+            <span className="marker" aria-hidden>
+              {stop.number}
+            </span>
+            <div className="flex items-baseline justify-between gap-4">
+              <h3 className="text-[18px] leading-tight font-extrabold wrap-anywhere">{stop.station.name}</h3>
+              <p className="shrink-0 text-[20px] leading-tight font-extrabold text-green tabular-nums">
+                {money(stop.pricePerGallon)}
+                <span className="text-[13px] font-semibold"> /gal</span>
+              </p>
+            </div>
+            <p>
+              Add {stop.buyGallons.toFixed(2)} gal for {money(stop.cost)}
+              <span className="text-muted"> at {miles(stop.milesFromStart)}</span>
+            </p>
+            <AnimatedDisclosure title="Stop details" className="max-w-md">
+              <div className="grid gap-1 text-[14px]">
+                <p>{stop.station.address || "Address not mapped"}</p>
+                <p>
+                  {miles(stop.legMiles, 1)} and {duration(stop.legMinutes)} from{" "}
+                  {stop.number === 1 ? "the start" : `stop ${stop.number - 1}`}, {miles(plan.route.miles - stop.milesFromStart, 1)} to go
+                </p>
+                <p>
+                  Tank goes from {gallons(stop.gallonsOnArrival)} to {gallons(stop.fuelAfterStop)}
+                </p>
+                <p>
+                  <a href={stop.station.mapUrl} target="_blank" rel="noreferrer">
+                    Open in Google Maps
+                  </a>
+                </p>
+              </div>
+            </AnimatedDisclosure>
+          </li>
+        ))}
+        <li className="relative">
+          <span className={endpoint} aria-hidden />
+          <p className="font-bold">{input.destination}</p>
+          <p className="text-[14px] text-muted">
+            Arrive with {gallons(plan.fuelOnArrival)}, after burning {gallons(plan.gallonsUsed)}
+          </p>
+        </li>
+      </ol>
+    </section>
+  );
 }

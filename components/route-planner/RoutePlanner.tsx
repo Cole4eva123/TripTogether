@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useMe } from "@/components/me";
 import PlaceField from "@/components/PlaceField";
 import { api, errorText } from "@/lib/api";
@@ -16,12 +16,13 @@ import type {
 } from "@/lib/route-planner/types";
 import FuelMap from "./FuelMap";
 import FuelSearchBar from "./FuelSearchBar";
-import AnimatedDisclosure, { type AnimatedDisclosureHandle } from "./AnimatedDisclosure";
+import AnimatedDisclosure from "./AnimatedDisclosure";
 import { PlanSummary, RegionalPrices } from "./FuelResults";
 import { buildFuelPreferences, createFuelFormSettings, emptyVehicle, vehicleToFields } from "@/lib/route-planner/form";
 
 const field = "grid content-start gap-1.5";
-const panel = "grid gap-4 rounded-xl border-2 border-line bg-white p-5";
+// A slider, not the boxed text input the element defaults draw.
+const slider = "h-6 min-h-0 border-0 bg-transparent p-0 accent-green";
 
 export default function RoutePlanner() {
   const params = useSearchParams(),
@@ -29,7 +30,6 @@ export default function RoutePlanner() {
   const [description, setDescription] = useState("");
   const [vehicle, setVehicle] = useState(emptyVehicle);
   const [suggestion, setSuggestion] = useState<VehicleSuggestion | null>(null);
-  const vehicleDetails = useRef<AnimatedDisclosureHandle>(null);
   const [settings, setSettings] = useState(() => createFuelFormSettings({
     origin: params.get("origin") || "",
     destination: params.get("destination") || "",
@@ -68,7 +68,6 @@ export default function RoutePlanner() {
       });
       setSuggestion(result);
       setVehicle(vehicleToFields(result.vehicle));
-      if (vehicleDetails.current) vehicleDetails.current.open = false;
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -125,250 +124,210 @@ export default function RoutePlanner() {
       </main>
     );
 
+  const mpg = Number(vehicle.mpg),
+    tank = Number(vehicle.tankGallons);
+  const usable = (percent: string) => formatDistance((mpg * tank * (Number(percent) - Number(settings.reservePercent))) / 100, distanceUnit, 0);
+
   return (
     <main className="mx-auto max-w-320 px-4 pt-4 pb-16">
       <Link href="/trips" className="text-[14px]">
         Back to your trips
       </Link>
-      <div className="mt-5 mb-8 flex flex-wrap items-end justify-between gap-4">
-        <h1>Route planner</h1>
-        <span className="sign sign-small">US road trips</span>
-      </div>
+      <h1 className="mt-5">Route planner</h1>
+      <p className="mt-1 mb-8 text-muted">The cheapest places to fill up between two cities.</p>
 
-      <div className="grid grid-cols-[350px_minmax(0,1fr)] items-start gap-7 max-md:grid-cols-1">
-        <form className="grid gap-5" onSubmit={submit}>
-          <fieldset disabled={!!busy} className="grid min-w-0 gap-5 disabled:opacity-75">
-            <section className={panel} aria-labelledby="vehicle-heading">
-              <h2 id="vehicle-heading">
-                <span className="mr-2 text-green">01</span> Your vehicle
-              </h2>
-              <div className={field}>
-                <label htmlFor="vehicle-description">Describe your car</label>
-                <textarea
-                  id="vehicle-description"
-                  rows={2}
-                  maxLength={500}
-                  placeholder="e.g. 2022 Toyota RAV4 XLE AWD, gas, not hybrid"
-                  value={description}
-                  onChange={(e) => {
-                    setDescription(e.target.value);
-                    setSuggestion(null);
-                    invalidate();
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-quiet"
-                  disabled={!description.trim()}
-                  onClick={identify}
-                >
-                  Find my vehicle with AI
+      <div className="grid grid-cols-[350px_minmax(0,1fr)] items-start gap-9 max-md:grid-cols-1">
+        <form onSubmit={submit}>
+          <fieldset disabled={!!busy} className="grid min-w-0 gap-4 rounded-xl border-2 border-line bg-white p-5 disabled:opacity-75">
+            <div className={field}>
+              <label htmlFor="fuel-origin">From</label>
+              <PlaceField
+                id="fuel-origin"
+                placeholder="Chicago"
+                value={settings.origin}
+                onChange={(value) => changeSetting("origin", value)}
+              />
+            </div>
+            <div className={field}>
+              <label htmlFor="fuel-destination">To</label>
+              <PlaceField
+                id="fuel-destination"
+                placeholder="Nashville"
+                value={settings.destination}
+                onChange={(value) => changeSetting("destination", value)}
+              />
+            </div>
+            <div className={field}>
+              <label htmlFor="fuel-departure">Leaving on</label>
+              <input
+                id="fuel-departure"
+                type="date"
+                required
+                value={settings.departure}
+                onChange={(e) => changeSetting("departure", e.target.value)}
+              />
+            </div>
+
+            <hr className="my-1 border-line" />
+
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  ["mpg", "Highway MPG", 5],
+                  ["tankGallons", "Tank (US gal)", 3],
+                ] as const
+              ).map(([key, label, min]) => (
+                <div className={field} key={key}>
+                  <label htmlFor={`vehicle-${key}`}>{label}</label>
+                  <input
+                    id={`vehicle-${key}`}
+                    type="number"
+                    value={vehicle[key]}
+                    onChange={(e) => changeVehicle(key, e.target.value)}
+                    required
+                    step="any"
+                    min={min}
+                    max={100}
+                  />
+                </div>
+              ))}
+            </div>
+            <AnimatedDisclosure title="Don't know them? Look up your car">
+              <div className="grid gap-3">
+                <div className={field}>
+                  <label htmlFor="vehicle-description" className="text-[14px]">
+                    Describe your car
+                  </label>
+                  <textarea
+                    id="vehicle-description"
+                    rows={2}
+                    maxLength={500}
+                    placeholder="2022 Toyota RAV4 XLE AWD, gas, not hybrid"
+                    value={description}
+                    onChange={(e) => {
+                      setDescription(e.target.value);
+                      setSuggestion(null);
+                      invalidate();
+                    }}
+                  />
+                </div>
+                <button type="button" className="btn btn-quiet btn-small" disabled={!description.trim()} onClick={identify}>
+                  Look up this car
                 </button>
-              </div>
-              {suggestion && vehicleSummary && (
-                <p role="status" className="text-[14px] font-semibold text-green">
-                  Found: {vehicleSummary}
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                {(
-                  [
-                    ["mpg", "MPG", 5],
-                    ["tankGallons", "Tank (US gal)", 3],
-                  ] as const
-                ).map(([key, label, min]) => (
-                  <div className={field} key={key}>
-                    <label htmlFor={`vehicle-${key}`} className="text-[13px]">
-                      {label}
-                    </label>
-                    <input
-                      id={`vehicle-${key}`}
-                      type="number"
-                      value={vehicle[key]}
-                      onChange={(e) => changeVehicle(key, e.target.value)}
-                      required
-                      step="any"
-                      min={min}
-                      max={100}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className={field}>
-                <label htmlFor="fuel-grade">Fuel grade</label>
-                <select
-                  id="fuel-grade"
-                  value={vehicle.grade}
-                  onChange={(e) => changeVehicle("grade", e.target.value)}
-                >
-                  <option value="regular">Regular unleaded</option>
-                  <option value="midgrade">Midgrade</option>
-                  <option value="premium">Premium</option>
-                  <option value="diesel">Diesel</option>
-                </select>
-              </div>
-              {Number(vehicle.mpg) > 0 && Number(vehicle.tankGallons) > 0 && (
-                <p className="rounded-lg bg-paper p-3 text-[14px]">
-                  <strong>
-                    {formatDistance(Number(vehicle.mpg) * Number(vehicle.tankGallons), distanceUnit, 0)}
-                  </strong>{" "}
-                  full tank ·{" "}
-                  <strong>
-                    {formatDistance(
-                      Number(vehicle.mpg) *
-                        Number(vehicle.tankGallons) *
-                        (1 - Number(settings.reservePercent) / 100),
-                      distanceUnit,
-                      0,
-                    )}
-                  </strong>{" "}
-                  with reserve
-                </p>
-              )}
-              <AnimatedDisclosure
-                ref={vehicleDetails}
-                title="Other details for your vehicle"
-              >
-                <div className="grid gap-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    {(
-                      [
-                        ["year", "Year", "number"],
-                        ["make", "Make", "text"],
-                        ["model", "Model", "text"],
-                        ["trim", "Engine / Trim", "text"],
-                      ] as const
-                    ).map(([key, label, type]) => (
-                      <div className={field} key={key}>
-                        <label htmlFor={`vehicle-${key}`} className="text-[13px]">
-                          {label}
-                        </label>
-                        <input
-                          id={`vehicle-${key}`}
-                          type={type}
-                          value={vehicle[key]}
-                          onChange={(e) => changeVehicle(key, e.target.value)}
-                          min={key === "year" ? 1980 : undefined}
-                          max={key === "year" ? new Date().getFullYear() + 2 : undefined}
-                        />
-                      </div>
+                {suggestion && (
+                  <div className="grid gap-1 text-[14px]" role="status">
+                    {vehicleSummary && <p className="font-bold text-green">Found {vehicleSummary}</p>}
+                    <p className="text-muted">{suggestion.notes}</p>
+                    {suggestion.sources.map((s) => (
+                      <a key={s.url} href={s.url} target="_blank" rel="noreferrer">
+                        {s.title}
+                      </a>
                     ))}
                   </div>
-                  {suggestion && (
-                    <div className="grid gap-3 rounded-xl bg-paper p-4 text-[13px] text-muted">
-                      <p>{suggestion.notes}</p>
-                      {suggestion.sources.map((s) => (
-                        <a key={s.url} href={s.url} target="_blank" rel="noreferrer">
-                          {s.title}
-                        </a>
-                      ))}
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  {(
+                    [
+                      ["year", "Year", "number"],
+                      ["make", "Make", "text"],
+                      ["model", "Model", "text"],
+                      ["trim", "Engine or trim", "text"],
+                    ] as const
+                  ).map(([key, label, type]) => (
+                    <div className={field} key={key}>
+                      <label htmlFor={`vehicle-${key}`} className="text-[14px]">
+                        {label}
+                      </label>
+                      <input
+                        id={`vehicle-${key}`}
+                        type={type}
+                        value={vehicle[key]}
+                        onChange={(e) => changeVehicle(key, e.target.value)}
+                        min={key === "year" ? 1980 : undefined}
+                        max={key === "year" ? new Date().getFullYear() + 2 : undefined}
+                      />
                     </div>
-                  )}
+                  ))}
                 </div>
-              </AnimatedDisclosure>
-            </section>
-            <section className={panel} aria-labelledby="route-heading">
-              <h2 id="route-heading">
-                <span className="mr-2 text-green">02</span> Your route
-              </h2>
-              <div className={field}>
-                <label htmlFor="fuel-origin">Starting location</label>
-                <PlaceField
-                  id="fuel-origin"
-                  placeholder="Champaign"
-                  value={settings.origin}
-                  onChange={(value) => changeSetting("origin", value)}
-                />
               </div>
-              <div className={field}>
-                <label htmlFor="fuel-destination">Destination</label>
-                <PlaceField
-                  id="fuel-destination"
-                  placeholder="Nashville"
-                  value={settings.destination}
-                  onChange={(value) => changeSetting("destination", value)}
-                />
-              </div>
-              <div className={field}>
-                <label htmlFor="fuel-departure">Departure date</label>
+            </AnimatedDisclosure>
+            <div className={field}>
+              <label htmlFor="fuel-grade">Fuel grade</label>
+              <select id="fuel-grade" value={vehicle.grade} onChange={(e) => changeVehicle("grade", e.target.value)}>
+                <option value="regular">Regular unleaded</option>
+                <option value="midgrade">Midgrade</option>
+                <option value="premium">Premium</option>
+                <option value="diesel">Diesel</option>
+              </select>
+            </div>
+
+            {(
+              [
+                ["initialFuelPercent", "initial-fuel", "Fuel in the tank now", 1, 100],
+                ["reservePercent", "reserve", "Keep in reserve", 10, 30],
+              ] as const
+            ).map(([key, id, label, min, max]) => (
+              <div className={field} key={key}>
+                <div className="flex items-baseline justify-between">
+                  <label htmlFor={id}>{label}</label>
+                  <output htmlFor={id} className="font-bold tabular-nums">
+                    {settings[key]}%
+                  </output>
+                </div>
                 <input
-                  id="fuel-departure"
-                  type="date"
-                  required
-                  value={settings.departure}
-                  onChange={(e) => changeSetting("departure", e.target.value)}
+                  id={id}
+                  type="range"
+                  className={slider}
+                  min={min}
+                  max={max}
+                  value={settings[key]}
+                  onChange={(e) => changeSetting(key, e.target.value)}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className={field}>
-                  <label htmlFor="initial-fuel" className="text-[13px]">
-                    Starting fuel (%)
-                  </label>
-                  <input
-                    id="initial-fuel"
-                    type="number"
-                    min="1"
-                    max="100"
-                    required
-                    value={settings.initialFuelPercent}
-                    onChange={(e) => changeSetting("initialFuelPercent", e.target.value)}
-                  />
-                </div>
-                <div className={field}>
-                  <label htmlFor="reserve" className="text-[13px]">
-                    Keep in reserve (%)
-                  </label>
-                  <input
-                    id="reserve"
-                    type="number"
-                    min="10"
-                    max="30"
-                    required
-                    value={settings.reservePercent}
-                    onChange={(e) => changeSetting("reservePercent", e.target.value)}
-                  />
-                </div>
-              </div>
-            </section>
-            <button className="btn" type="submit">
+            ))}
+            {mpg > 0 && tank > 0 && (
+              <p className="text-[14px] text-muted">
+                About {usable(settings.initialFuelPercent)} before you need fuel, {usable("100")} on a full tank.
+              </p>
+            )}
+
+            <button className="btn mt-1" type="submit">
               Find the cheapest fuel plan
             </button>
           </fieldset>
         </form>
 
         <div className="grid min-w-0 gap-6">
-          <div className="grid gap-3">
-            <FuelMap
-              route={plan?.route ?? search?.route ?? null}
-              stations={mapStations}
-              selectedIds={selectedIds}
-              activeId={activeId}
-              onPick={pick}
-              distanceUnit={distanceUnit}
-            />
-            {!search && !busy && (
-              <p className="text-[14px] text-muted">Enter your vehicle and route to get started.</p>
-            )}
-          </div>
+          <FuelMap
+            route={plan?.route ?? search?.route ?? null}
+            stations={mapStations}
+            selectedIds={selectedIds}
+            activeId={activeId}
+            onPick={pick}
+            distanceUnit={distanceUnit}
+          />
+          {!search && !busy && !error && <p className="text-muted">Pick a route and enter your car to see the plan here.</p>}
           {busy && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="rounded-lg border-2 border-green bg-white p-4 font-semibold text-green"
-            >
+            <p role="status" aria-live="polite" className="font-bold text-green">
               {busy}
-            </div>
+            </p>
           )}
           {(error || (storedPlan && !plan)) && (
-            <div
-              role="alert"
-              className="rounded-lg border-2 border-red bg-white p-4 font-semibold text-red"
-            >
+            <p role="alert" className="rounded-lg border-2 border-red bg-white p-4 font-semibold text-red">
               {error || "Search again to get station-specific prices."}
-            </div>
+            </p>
           )}
           {search && plannedInput && (
             <>
+              {plan && (
+                <PlanSummary
+                  plan={plan}
+                  input={plannedInput}
+                  warnings={[...new Set([...search.warnings, ...plan.warnings])]}
+                  distanceUnit={distanceUnit}
+                />
+              )}
+              <RegionalPrices search={search} />
               <FuelSearchBar
                 count={search.stations.length}
                 grade={plannedInput.vehicle.grade}
@@ -376,8 +335,6 @@ export default function RoutePlanner() {
                 distanceUnit={distanceUnit}
                 onDistanceUnitChange={setDistanceUnit}
               />
-              <RegionalPrices search={search} />
-              {plan && <PlanSummary plan={plan} input={plannedInput} distanceUnit={distanceUnit} />}
             </>
           )}
         </div>

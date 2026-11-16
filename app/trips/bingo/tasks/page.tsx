@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import PlaceField from "@/components/PlaceField";
 import { api, errorText } from "@/lib/api";
 import type { BingoRegion, BingoTask } from "@/lib/bingo-types";
 
@@ -111,7 +112,7 @@ export default function TaskLibraryPage() {
           {lib && known && (
             <ol className="grid gap-0">
               {lib.tasks.map((t) => (
-                <TaskRow key={t.id} task={t} admin={admin} regions={lib.regions} onChanged={reload} />
+                <TaskRow key={t.id} task={t} admin={admin} onChanged={reload} />
               ))}
             </ol>
           )}
@@ -123,7 +124,7 @@ export default function TaskLibraryPage() {
             <p className="text-[14px] text-muted">
               {admin ? "It goes straight into the library." : "An admin looks at it before it joins the library."}
             </p>
-            <TaskForm key={region} regions={lib?.regions ?? []} initialRegion={region} admin={admin} onSent={reload} />
+            <TaskForm key={region} initialRegion={region} admin={admin} onSent={reload} />
           </section>
 
           {!!lib?.mine.length && (
@@ -157,12 +158,10 @@ export default function TaskLibraryPage() {
 function TaskRow({
   task,
   admin,
-  regions,
   onChanged,
 }: {
   task: BingoTask;
   admin: boolean;
-  regions: BingoRegion[];
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -186,7 +185,6 @@ function TaskRow({
     <li className="grid gap-1 border-b border-line py-3">
       {editing ? (
         <TaskForm
-          regions={regions}
           initialRegion={task.region}
           admin
           editing={task}
@@ -224,14 +222,12 @@ function TaskRow({
 
 /** Adds a task (an admin's goes straight in, a member's waits for review), or rewrites one when `editing`. */
 function TaskForm({
-  regions,
   initialRegion,
   admin,
   editing,
   onSent,
   onCancel,
 }: {
-  regions: BingoRegion[];
   initialRegion: string;
   admin: boolean;
   editing?: BingoTask;
@@ -276,21 +272,8 @@ function TaskForm({
   return (
     <form className="grid gap-4" onSubmit={submit}>
       <div className="grid gap-1.5">
-        <label htmlFor={`${id}-region`}>City or area</label>
-        <input
-          id={`${id}-region`}
-          list={`${id}-regions`}
-          value={region}
-          maxLength={60}
-          required
-          onChange={(e) => setRegion(e.target.value)}
-          placeholder="Chicago"
-        />
-        <datalist id={`${id}-regions`}>
-          {regions.map((r) => (
-            <option key={r.region} value={r.region} />
-          ))}
-        </datalist>
+        <label htmlFor={`${id}-region`}>City</label>
+        <PlaceField id={`${id}-region`} value={region} onChange={setRegion} placeholder="Chicago" />
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={`${id}-title`}>The task</label>

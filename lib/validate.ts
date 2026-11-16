@@ -1,3 +1,4 @@
+import { qualifiedPlaceName } from "./place-search.ts";
 import type { PlanInput, Trip, TripInput } from "./types.ts";
 
 const MAX_TRIP_DAYS = 60;
@@ -14,11 +15,12 @@ const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
 /** Checks a trip body from a request. Returns the cleaned input, or the message to show the user. */
 export function parseTripInput(body: Record<string, unknown>): TripInput | string {
-  const origin = text(body.origin);
-  const destination = text(body.destination);
+  // A place is stored under its full name from the gazetteer, so a misspelt or made-up one never gets in.
+  const origin = qualifiedPlaceName(text(body.origin));
+  const destination = qualifiedPlaceName(text(body.destination));
   const { startDate, endDate } = body;
-  if (!origin) return "Enter where the trip starts.";
-  if (!destination) return "Enter where the trip is going.";
+  if (!origin) return "Pick where the trip starts from the list.";
+  if (!destination) return "Pick where the trip is going from the list.";
   if (!isDay(startDate) || !isDay(endDate)) return "Pick a start date and an end date.";
   if (endDate < startDate) return "The trip has to end on or after the day it starts.";
   if ((Date.parse(endDate) - Date.parse(startDate)) / DAY_MS >= MAX_TRIP_DAYS)

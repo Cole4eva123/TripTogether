@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FuelPlan, FuelPreferences, FuelSearch, RegionPrice, RoadRoute, Station } from "./types";
 import { buildFuelPlan, cheapestStops, eligibleStations, hasVerifiedStationPrice, regionalPrices, worstLegRatio } from "./planner";
 import { fuelConfig } from "./config";
+import { qualifiedPlaceName } from "../place-search";
 import { FuelError, object, text } from "./validation";
 import { currentUser, needLogin } from "../server";
 import { PLAN_BUDGET_MS, SEARCH_BUDGET_MS, withFuelBudget } from "./budget";
@@ -33,7 +34,11 @@ export async function searchFuel(ownerId: string, input: FuelPreferences): Promi
     throw error;
   }
 }
-async function searchWithinBudget(ownerId: string, input: FuelPreferences): Promise<FuelSearch> {
+async function searchWithinBudget(ownerId: string, typed: FuelPreferences): Promise<FuelSearch> {
+  // Google gets the gazetteer's full name ("Nashville, Tennessee"), never what was typed.
+  const origin=qualifiedPlaceName(typed.origin), destination=qualifiedPlaceName(typed.destination);
+  if (!origin || !destination) throw new FuelError("Pick the starting location and the destination from the list.");
+  const input={...typed,origin,destination};
   fuelDataProvider(process.env);
   const { route, stations, warnings } = await googleSearchRoute(input);
   // No stations is not an error yet: the fuel in the tank may be enough for the whole trip.

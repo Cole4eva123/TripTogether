@@ -3,13 +3,15 @@
 // The matcher reads the gazetteer on the server, so the search does too. The browser asks for the places
 // that answer to a few letters, and the server sends back a short list with the names people write for
 // them, so the reader can pick the right one instead of typing it out.
-import { resolvePlace } from "./matching.ts";
+import { describePlace, resolvePlace } from "./matching.ts";
 import { allPlaces, placesNamed, type Place } from "./places.ts";
 
 /** A place as the search returns it: the name to use, and enough to tell two alike places apart. */
 export type PlaceSuggestion = {
   /** The name of the place. */
   name: string;
+  /** The full name a form stores: the place, then the region or country under it ("Chicago, Illinois"). */
+  label: string;
   /** The country, for the reader to recognise. */
   country: string;
   /** The region or state the place is in, when it has one. */
@@ -109,6 +111,7 @@ function unique(places: Place[]): Place[] {
 function describe(place: Place): PlaceSuggestion {
   return {
     name: place.name,
+    label: describePlace(place),
     country: place.countryName,
     region: place.region,
     weight: place.weight,
@@ -123,24 +126,6 @@ export function qualifiedPlaceName(input: string): string | null {
   const place = resolvePlace(input);
   if (!place) return null;
   return describePlace(place);
-}
-
-/**
- * A place, written the way a person would write it: the name, then the region under it when the region is
- * a different name, then the country.
- *
- * "Chicago, Illinois"; "New York City, New York"; "Beijing, China"; "Kyoto, Japan".
- */
-function describePlace(place: Place): string {
-  const parts = [place.name];
-  if (place.region && place.region !== place.name) {
-    parts.push(place.region);
-    // The region names a state, so the country is only added when the region is the country.
-    if (place.region === place.countryName) parts.push(place.countryName);
-  } else {
-    parts.push(place.countryName);
-  }
-  return parts.join(", ");
 }
 
 /**

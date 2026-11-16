@@ -24,11 +24,14 @@ A task is a row in `bingo_tasks` with a region (a city, e.g. "Chicago") and a st
 `rejected`. A member's suggestion starts as `pending` and goes into the review queue. An admin's addition is
 `approved` straight away.
 
+- **A region is a real city.** The form takes it from the place field (`components/PlaceField.tsx`), and the
+  store refuses one the gazetteer doesn't know. A city the library already has under another spelling joins
+  it ("Chicago, Illinois" joins "Chicago"); a new one is stored under its full name.
 - **One spelling per city.** A region typed another way joins the existing one: "chicago, il" becomes
   "Chicago" (`canonicalRegion`). The comparison lowercases the name, removes punctuation, and drops a trailing
   real US state code or state name. Only a real code is dropped, so "Big Sky" stays "Big Sky" and isn't read as
-  "Big Sur". This plain-text matcher is separate from the lobby's gazetteer (`lib/places.ts`), which is
-  server-only and much bigger than Bingo needs.
+  "Big Sur". This plain-text matcher still places a trip's destination in a region; the gazetteer
+  (`lib/places.ts`, server-only) only checks the region when a task is saved.
 - **No duplicates.** A partial unique index on `(region, lower(title))` covers every task that isn't rejected.
   `submitTask` checks first so it can say whether the duplicate is approved or still waiting; the index stops two
   people sending the same task in at the same moment.

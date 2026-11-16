@@ -51,6 +51,8 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
   `config.ts` the `FUEL_*` settings from the environment), `app/api/gasoline-intelligence/**`,
   `app/trips/gasoline-intelligence`, `components/gasoline-intelligence/**`. Stops are chosen for pump cost only.
 - `lib/validate.ts` — trip and plan-item input validation, shared by every write.
+- `components/PlaceField.tsx` — the one way a form takes a city: picked from the gazetteer through `/api/places`,
+  never free text. The server checks it again (`qualifiedPlaceName`) and stores the full name, "Chicago, Illinois".
 - `lib/itinerary.ts` — groups plan items into the trip's days (pure, tested).
 - `app/login`, `app/register`, `app/trips/**` — client-component pages. `app/trips/layout.tsx` checks the session
   and redirects to `/login`.

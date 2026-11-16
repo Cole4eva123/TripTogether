@@ -4,8 +4,23 @@ import { isDay, parsePlanInput, parseTripInput } from "./validate.ts";
 
 const ok = { origin: " Champaign ", destination: "Chicago", startDate: "2026-11-27", endDate: "2026-11-30" };
 
-test("trims and keeps only trip fields", () => {
-  assert.deepEqual(parseTripInput({ ...ok, ownerId: "someone-else" }), { ...ok, origin: "Champaign" });
+test("keeps only trip fields, and stores each place under its full gazetteer name", () => {
+  assert.deepEqual(parseTripInput({ ...ok, ownerId: "someone-else" }), {
+    ...ok,
+    origin: "Champaign, Illinois",
+    destination: "Chicago, Illinois",
+  });
+  // A full name is already what gets stored, so sending it back changes nothing.
+  assert.deepEqual(parseTripInput({ ...ok, origin: "Champaign, Illinois", destination: "北京" }), {
+    ...ok,
+    origin: "Champaign, Illinois",
+    destination: "Beijing, China",
+  });
+});
+
+test("a place the gazetteer doesn't know is refused, however it's spelt", () => {
+  assert.match(parseTripInput({ ...ok, origin: "Chicgo" }) as string, /Pick where the trip starts/);
+  assert.match(parseTripInput({ ...ok, destination: "Great Smoky Mountains" }) as string, /Pick where the trip is going/);
 });
 
 test("a one-day trip is fine", () => {

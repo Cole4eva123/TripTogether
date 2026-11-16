@@ -16,7 +16,7 @@ chicago=$(post "$A" /trips '{"origin":"Champaign, IL","destination":"Chicago","s
 id=$(echo "$chicago" | sed -E 's/.*"id":"([^"]+)".*/\1/')
 code=$(echo "$chicago" | sed -E 's/.*"inviteCode":"([A-Z0-9]+)".*/\1/')
 post "$A" /trips '{"origin":"Champaign, IL","destination":"Nashville","startDate":"2027-01-08","endDate":"2027-01-11"}' >/dev/null
-post "$B" /trips '{"origin":"Urbana, IL","destination":"Great Smoky Mountains","startDate":"2027-03-14","endDate":"2027-03-20"}' >/dev/null
+post "$B" /trips '{"origin":"Urbana, IL","destination":"Knoxville, Tennessee","startDate":"2027-03-14","endDate":"2027-03-20"}' >/dev/null
 post "$B" /trips/join "{\"code\":\"$code\"}" >/dev/null
 
 plan() { post "$1" "/trips/$id/items" "$2" >/dev/null; }

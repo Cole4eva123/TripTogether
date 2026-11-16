@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { useMe } from "@/components/me";
+import PlaceField from "@/components/PlaceField";
 import { api, errorText } from "@/lib/api";
 import { stationPrice } from "@/lib/gasoline-intelligence/planner";
 import { formatDistance, getStationDistances, type DistanceUnit } from "@/lib/gasoline-intelligence/display";
@@ -273,24 +274,20 @@ export default function GasolineIntelligence() {
               </h2>
               <div className={field}>
                 <label htmlFor="fuel-origin">Starting location</label>
-                <input
+                <PlaceField
                   id="fuel-origin"
-                  placeholder="Champaign, IL"
-                  required
-                  maxLength={200}
+                  placeholder="Champaign"
                   value={settings.origin}
-                  onChange={(e) => changeSetting("origin", e.target.value)}
+                  onChange={(value) => changeSetting("origin", value)}
                 />
               </div>
               <div className={field}>
                 <label htmlFor="fuel-destination">Destination</label>
-                <input
+                <PlaceField
                   id="fuel-destination"
-                  placeholder="Nashville, TN"
-                  required
-                  maxLength={200}
+                  placeholder="Nashville"
                   value={settings.destination}
-                  onChange={(e) => changeSetting("destination", e.target.value)}
+                  onChange={(value) => changeSetting("destination", value)}
                 />
               </div>
               <div className={field}>

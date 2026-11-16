@@ -113,7 +113,7 @@ All routes answer `401` when logged out.
 | PATCH | `/api/join-requests/:id` | `{ action: "accept" \| "decline" \| "withdraw" }` | `200 { request }` | `400`; `403` only the organizer answers, nobody answers their own request, only the applicant withdraws; `404`; `409` already answered, or the trip is over |
 | GET | `/api/trips/:id/chat` | none | `200 { messages }`, oldest first | `404` not a member |
 | POST | `/api/trips/:id/chat` | `{ body }`, 1 to 2000 characters | `201 { message }` | `400`; `404` |
-| GET | `/api/places?q=` | none | `200 { places }`, up to 8 suggestions | none |
+| GET | `/api/places?q=` | none | `200 { places, name }`: up to 8 suggestions, each with the `label` a form stores ("Chicago, Illinois"), and `name`, the full name of `q` when `q` is itself a place, else `null` | none |
 
 ### Query parameters for `GET /api/lobby`
 

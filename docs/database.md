@@ -106,7 +106,12 @@ so this contract stays the way the frontend was written against it.
 | DELETE | `/api/trips/:id/items/:itemId` | none | `204` | `404` trip or item |
 
 - Emails are trimmed and lowercased before they're stored or compared.
-- `TripInput` is `{ origin, destination, startDate, endDate }`. The end may equal the start but not come before
+- `TripInput` is `{ origin, destination, startDate, endDate }`. Both places have to be ones the gazetteer knows
+  (`lib/places.ts`, cities of 15,000 people and up); anything else is a `400`. They are stored under their full
+  names, "Chicago, Illinois", whatever spelling was sent. The forms use `components/PlaceField.tsx`, which
+  only accepts a place picked from `/api/places`. Trips saved before this keep the names they were typed with
+  until they are edited.
+- The end may equal the start but not come before
   it, and a trip is at most 60 days.
 - An invite code is 6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789`, with no 0/O or 1/I/L so it survives
   being read aloud. If two trips draw the same code, the unique index refuses the second and `createTrip` draws

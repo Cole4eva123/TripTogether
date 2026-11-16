@@ -115,7 +115,7 @@ export function parseTaskInput(body: Record<string, unknown>): TaskInput | strin
   const region = text(body.region);
   const title = text(body.title);
   const description = text(body.description);
-  if (!region) return "Say which city or area this task is in.";
+  if (!region) return "Say which city this task is in.";
   if (region.length > 60) return "Keep the area under 60 characters.";
   if (!title) return "Say what the task is.";
   if (title.length > 120) return "Keep the task under 120 characters. Put the details in the description.";

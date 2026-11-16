@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLayoutEffect, useRef, useState } from "react";
+import PlaceField from "@/components/PlaceField";
 import { errorText } from "@/lib/api";
 import type { TripInput } from "@/lib/types";
 
@@ -17,11 +18,15 @@ export default function TripForm({
   cancelHref: string;
   onSave: (input: TripInput) => Promise<void>;
 }) {
+  const [origin, setOrigin] = useState(initial?.origin ?? "");
+  const [destination, setDestination] = useState(initial?.destination ?? "");
   const [start, setStart] = useState(initial?.startDate ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const initialStart = initial?.startDate ?? "";
+  const initialOrigin = initial?.origin ?? "";
+  const initialDestination = initial?.destination ?? "";
 
   // Next keeps this page's state when you navigate away: a successful save leaves still busy and filled in,
   // a failed one leaves its message. Reset all of it when the page is hidden so it comes back fresh.
@@ -30,10 +35,12 @@ export default function TripForm({
     return () => {
       form?.reset();
       setStart(initialStart);
+      setOrigin(initialOrigin);
+      setDestination(initialDestination);
       setError("");
       setBusy(false);
     };
-  }, [initialStart]);
+  }, [initialStart, initialOrigin, initialDestination]);
 
   async function submit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,17 +59,11 @@ export default function TripForm({
       <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
         <div className="grid content-start gap-1.5">
           <label htmlFor="origin">Starting from</label>
-          <input id="origin" name="origin" defaultValue={initial?.origin} placeholder="Champaign, IL" required />
+          <PlaceField id="origin" name="origin" value={origin} onChange={setOrigin} placeholder="Champaign" />
         </div>
         <div className="grid content-start gap-1.5">
           <label htmlFor="destination">Going to</label>
-          <input
-            id="destination"
-            name="destination"
-            defaultValue={initial?.destination}
-            placeholder="Chicago, IL"
-            required
-          />
+          <PlaceField id="destination" name="destination" value={destination} onChange={setDestination} placeholder="Chicago" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">

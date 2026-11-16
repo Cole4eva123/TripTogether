@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { describePlace } from "./matching.ts";
 import { placeMatchesQuery, qualifiedPlaceName, searchPlaces } from "./place-search.ts";
+import { allPlaces } from "./places.ts";
 
 test("a place is searched for by the names people write for it", () => {
   const results = searchPlaces("北京");
@@ -125,4 +127,15 @@ test("a search doesn't find a place that isn't there", () => {
 test("a place the gazetteer doesn't know is searched as text", () => {
   assert.equal(placeMatchesQuery("Grandma's Cottage", "cottage"), true);
   assert.equal(placeMatchesQuery("Grandma's Cottage", "castle"), false);
+});
+
+test("the full name a form stores always reads back as itself, for every place there is", () => {
+  // Read back as a name and a qualifier, these two land on Braşov and on nothing.
+  assert.equal(qualifiedPlaceName("Kronstadt, St. Petersburg"), "Kronstadt, St. Petersburg");
+  assert.equal(qualifiedPlaceName("Sa'dah, Yemen"), "Sa'dah, Yemen");
+  for (const place of allPlaces()) {
+    const label = describePlace(place);
+    assert.equal(qualifiedPlaceName(label), label);
+  }
+  for (const found of searchPlaces("springfield")) assert.equal(qualifiedPlaceName(found.label), found.label);
 });

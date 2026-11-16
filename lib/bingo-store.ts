@@ -7,6 +7,7 @@ import { canonicalRegion, DEFAULT_SIZE, finishedLines, type ChallengeInput, type
 import type { BingoCard, BingoChallenge, BingoRegion, BingoTask } from "./bingo-types.ts";
 import { db, isUniqueViolation, ready } from "./db/client.ts";
 import { bingoCards, bingoCells, bingoChallenges, bingoChallengeTasks, bingoTasks, users } from "./db/schema.ts";
+import { describePlace, resolvePlace } from "./matching.ts";
 import { isId } from "./store.ts";
 
 /** A rule broken by a request, with the status and message the API answers with. */
@@ -120,10 +121,16 @@ export async function submissionsBy(userId: string): Promise<BingoTask[]> {
   return rows.map(toTask);
 }
 
-/** The region as the library writes it: an existing one written another way joins it ("chicago, il" → "Chicago"). */
+/**
+ * The region as the library writes it. It has to be a place the gazetteer knows. A place the library already
+ * has under another spelling joins it ("Chicago, Illinois" → "Chicago"), so one city doesn't split into two
+ * libraries; a new one is stored under its full name.
+ */
 async function libraryRegion(input: string): Promise<string> {
-  const known = await db.selectDistinct({ region: bingoTasks.region }).from(bingoTasks);
-  return canonicalRegion(input, known.map((r) => r.region));
+  const place = resolvePlace(input);
+  if (!place) throw new BingoError(400, "Pick the city from the list.");
+  const known = (await db.selectDistinct({ region: bingoTasks.region }).from(bingoTasks)).map((r) => r.region);
+  return known.find((region) => resolvePlace(region)?.id === place.id) ?? canonicalRegion(describePlace(place), known);
 }
 
 /** Refuses a task the region already has or is already reviewing (by title, ignoring case), other than `except`. */

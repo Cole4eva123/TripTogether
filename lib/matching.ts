@@ -4,7 +4,7 @@
 // (`lib/places.ts`), so "北京" and "Beijing" are one city and "Kyoto" and "Kyoto, Japan" are one city, and
 // two trips to the same place can be compared by how far apart they really are.
 import { sharedWindow, tripLength } from "./dates.ts";
-import { placesNamed, type Place } from "./places.ts";
+import { allPlaces, placesNamed, type Place } from "./places.ts";
 import type { TripProfile } from "./types.ts";
 
 export type MatchScore = {
@@ -85,6 +85,36 @@ export function parsePlaceName(input: string): ParsedPlace {
 }
 
 /**
+ * A place, written the way a person would write it: the name, then the region under it when the region is
+ * a different name, then the country.
+ *
+ * "Chicago, Illinois"; "New York City, New York"; "Beijing, China"; "Kyoto, Japan".
+ */
+export function describePlace(place: Place): string {
+  const parts = [place.name];
+  if (place.region && place.region !== place.name) {
+    parts.push(place.region);
+    // The region names a state, so the country is only added when the region is the country.
+    if (place.region === place.countryName) parts.push(place.countryName);
+  } else {
+    parts.push(place.countryName);
+  }
+  return parts.join(", ");
+}
+
+let byLabel: Map<string, Place> | null = null;
+/** Every place under its full name. Two places with one full name are one place to the reader: the bigger is kept. */
+function placesByLabel(): Map<string, Place> {
+  if (byLabel) return byLabel;
+  byLabel = new Map();
+  for (const place of allPlaces()) {
+    const label = describePlace(place), known = byLabel.get(label);
+    if (!known || place.weight > known.weight) byLabel.set(label, place);
+  }
+  return byLabel;
+}
+
+/**
  * The place a name refers to.
  *
  * A name can mean several places ("Springfield" is in Illinois, Missouri, Ohio and Pennsylvania), so the
@@ -92,6 +122,10 @@ export function parsePlaceName(input: string): ParsedPlace {
  * place the gazetteer knows: a nickname, a landmark, or somewhere too small to be in it.
  */
 export function resolvePlace(input: string): Place | null {
+  // A full name is the place it was written out from. Reading it back as a name and a qualifier can land on
+  // another place ("Kronstadt, St. Petersburg" is also what Braşov is called) or on none ("Sa'dah, Yemen").
+  const labelled = placesByLabel().get(input.trim());
+  if (labelled) return labelled;
   const { name, qualifier } = parsePlaceName(input);
   if (!name) return null;
   const candidates = placesNamed(name);

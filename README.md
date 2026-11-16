@@ -1,6 +1,6 @@
 # TripTogether
 
-TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团、邀请成员、按天排行程，到路线加油规划、寻找同行小组、盲盒行程和旅途中的任务 Bingo，帮助一群人把旅行从计划到完成都一起搞定。
+TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团、邀请成员、按天排行程，到路线规划（全程加油花费最低）、寻找同行小组、抽奖盒行程和旅途中的任务 Bingo，帮助一群人把旅行从计划到完成都一起搞定。
 
 ## 技术栈
 
@@ -18,7 +18,17 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 | 包管理 | npm | 在用 |
 
 - 部署暂不考虑，先在本地跑通。
-- 加油规划统一使用 Google Routes、Places API (New) 单站油价与 Google 地图；DeepSeek 仅识别车型。实时聊天、图片存储等其他功能的服务待定。
+- 路线规划使用 Google Routes、Places API (New) 的单站油价和 Google 地图，按调用次数计费；DeepSeek 只用来识别车型。图片存储等其他服务待定。
+- 地名来自仓库自带的 GeoNames 地名库（1.5 万人口以上的城市），不依赖外部服务。
+
+## 本地运行
+
+1. `npm ci`
+2. 把 `.env.example` 复制为 `.env.local` 并填写。数据库和登录的配置见 [`docs/database.md`](docs/database.md)；路线规划需要的三个 key 和 `FUEL_*` 设置见 [`docs/route-planner.md`](docs/route-planner.md)，申请步骤见 [`docs/google-maps-setup.md`](docs/google-maps-setup.md)。不填 Google key 时其余功能照常可用。
+3. `npm run dev`，打开 http://localhost:3000
+4. `sh scripts/seed.sh http://localhost:3000` 可写入演示用户和旅行
+
+检查：`npm test`、`npm run lint`、`npm run typecheck`。
 
 ## 基础模块
 
@@ -27,7 +37,7 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 
 ### 旅行管理
 - 创建、查看、修改、删除旅行
-- 填写出发地、目的地和日期
+- 填写出发地、目的地和日期；出发地和目的地从候选列表里选，不能自由填写，统一保存为完整名称（如 "Chicago, Illinois"）
 
 ### 成员邀请
 - 通过邀请码加入旅行
@@ -42,23 +52,24 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 
 ## 创新功能
 
-加油规划模块统一命名为 **Route planner**。
-登录后点击同名导航或旅行详情入口，进入 `/trips/route-planner`。
-车型识别、最低花费规划和地图的设计、配置及接口见 [加油规划说明](docs/route-planner.md)，key 配置见 [Google Maps 步骤](docs/google-maps-setup.md)，实际车型提示词及调用流程见 [DeepSeek 提示词](docs/deepseek-prompts.md)，对应源码在 `lib/route-planner/prompts.ts`。
+### 1. 路线规划（Route planner）
+- **入口**：页头的 **Route planner**，或旅行详情页的 **Plan fuel stops**（会带上该旅行的出发地、目的地和日期），地址 `/trips/route-planner`
+- **输入**：出发地和目的地（从列表里选）、车辆油耗、油箱容量、油品、当前油量和保留油量
+- **数据**：以最快路线为中心线，查询两侧走廊内的加油站和它们的实时油价；按州汇总沿途的油价样本
+- **规划**：在这些加油站里精确求出全程加油花费最少的方案，也就是在哪几站加、每站加多少。绕路多烧的油计入花费；停靠只为加油，某一段驾驶过长时只给提醒
+- **展示**：路线、候选站和选中的站显示在地图上，并列出每站的加油量和费用
+- **AI**：DeepSeek 根据一句描述识别车型的油耗和油箱容量；路线和选站由服务端规划器计算，不经过 AI
 
-### 1. 查油价与加油规划
-- **输入**：出发地、目的地、车辆油耗、油箱容量、当前油量、加油会员身份、停靠偏好
-- **数据**：查询沿途加油站与各地区油价，识别均价最低的区域，以及油价突然升高或降低的路段
-- **推荐**：在路线两侧走廊内的加油站里，精确求出全程加油花费最少的停靠站和每站加油量；绕路多烧的油计入花费，停靠只为加油，不为休息间隔
-- **展示**：结果在地图上呈现
-- **AI**：DeepSeek 识别车型参数；路线及单站油价使用 Google API，推荐与加油量由服务端规划器计算
+设计、配置和接口见 [`docs/route-planner.md`](docs/route-planner.md)，车型识别的提示词见 [`docs/deepseek-prompts.md`](docs/deepseek-prompts.md)。
 
 ### 2. 旅行小组匹配
 - 小组定好大致旅行计划后，可发布到「共享大厅」
 - 其他小组发现行程相近（目的地、日期等相似）时可发起匹配
 - 对方同意后双方开启聊天，商量是否结伴
 
-### 3. 旅行盲盒
+设计和接口见 [`docs/lobby.md`](docs/lobby.md)。
+
+### 3. 旅行抽奖盒（Lottery box）
 - 用户设置目的地、预算、可用时间和活动偏好
 - 系统从符合条件的候选景点、餐厅或活动中随机抽取，生成「神秘行程」
 - 团队成员可各自提交隐藏选项，抽取后统一揭晓，给选择困难的小组增加惊喜和趣味
@@ -69,6 +80,8 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 设计、接口和验证步骤见 [`docs/lottery-box.md`](docs/lottery-box.md)。
 
 ### 4. 旅行任务 Bingo
-- 每个地区维护一个任务库，存放当地可以做的事（例如芝加哥：去海军码头看日出、晚上去某栋楼的楼顶看夜景、拍一张全组合照）
+- 每个城市维护一个任务库（城市从列表里选），存放当地可以做的事（例如芝加哥：去海军码头看日出、晚上去某栋楼的楼顶看夜景、拍一张全组合照）
 - 小组出发前生成一张 Bingo 卡，旅行中完成任务即打卡，连成一线即完成 Bingo
 - 任务由用户上传，经 app 审核后加入任务库
+
+设计和接口见 [`docs/bingo.md`](docs/bingo.md)，角色和权限见 [`docs/roles.md`](docs/roles.md)。

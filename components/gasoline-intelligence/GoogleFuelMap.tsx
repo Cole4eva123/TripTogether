@@ -77,6 +77,7 @@ function loadGoogleMaps(key: string): Promise<GoogleMapsApi> {
     };
     const params = new URLSearchParams({
       key, loading: "async", callback: "__tripTogetherGoogleMapsReady", libraries: "maps,marker", v: "weekly",
+      language: "en", region: "US",
     });
     script.src = `https://maps.googleapis.com/maps/api/js?${params}`;
     script.async = true;

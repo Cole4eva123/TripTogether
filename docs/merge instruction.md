@@ -76,7 +76,9 @@ Google 使用两个不同的 key：服务端为 `GOOGLE_MAPS_API_KEY`，浏览�
 候选站汇总行右侧的 mi/km 开关同步调整地图、规划和列表的距离；油品后面显示搜索剩余有效时间。
 页面底部保留灰色的数据来源及服务说明。车型资料和来源放在默认折叠的浅绿色信息块里，地区油价卡片保持等宽等高。
 金额只返回实际加油支出 `purchaseCost` 和单站 `cost`，删除已有燃油估值、总行程及其他费用。
-Distance 与 Duration with breaks 单独一行，Fuel cost、已用、购买、到达剩余油量四项单独一行。
+Distance 与 Estimated Duration with Breaks 单独一行，Fuel cost、已用、购买、到达剩余油量四项单独一行。
+总用时为 Google 最终途经站点路线的各段驾驶时间之和，加上每站的 `stopMinutes`；绕路驾驶时间已包含，
+不重复加算。当前使用 `TRAFFIC_UNAWARE`，不包含实时交通。地图 SDK 固定 `language=en&region=US`，不随浏览器语言变化。
 无需购买燃油时隐藏零费用和零购买量，显示英文续航提示及实际油量；零绕路信息不显示。
 Distance Details 默认收起，车辆详情及地图/卡片的距离折叠统一带动画。
 推荐站点使用重新计算的实际道路距离，未规划或待重新计算的站点用 `~` 标记近似距离。

@@ -32,6 +32,8 @@ Requests use explicit field masks for route geometry, road distances/times, stat
 coordinates, fuel quotes, map links and required attribution. No restaurant, restroom, opening-hours,
 review or photo fields are requested. Disabled stop preferences do not create additional API calls.
 Google branding and returned third-party attributions stay visible on the Google map.
+The browser SDK explicitly loads with `language=en&region=US`, independent of browser language;
+Routes and Places requests use `languageCode:"en-US"` and `regionCode:"US"`.
 See [Places policies](https://developers.google.com/maps/documentation/places/web-service/policies).
 
 ## Vehicle and prices
@@ -64,11 +66,15 @@ Candidate detours are geometric screening estimates; selected stops use the reca
 Quantities buy enough to reach a cheaper selected station or the destination with reserve, up to tank
 capacity. A rest stop can purchase zero gallons. This is a bounded heuristic, not a complete station census.
 
-**Your Plan** shows Distance and **Duration with breaks** together, followed by one row of Fuel cost,
+**Your Plan** shows Distance and **Estimated Duration with Breaks** together, followed by one row of Fuel cost,
 Fuel used, Fuel purchased and Fuel on arrival. Phones use two columns. A no-purchase plan hides the
 zero cost/purchase cards and shows an English message that the existing fuel reaches the destination
 while remaining above the selected reserve. Zero detours are hidden. Only purchased fuel is charged;
 starting fuel, driving time, meals, tolls and other travel expenses are not valued.
+
+The displayed duration is the sum of Google's final route-leg driving durations through the selected
+stops, plus `stopMinutes` for each stop. Detour driving is already included in that Google route and is
+not added twice. Requests use `TRAFFIC_UNAWARE`, so estimates exclude current traffic conditions.
 
 Recommended stops are compact cards connected by arrows. Distance Details is folded by default and
 shows distance from start, from the previous stop and to the destination. The map supports wheel zoom,

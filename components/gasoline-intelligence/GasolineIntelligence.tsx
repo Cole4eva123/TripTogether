@@ -81,7 +81,7 @@ export default function GasolineIntelligence() {
     const automatic =
       (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "auto";
     const input = buildFuelPreferences(settings, vehicle, automatic);
-    setBusy("Finding your route, stations and sourced fuel prices. This may take 1–3 minutes…");
+    setBusy("Finding your route, stations and sourced fuel prices. This may take 5–20 seconds…");
     setPlan(null);
     setSearch(null);
     setActiveId(null);

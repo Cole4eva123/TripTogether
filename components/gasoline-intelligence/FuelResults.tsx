@@ -44,7 +44,7 @@ export function PlanSummary({plan,input,distanceUnit}:{plan:FuelPlan;input:FuelP
   return <section className="grid gap-5" aria-labelledby="plan-heading">
     <div><h2 id="plan-heading">Your Plan</h2><p className="text-[14px] text-muted">{dateOnly?`Departure ${departureDay}`:`ETA ${arrival(plan.arrival)}`}</p></div>
     <div className="grid grid-cols-2 gap-3">
-      {[["Distance",formatDistance(plan.route.miles,distanceUnit,0)],["Duration with breaks",duration(plan.totalMinutes)]].map(([label,value]) => <div key={label} className="min-w-0 rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
+      {[["Distance",formatDistance(plan.route.miles,distanceUnit,0)],["Estimated Duration with Breaks",duration(plan.totalMinutes)]].map(([label,value]) => <div key={label} className="min-w-0 rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
     </div>
     {(plan.detourMiles>=0.05 || plan.detourMinutes>=0.5) && <p className="text-[13px] text-muted">Detour: {formatDistance(plan.detourMiles,distanceUnit)} · {duration(plan.detourMinutes)}</p>}
     {!needsFuel && <p className="rounded-lg border border-green/20 bg-green/5 p-4 text-[14px] leading-relaxed text-green">Your current fuel is enough to reach your destination without dropping below your selected {input.reservePercent}% reserve.</p>}

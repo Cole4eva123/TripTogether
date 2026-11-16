@@ -28,8 +28,7 @@ export type FuelPreferences = {
   amenities: string[];
   memberships: { brand: string; discountCents: number }[];
   estimatedPrice: number | null;
-  timeValue: number;
-  otherCosts: number;
+  requireStationPrices?: boolean; // Defaults to true; regional/default estimates cannot price a recommended stop.
 };
 export type Price = {
   perGallon: number;
@@ -109,7 +108,5 @@ export type FuelPlan = {
   gallonsPurchased: number;
   fuelOnArrival: number;
   purchaseCost: number;
-  fuelConsumedCost: number;
-  totalCost: number;
   warnings: string[];
 };

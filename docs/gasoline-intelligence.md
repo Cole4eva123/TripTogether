@@ -1,6 +1,6 @@
 # Gasoline Intelligence
 
-中文合并说明见 [merge instruction.md](<merge instruction.md>)。
+中文合并说明见 [merge instruction.md](<merge instruction.md>)；完整提示词见 [deepseek-prompts.md](deepseek-prompts.md)。
 
 This module lives at `/trips/gasoline-intelligence`, behind the existing sign-in. The trip detail page passes its starting
 point, destination and `startDate` to the planner. It does not change shared itineraries, authentication or storage.
@@ -42,16 +42,24 @@ are ignored by Git. Existing local keys are not overwritten.
 - **Leaflet + OpenStreetMap tiles:** interactive map, route, numbered stops and alternative stations.
   Attribution stays visible. See the [tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
   before deploying; no bulk downloading, offline prefetch or tile proxy is used.
-- **AAA state price table:** retrieves the public [state fuel price averages](https://gasprices.aaa.com/state-gas-price-averages/)
+- **EIA JSON API (optional):** `EIA_API_KEY` enables official weekly, grade-specific state retail averages
+  for supported states. Only actual state facets and USD/US-gallon observations within seven days are
+  accepted; national, PADD and city averages are never relabeled as state data. If every route state is
+  covered, no AAA HTML is requested. See [EIA API documentation](https://www.eia.gov/opendata/documentation.php).
+- **AAA state price table (fallback):** when no configured API covers a requested state, retrieves the public [state fuel price averages](https://gasprices.aaa.com/state-gas-price-averages/)
   once per 15 minutes across users, parses the selected grade and publication date, and rejects missing,
   invalid or older-than-seven-day data. These reports take precedence over smaller station samples.
   A state average is always an estimate for a particular station, never a station-specific pump quote.
-- **DeepSeek:** web research of the vehicle and at most 16 evenly distributed candidate stations per
-  search. A second JSON-mode call extracts the research because web tools do not accept JSON response
+- **DeepSeek:** web research of the vehicle and an initial sample of at most 16 evenly distributed candidate stations,
+  in batches of four with at most four batches in flight. If a safe quoted path is still unavailable and
+  at least 18 seconds remain, research at most eight unqueried existing candidates near gaps. No late
+  paid station-discovery chain is started: at most 24 station IDs are researched. A second JSON-mode
+  call per batch extracts the research because web tools do not accept JSON response
   mode. Vehicle and price sources must match actual citation annotations; station-directory sources
   must match URLs from the Search API results. A station price must have an observation
   date within 72 hours; a regional report within seven days. Unknown, uncited and stale prices are
-  discarded. Research failure leaves stations usable with the user's explicit estimate.
+  discarded. The page requires station-specific quotes; missing quotes remain unknown and are excluded
+  from recommendations, even when a regional average is available.
 
 References: [OSRM route API](https://project-osrm.org/docs/v5.5.2/api/),
 [Overpass QL](https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL),
@@ -66,25 +74,27 @@ notes and their linked sources share a pale green panel inside the folded vehicl
 step. Missing specifications remain blank and must be filled in before planning. Pure EVs
 need a separate charging planner. Full-tank range is MPG × US gallons; the default reserve is 15%.
 
-Web-reported station prices, AAA/other regional estimates and the user's fallback estimate have separate labels.
-The initial $3.50/gal fallback is an editable assumption, **not a current market quote**. Clear it to
-exclude stations lacking either a price report or a regional estimate. Regional station-sample means
+The page sets `requireStationPrices:true`: only source-backed, grade/address-matched station prices
+observed within 72 hours can price a recommended stop. State averages are comparison data and never
+replace a missing station quote. The historical $3.50 fallback remains in the optional controls/API,
+but only explicit `requireStationPrices:false` enables estimate-based plans. Regional station-sample means
 show sample sizes and must not be described as statewide averages. Price changes compare the available
 regional evidence in route order, not a guarantee about an exact state border or individual exit.
 
-## Planning and manual edits
+## Planning and optional controls
 
-The forward path search scores candidate sequences using fuel cost, geometric detours, the driver's
-time value, desired interval and nearby facilities. It excludes inaccessible membership-only stations
+The forward path search scores candidate sequences using fuel prices, desired intervals and nearby
+facilities, with geometric detours in reachability checks. It excludes inaccessible membership-only stations
 and estimated detours above the configured limit. Membership discounts are additional user-entered
 cents per gallon; zero means membership access only. There is no assumed universal brand discount.
 
-Hourly mode targets 60 minutes; one-click mode accepts a 60–180 minute preference. Actual road legs
+Hourly mode targets 60 minutes; one-click mode defaults to 120 minutes. The optional settings/API
+accept a 60–180 minute preference. Actual road legs
 must stay at or below three hours and retain the fuel reserve. Sparse coverage may prevent a plan;
 the app returns a clear error rather than an unsafe sequence. Fuel needs can require an earlier stop.
-Before price enrichment, the search checks whether eligible candidates cover the whole route. If they
-leave an unreachable section, it performs up to two focused station-search rounds, at most six route
-anchors per round, and deduplicates the additional candidates. It preserves the requested reserve,
+Before price enrichment, the search checks geometric coverage without requiring prices. If candidates
+leave an unreachable section and at least 45 seconds remain, it performs at most one focused station-search
+round with at most six anchors, and deduplicates the additional candidates. It preserves the requested reserve,
 detour limit and three-hour driving cap. An unresolved gap is reported with its mile range rather than
 being described as a problem with the starting fuel level.
 The recommendation is a cost-based heuristic, not proof of a global optimum or a complete station census.
@@ -94,16 +104,26 @@ the entire route through the stops. Quantities, arrival times, distance since th
 feasibility use these actual road legs. At each stop buy enough to reach the next cheaper selected
 station with reserve, or cover the remaining trip up to tank capacity. Rest stops can buy zero gallons.
 
-Manual station selection is ordered along the original route. **Recalculate selected stops** applies
-the edits; the old totals are hidden while edits are pending. The same reserve and driving-time checks
-apply to manual edits. A maximum of 23 stops is allowed per travel day.
+**Stop preferences** and **Choose your stops** are currently disabled in the shipped page. Their full
+source, isolated components and restoration instructions are retained only in the Git-ignored
+`.local-features/gasoline-intelligence/` directory with `.disabled` extensions. No tracked module imports
+that directory, so a clean checkout builds without it. Defaults and API support remain intact: 120-minute
+interval, 15-minute breaks/detours, no memberships and Restroom preference.
+The retained $3.50 estimate field is ignored for recommended station prices in the default strict mode.
+The API still supports ordered manual stop IDs and the same reserve/driving checks, up to 23 stops.
 
 The mi/km pill switch beside the candidate count switches displayed distances throughout
 the planner; calculations and API fields remain in miles. Station popups and cards separate the address,
 distance from start, distance from the previous selected stop, and distance to the destination. Verified
 stops use the recomputed road legs; candidates and pending edits show approximate distances with `~`.
-Regional price cards share equal widths and heights. Cost and fuel details stay expanded, followed by
-**Your Recommended Stops** in the same heading style as **Your Plan**. **Choose your stops** follows the recommended itinerary.
+Regional price cards share equal widths and heights. **Fuel cost** is only the sum of purchased gallons
+times each station's price. Three separate cards show fuel used, purchased and on arrival. The former
+**Cost & fuel details** block is removed, followed by
+**Your Recommended Stops** in the same heading style as **Your Plan**. Stops appear as compact cards linked
+by arrows: a horizontally scrolling row on desktop, a downward sequence on phones. Recommended cards
+do not show the former **Details & sources** disclosure; quote citations and dates remain in API data.
+The three distance lines are folded under **Distance Details** in cards and map popups. Active disclosures
+share 200 ms height, opacity and chevron transitions, with reduced-motion support.
 Hovering over **One-click plan** for one second shows its explanation in a rounded theme-colored
 tooltip; keyboard focus also reveals it, and Escape dismisses it. The map's lower-left summary keeps
 the displayed route's distance and driving time alongside the zoom and preview instructions.
@@ -111,9 +131,9 @@ The live countdown to the search's `expiresAt` follows the fuel grade in the can
 An expired result prompts a new search; the countdown does not renew it. The muted page footer
 credits OpenStreetMap, OSRM and DeepSeek and notes public-service availability and local rate limits.
 
-The trip budget estimates the value of **all fuel consumed**, including starting fuel, plus other costs
-entered by the user. Cash spent buying fuel on the road is shown separately and is not added twice.
-Tolls, meals and accommodation are not automatically priced. Departure is a calendar date (`YYYY-MM-DD`)
+Only road fuel purchases are charged. There is no starting-fuel valuation, total-trip cost, driving-time
+charge, toll, meal or accommodation calculation; a zero-purchase plan has fuel cost zero.
+Departure is a calendar date (`YYYY-MM-DD`)
 prefilled from the trip's `startDate`; standalone use defaults to today. Stops display elapsed time since
 departure, including previous breaks, without assuming a clock time. Calendar dates are shown without
 time-zone conversion. Older API clients can still send an ISO timestamp and receive clock-based arrivals.
@@ -125,10 +145,28 @@ All endpoints require the existing session cookie. Keys never reach the browser.
 signed-in user; selections and costs cannot be supplied by an untrusted client as authoritative data.
 Nothing in this module is persisted across server restarts.
 
+## Performance and module boundaries
+
+All module code and tests live in `lib/gasoline-intelligence/`. `form.ts` owns defaults and request conversion; `prompts.ts` owns prompt templates;
+`stations.ts` owns web-directory fallback; `eia.ts` validates official price JSON;
+`service.ts` coordinates the providers and the existing session-bound search lifecycle.
+Complete cited vehicle research is cached for 24 hours, station directories for six hours, road routes
+for five minutes, and successful price batches for five minutes. Cached quotes retain their actual
+observation timestamps and are checked for freshness again. Identical in-flight requests are shared;
+the public geocoder's single-request queue remains in place. State price lookups overlap routing and
+station discovery, and DeepSeek skips regional averages already returned by a price provider.
+These changes reduce repeated work; first-time online lookup time still depends on upstream services.
+Actual fetch and queue cancellation use the request-local budget in `budget.ts`: route search 90 seconds,
+vehicle identification 45 seconds and road planning 30 seconds. DeepSeek thinking stays disabled;
+web research times out at 30 seconds and JSON extraction at 10 seconds. Search API, routing and Overpass
+time out at 12 seconds, geocoding at eight seconds, and regional providers at five seconds. Regional
+comparison data does not block recommendations; DeepSeek no longer does extra regional-average research.
+Valid partial quotes survive failed batches, and timeouts never relax fuel or driving constraints.
+
 - `POST /api/gasoline-intelligence/vehicle`: `{description}` → `VehicleSuggestion`.
 - `POST /api/gasoline-intelligence/search`: `FuelPreferences` → `FuelSearch`.
 - `POST /api/gasoline-intelligence/plan`: `{searchId, stationIds?:string[]}` → `FuelPlan`. Omit IDs for recommendations;
   an empty array deliberately requests no stops, subject to range and driving-time checks.
 
-See `lib/fuel-types.ts` for response shapes and `docs/api.md` for status codes.
+See `lib/gasoline-intelligence/types.ts` for response shapes and `docs/api.md` for status codes.
 Run `npm run lint`, `npm run typecheck`, and `npm test` for local checks.

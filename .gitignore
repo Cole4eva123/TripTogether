@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 env_info.md
 basic_info.md
+
+# Locally retained optional UI; not part of the shipped module.
+/.local-features/gasoline-intelligence/
+docs/deepseek-prompts.md

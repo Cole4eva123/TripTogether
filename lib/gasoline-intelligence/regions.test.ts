@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {normalizeState,parseStatePriceTable} from "./fuel-regions.ts";
+import {normalizeState,parseStatePriceTable} from "./regions.ts";
 const table='<p>Price as of <span>11/14/26</span></p><table><tr><td><a>Illinois</a></td><td>$4.20</td><td>$4.50</td><td>$4.90</td><td>$5.10</td></tr><tr><td>Kentucky</td><td>$3.50</td><td>$3.80</td><td>$4.10</td><td>$4.90</td></tr></table>';
 const now=Date.parse("2026-11-14T18:00:00Z");
 test("state averages retain their publication date, source and selected fuel grade",()=>{

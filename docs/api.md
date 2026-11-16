@@ -76,20 +76,30 @@ order; the frontend groups and sorts them (`lib/itinerary.ts`).
 ## Gasoline Intelligence
 
 The fuel planner uses the existing session cookie. All three endpoints return `401` when signed out.
-Bodies and response shapes are defined in `lib/fuel-types.ts`; provider configuration, estimates and
+Bodies and response shapes are defined in `lib/gasoline-intelligence/types.ts`; provider configuration, estimates and
 planning behavior are documented in `docs/gasoline-intelligence.md`.
 
 `FuelPreferences.departure` is a calendar date (`YYYY-MM-DD`), passed through from the trip's `startDate`.
 Legacy ISO timestamp values remain accepted. With a date-only departure, the UI displays elapsed travel
 time at each stop rather than an assumed departure/arrival clock time.
 
+`FuelPlan.purchaseCost` and each `FuelStop.cost` are fuel-purchase cash only (gallons bought × station price).
+`totalCost`, `fuelConsumedCost`, `FuelPreferences.timeValue` and `FuelPreferences.otherCosts` have been
+removed. Gallons used, purchased and remaining are still returned separately; old nonfuel cost inputs
+are ignored. No-purchase plans cost zero without assigning a dollar value to starting fuel.
+Provider timeouts return `504`: vehicle identification has a 45-second budget, route search 90 seconds,
+and final road planning 30 seconds. Optional regional comparison work is cancelled when the search completes.
+
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/gasoline-intelligence/vehicle` | `{ description: string }` (up to 500 characters) | `200 VehicleSuggestion` with cited research and editable partial vehicle specs | `400` invalid input; `429` rate limit; `502` upstream failure; `503` missing DeepSeek key |
 | POST | `/api/gasoline-intelligence/search` | `FuelPreferences` | `200 FuelSearch`, including an opaque user-bound search ID, route, stations, regions and warnings | `400` invalid settings; `404` location/stations not found; `429`; `502` map failure |
-| POST | `/api/gasoline-intelligence/plan` | `{ searchId, stationIds?: string[] }` | `200 FuelPlan` with road-verified stops, quantities, costs and arrival times | `400` invalid selection; `410` expired/unavailable search; `422` insufficient range or over three hours between stops; `429`; `502` upstream failure |
+| POST | `/api/gasoline-intelligence/plan` | `{ searchId, stationIds?: string[] }` | `200 FuelPlan` with road-verified stops, quantities, costs and arrival times | `400` invalid selection; `410` expired/unavailable search; `422` insufficient verified station prices, insufficient range or over three hours between stops; `429`; `502` upstream failure |
 
 Searches last 30 minutes and are not persisted. Search/vehicle/plan rate limits are respectively
-4/6/20 requests per five minutes per user. Failed price research does not fabricate prices: it returns a
-warning and permits a regional or user-entered estimate. Membership eligibility, prices and route
+4/6/20 requests per five minutes per user. `FuelPreferences.requireStationPrices` defaults to `true`;
+the page always enables it. Recommended stops require a recent, cited quote for that exact station and
+fuel grade. Regional averages remain comparison data. If verified quotes cannot support a safe route,
+planning returns `422` explaining the missing station prices. Explicit `false` is retained only for
+legacy estimate-enabled API clients/local optional controls. Membership eligibility, prices and route
 coordinates are resolved on the server, not trusted from a planning request.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatDistance, getStationDistances, resultValidity } from "./fuel-display.ts";
+import { formatDistance, getStationDistances, resultValidity } from "./display.ts";
 
 const first = { id: "first", routeMiles: 60, detourMiles: 4 };
 const second = { id: "second", routeMiles: 150, detourMiles: 6 };

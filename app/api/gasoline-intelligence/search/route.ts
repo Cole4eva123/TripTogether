@@ -1,5 +1,5 @@
-import { fuelFailure, fuelUser, searchFuel } from "@/lib/fuel-service";
-import { parseFuelPreferences } from "@/lib/fuel-validation";
+import { fuelFailure, fuelUser, searchFuel } from "@/lib/gasoline-intelligence/service";
+import { parseFuelPreferences } from "@/lib/gasoline-intelligence/validation";
 import { readJson } from "@/lib/server";
 
 export const maxDuration=300;

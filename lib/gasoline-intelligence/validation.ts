@@ -1,4 +1,4 @@
-import type { FuelGrade, FuelPreferences, Vehicle } from "./fuel-types.ts";
+import type { FuelGrade, FuelPreferences, Vehicle } from "./types.ts";
 
 export class FuelError extends Error {
   status: number;
@@ -45,6 +45,7 @@ export function parseFuelPreferences(value: unknown): FuelPreferences {
     throw new FuelError("Choose up to six stop preferences (60 characters each).");
   }
   const memberships = Array.isArray(v.memberships) ? v.memberships : [];
+  if(v.requireStationPrices !== undefined && typeof v.requireStationPrices !== "boolean") throw new FuelError("Station-price requirement must be true or false.");
   if (memberships.length > 8) throw new FuelError("Choose up to eight memberships.");
   return {
     origin: text(v.origin, "Starting location"), destination: text(v.destination, "Destination"), departure,
@@ -61,7 +62,6 @@ export function parseFuelPreferences(value: unknown): FuelPreferences {
       return { brand, discountCents: number(entry.discountCents, "Discount (cents/gal)", 0, 100) };
     }),
     estimatedPrice: v.estimatedPrice == null ? null : number(v.estimatedPrice, "Estimated price ($/gal)", 0.5, 15),
-    timeValue: number(v.timeValue, "Value of driving time ($/hour)", 0, 100),
-    otherCosts: number(v.otherCosts, "Other trip costs ($)", 0, 100000),
+    requireStationPrices: v.requireStationPrices !== false,
   };
 }

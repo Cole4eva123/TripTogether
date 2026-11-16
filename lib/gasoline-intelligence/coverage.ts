@@ -1,7 +1,7 @@
-import type { FuelPreferences, RoadRoute, RoutePoint, Station } from "./fuel-types.ts";
-import { distanceMiles, findCoverageGaps, selectStops } from "./gasoline-intelligence.ts";
-import type { PlanningSearch } from "./gasoline-intelligence.ts";
-import { FuelError } from "./fuel-validation.ts";
+import type { FuelPreferences, RoadRoute, RoutePoint, Station } from "./types.ts";
+import { distanceMiles, eligibleStations, findCoverageGaps, hasVerifiedStationPrice, selectStops } from "./planner.ts";
+import type { PlanningSearch } from "./planner.ts";
+import { FuelError } from "./validation.ts";
 
 export function pointAlongRoute(route:RoadRoute,value:number,axis:"minutes"|"miles"="minutes"):RoutePoint {
   const points=route.points;
@@ -14,11 +14,11 @@ export function pointAlongRoute(route:RoadRoute,value:number,axis:"minutes"|"mil
     miles:a.miles+fraction*(b.miles-a.miles),minutes:a.minutes+fraction*(b.minutes-a.minutes)};
 }
 
-export function coverageSearchPoints(search:PlanningSearch,input:FuelPreferences,limit=6):RoutePoint[] {
+export function coverageSearchPoints(search:PlanningSearch,input:FuelPreferences,limit=6,geometryOnly=false):RoutePoint[] {
   const targetMinutes=Math.min(input.intervalMinutes,150);
   const usableRange=input.vehicle.tankGallons*(1-input.reservePercent/100)*input.vehicle.mpg;
   const startingRange=input.vehicle.tankGallons*(input.initialFuelPercent-input.reservePercent)/100*input.vehicle.mpg;
-  const sections=findCoverageGaps(search,input).map(gap=>{
+  const sections=findCoverageGaps(search,input,geometryOnly).map(gap=>{
     const targets:RoutePoint[]=[];
     let fromMiles=gap.fromMiles,fromMinutes=gap.fromMinutes;
     for(let i=0;i<12;i++) {
@@ -43,13 +43,13 @@ export function coverageSearchPoints(search:PlanningSearch,input:FuelPreferences
 }
 
 export async function fillStationCoverage(search:PlanningSearch,input:FuelPreferences,
-  findMore:(points:RoutePoint[])=>Promise<Station[]>,maxRounds=2) {
+  findMore:(points:RoutePoint[])=>Promise<Station[]>,maxRounds=2,geometryOnly=true) {
   const current:PlanningSearch={...search,stations:[...search.stations]};
   const warnings:string[]=[];
   for(let round=0;round<maxRounds;round++) {
-    try {selectStops(current,input);break;}
+    try {selectStops(current,input,geometryOnly);break;}
     catch(error) {if(!(error instanceof FuelError) || error.status!==422)throw error;}
-    const points=coverageSearchPoints(current,input);
+    const points=coverageSearchPoints(current,input,6,geometryOnly);
     if(!points.length)break;
     let additional:Station[];
     try {additional=await findMore(points);}
@@ -65,4 +65,18 @@ export async function fillStationCoverage(search:PlanningSearch,input:FuelPrefer
   }
   current.stations.sort((a,b)=>a.routeMiles-b.routeMiles);
   return {stations:current.stations,warnings};
+}
+
+/** Quote existing nearby candidates before paying to discover another set of addresses. */
+export function unpricedCandidatesForGaps(search:PlanningSearch,input:FuelPreferences,researchedIds:ReadonlySet<string>,limit=16):Station[] {
+  const available=eligibleStations(search,input,false).filter(station=>!researchedIds.has(station.id) && !hasVerifiedStationPrice(station));
+  const points=coverageSearchPoints(search,input);
+  const targets=points.length?points.map(point=>point.minutes):[search.route.minutes/2];
+  const selected:Station[]=[];
+  for(let index=0;available.length && selected.length<limit;index++) {
+    const target=targets[index%targets.length];
+    available.sort((a,b)=>Math.abs(a.routeMinutes-target)-Math.abs(b.routeMinutes-target));
+    selected.push(available.shift()!);
+  }
+  return selected.sort((a,b)=>a.routeMinutes-b.routeMinutes);
 }

@@ -1,17 +1,19 @@
-import { createHash, randomUUID } from "node:crypto";
-import type { FuelPlan, FuelPreferences, FuelSearch, RoadRoute, RoutePoint, Station } from "./fuel-types";
-import { addressFor, findStations, geocode, geocodedState, nearbyTown, normalizeState, roadRoute } from "./fuel-maps";
-import { researchPrices, researchStationAddresses } from "./fuel-ai";
-import { buildFuelPlan, eligibleStations, projectOnRoute, regionalPrices, selectStops } from "./gasoline-intelligence";
-import { FuelError, object, text } from "./fuel-validation";
-import { currentUser, needLogin } from "./server";
-import { statePriceReports } from "./fuel-region-provider";
-import { fillStationCoverage, pointAlongRoute } from "./fuel-coverage";
+import { randomUUID } from "node:crypto";
+import type { FuelPlan, FuelPreferences, FuelSearch, RegionPrice, Station } from "./types";
+import { addressFor, findStations, geocode, geocodedState, roadRoute } from "./maps";
+import { researchPrices } from "./ai";
+import { buildFuelPlan, eligibleStations, hasVerifiedStationPrice, regionalPrices, selectStops } from "./planner";
+import { FuelError, object, text } from "./validation";
+import { currentUser, needLogin } from "../server";
+import { statePriceReports } from "./region-provider";
+import { fillStationCoverage, pointAlongRoute, unpricedCandidatesForGaps } from "./coverage";
+import { webStations } from "./stations";
+import { PLAN_BUDGET_MS, SEARCH_BUDGET_MS, remainingFuelMs, withFuelBudget } from "./budget";
 
 type StoredSearch = { ownerId:string;input:FuelPreferences;search:FuelSearch;expires:number;plans:Map<string,FuelPlan> };
 type ServiceState = { searches:Map<string,StoredSearch>;limits:Map<string,{start:number;count:number}> };
 const g=globalThis as typeof globalThis & { fuelServiceState?:ServiceState };
-const service=g.fuelServiceState ??= {searches:new Map(),limits:new Map()};
+const service:ServiceState=g.fuelServiceState ??= {searches:new Map(),limits:new Map()};
 export async function fuelUser(action: string, limit = 6) {
   const user=await currentUser();
   if (!user) return needLogin();
@@ -25,30 +27,17 @@ export async function fuelUser(action: string, limit = 6) {
 export function fuelFailure(error: unknown) {
   return Response.json({error:error instanceof FuelError ? error.message : "The fuel planner could not complete the request. Try again."},{status:error instanceof FuelError ? error.status : 500});
 }
-async function webStations(route:RoadRoute,points:RoutePoint[],focused=false) {
-  const towns:string[]=[];
-  for(const point of points)towns.push(await nearbyTown(point));
-  const stations:Station[]=[];
-  let unmatchedAddresses=0;
-  for(const draft of await researchStationAddresses(route,towns,focused)) {
-    try {
-      const location=await geocode(draft.address),projection=projectOnRoute(location,route);
-      if(projection.offRoute>3 || projection.miles>=route.miles-0.2)continue;
-      const detourMiles=projection.offRoute*2.6;
-      // Stable IDs let repeated searches add candidates without overwriting an unrelated web:0 stop.
-      const id=createHash("sha256").update(draft.address.toLowerCase().replace(/[^a-z0-9]/g,"")).digest("hex").slice(0,20);
-      stations.push({id:`web:${id}`,name:draft.name,brand:draft.brand,address:draft.address,state:normalizeState(draft.state),
-        location,routeMiles:projection.miles,routeMinutes:projection.minutes,detourMiles,detourMinutes:detourMiles/25*60+2,
-        amenities:draft.amenities,membersOnly:/costco|sam.?s club/i.test(draft.name),price:null,open:"Hours not confirmed",
-        mapUrl:`https://www.openstreetmap.org/?mlat=${location.lat}&mlon=${location.lng}#map=18/${location.lat}/${location.lng}`,source:draft.source});
-    }catch{unmatchedAddresses++;}
-  }
-  stations.sort((a,b)=>a.routeMiles-b.routeMiles);
-  return {stations,unmatchedAddresses};
-}
 export async function searchFuel(ownerId: string, input: FuelPreferences): Promise<FuelSearch> {
-  const reportRequest=statePriceReports(input.vehicle.grade).catch(()=>[]);
+  try { return await withFuelBudget(SEARCH_BUDGET_MS,()=>searchWithinBudget(ownerId,input)); }
+  catch(error) {
+    if(error instanceof Error && ["TimeoutError","AbortError"].includes(error.name))throw new FuelError("Route lookup timed out. Try more specific locations or search again.",504);
+    throw error;
+  }
+}
+async function searchWithinBudget(ownerId: string, input: FuelPreferences): Promise<FuelSearch> {
   const origin=await geocode(input.origin), destination=await geocode(input.destination);
+  // Warm the provider cache while routing/discovery runs; later calls ask for every route state.
+  void statePriceReports(input.vehicle.grade,[geocodedState(input.origin),geocodedState(input.destination)].filter(Boolean)).catch(()=>[]);
   const route=await roadRoute(origin,destination);
   const warnings=["Detours shown for candidate stations are geometric estimates. The final plan recalculates actual road distances and times."];
   let stations:Station[];
@@ -59,33 +48,64 @@ export async function searchFuel(ownerId: string, input: FuelPreferences): Promi
   catch(error) {
     if(!process.env.DEEPSEEK_API_KEY)throw error;
     warnings.push("Station candidates use cited web locators and geocoded addresses. Facilities are included only when explicitly reported on the station source page; other nearby amenities may be missing.");
-    const count=Math.min(12,Math.max(3,Math.ceil(route.minutes/60)+1));
+    const count=Math.min(12,Math.max(3,Math.ceil(route.minutes/90)+1));
     const found=await webStations(route,Array.from({length:count},(_,i)=>pointAlongRoute(route,route.minutes*i/(count-1))));
     stations=found.stations;
     if(found.unmatchedAddresses)warnings.push(`${found.unmatchedAddresses} web station addresses could not be geocoded and were excluded.`);
   }
-  const officialReports=await reportRequest;
-  if(process.env.DEEPSEEK_API_KEY) {
+  // Resolve only the price sample; the public geocoder remains globally throttled.
+  async function resolveSampleAddresses() {
+    const indexes=[...new Set(Array.from({length:Math.min(16,stations.length)},(_,i) => Math.round(i*(stations.length-1)/Math.max(1,Math.min(16,stations.length)-1))))];
+    for (const index of indexes) {
+      try { stations[index]=await addressFor(stations[index]); } catch { warnings.push("Some station addresses or states could not be resolved."); break; }
+    }
+  }
+  await resolveSampleAddresses();
+  const initialStates=[...new Set([...stations.map(s=>s.state),geocodedState(input.origin),geocodedState(input.destination)].filter(Boolean))];
+  const officialReports:RegionPrice[]=[];
+  // Regional comparisons are optional and must not delay the station-specific recommendation.
+  void statePriceReports(input.vehicle.grade,initialStates).then(reports=>officialReports.push(...reports)).catch(()=>[]);
+  if(process.env.DEEPSEEK_API_KEY && remainingFuelMs()>45000) {
     const expanded=await fillStationCoverage({route,stations,regions:officialReports},input,async points=>{
       const found=await webStations(route,points,true);
       if(found.unmatchedAddresses)warnings.push(`${found.unmatchedAddresses} extra station addresses could not be geocoded and were excluded.`);
       return found.stations;
-    });
+    },1);
     stations=expanded.stations;warnings.push(...expanded.warnings);
   }
   if (!stations.length) throw new FuelError("No mapped gas stations were found near this route. Try more specific locations or split the trip.",404);
-  // Reverse-geocode only the stations about to be researched, with caching and a shared 1/s limit.
-  const indexes=[...new Set(Array.from({length:Math.min(16,stations.length)},(_,i) => Math.round(i*(stations.length-1)/Math.max(1,Math.min(16,stations.length)-1))))];
-  for (const index of indexes) {
-    try { stations[index]=await addressFor(stations[index]); } catch { warnings.push("Some station addresses or states could not be resolved."); break; }
-  }
-  const prices=await researchPrices(stations,input.vehicle.grade);
+  await resolveSampleAddresses();
+  const addedStates=[...new Set(stations.map(s=>s.state).filter(s=>s && !initialStates.includes(s)))];
+  if(addedStates.length) void statePriceReports(input.vehicle.grade,addedStates).then(reports=>officialReports.push(...reports)).catch(()=>[]);
+  const prices=await researchPrices(stations,input.vehicle.grade,[]);
   stations=prices.stations;
   if (prices.warning) warnings.push(prices.warning);
+  if(input.requireStationPrices!==false && process.env.DEEPSEEK_API_KEY) {
+    const researchedIds=new Set((stations.length<=16?stations:Array.from({length:16},(_,i)=>stations[Math.round(i*(stations.length-1)/15)])).map(station=>station.id));
+    const quotedPathAvailable=()=>{
+      try {selectStops({route,stations,regions:officialReports},input);return true;}
+      catch(error) {if(!(error instanceof FuelError) || error.status!==422)throw error;return false;}
+    };
+    async function quoteCandidates(candidates:Station[]) {
+      if(!candidates.length)return candidates;
+      const sample=candidates.length<=16?candidates:Array.from({length:16},(_,i)=>candidates[Math.round(i*(candidates.length-1)/15)]);
+      sample.forEach(station=>researchedIds.add(station.id));
+      const result=await researchPrices(sample,input.vehicle.grade,[]);
+      if(result.warning)warnings.push(result.warning);
+      const updates=new Map(result.stations.map(station=>[station.id,station]));
+      return candidates.map(station=>updates.get(station.id) ?? station);
+    }
+    if(!quotedPathAvailable() && remainingFuelMs()>18000) {
+      const candidates=unpricedCandidatesForGaps({route,stations,regions:officialReports},input,researchedIds,8);
+      const updates=new Map((await quoteCandidates(candidates)).map(station=>[station.id,station]));
+      stations=stations.map(station=>updates.get(station.id) ?? station);
+    }
+    // Do not start another paid discovery chain after quote lookup. A later explicit search can retry.
+  }
   const now=Date.now(), id=randomUUID();
   const routeStates=new Set([...stations.map(s=>s.state),geocodedState(input.origin),geocodedState(input.destination)]);
   const reports=[...officialReports.filter(r=>routeStates.has(r.state)),...prices.reports.filter(r=>!officialReports.some(a=>a.state===r.state))];
-  if(!officialReports.length)warnings.push("AAA state averages are unavailable or outdated; only other cited reports and your estimate can be used.");
+  if(!officialReports.length)warnings.push(input.requireStationPrices!==false ? "Regional comparison prices are unavailable. Recommended stops still require verified station-specific quotes." : "Regional price providers are unavailable or outdated; only other cited reports and your estimate can be used.");
   const search: FuelSearch={id,expiresAt:new Date(now+1800000).toISOString(),route,stations,regions:regionalPrices(stations,reports),warnings:[...new Set(warnings)],searchedAt:new Date(now).toISOString()};
   for (const [key,entry] of service.searches) if (entry.expires < now) service.searches.delete(key);
   if (service.searches.size >= 24) service.searches.delete(service.searches.keys().next().value!);
@@ -93,6 +113,13 @@ export async function searchFuel(ownerId: string, input: FuelPreferences): Promi
   return search;
 }
 export async function planFuel(ownerId: string, value: unknown): Promise<FuelPlan> {
+  try { return await withFuelBudget(PLAN_BUDGET_MS,()=>planWithinBudget(ownerId,value)); }
+  catch(error) {
+    if(error instanceof Error && ["TimeoutError","AbortError"].includes(error.name))throw new FuelError("Road planning timed out. Search again or try more specific locations.",504);
+    throw error;
+  }
+}
+async function planWithinBudget(ownerId: string, value: unknown): Promise<FuelPlan> {
   const body=object(value), id=text(body.searchId,"Search id",80), entry=service.searches.get(id);
   if (!entry || entry.ownerId !== ownerId || entry.expires < Date.now()) throw new FuelError("This route search has expired. Search again before planning.",410);
   const {search,input}=entry;
@@ -111,7 +138,7 @@ export async function planFuel(ownerId: string, value: unknown): Promise<FuelPla
   }
   const key=selected.map(s => s.id).join(";");
   const cached=entry.plans.get(key);
-  if (cached) return cached;
+  if (cached && !("totalCost" in cached) && !("fuelConsumedCost" in cached) && (input.requireStationPrices===false || (input.requireStationPrices===true && cached.stops.every(stop=>stop.priceKind==="web report" && hasVerifiedStationPrice(stop.station))))) return cached;
   const route=selected.length ? await roadRoute(search.route.origin,search.route.destination,selected) : search.route;
   for (let i=0;i<selected.length;i++) {
     try { selected[i]=await addressFor(selected[i]); } catch { /* Keep mapped coordinates if the address service is unavailable. */ }

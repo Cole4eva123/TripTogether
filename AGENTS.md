@@ -20,7 +20,7 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (æŠ€æ
 
 ## Commands
 
-- `npm run dev` (port 3000), `npm run lint`, `npm run typecheck`, `npm test` (node:test on `lib/*.test.ts`)
+- `npm run dev` (port 3000), `npm run lint`, `npm run typecheck`, `npm test` (node:test on `lib/*.test.ts` and `lib/gasoline-intelligence/*.test.ts`)
 - `sh scripts/seed.sh http://localhost:3000` fills a running dev server with demo users and trips
 
 ## Layout

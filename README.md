@@ -18,7 +18,7 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 | 包管理 | npm | 在用 |
 
 - 部署暂不考虑，先在本地跑通。
-- 加油规划使用 OpenStreetMap / OSRM / Leaflet、AAA 州均价及 DeepSeek 联网查询；实时聊天、图片存储等其他功能的服务待定。
+- 加油规划使用 OpenStreetMap / OSRM / Leaflet、可选 EIA 油价 API、AAA 均价回退及 DeepSeek 联网查询；实时聊天、图片存储等其他功能的服务待定。
 
 ## 基础模块
 
@@ -44,7 +44,7 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 
 加油规划模块统一命名为 **Gasoline Intelligence**，开发分支为 `feature/gasoline-intelligence`。
 登录后点击同名导航或旅行详情入口，进入 `/trips/gasoline-intelligence`。
-车型确认、沿途选站、一键规划、地图及手动重算的配置和限制见 [加油规划说明](docs/gasoline-intelligence.md)。
+车型识别、一键规划和地图的配置及限制见 [加油规划说明](docs/gasoline-intelligence.md)，实际提示词见 [DeepSeek 提示词](docs/deepseek-prompts.md)。偏好与手动选站面板暂时关闭，独立源码仅保存在本地忽略目录中。
 合并时的结构约定、冲突处理和检查步骤见 [中文合并说明](<docs/merge instruction.md>)。
 
 ### 1. 查油价与加油规划

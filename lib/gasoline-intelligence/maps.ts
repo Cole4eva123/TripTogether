@@ -1,29 +1,36 @@
-import type { Coordinate, FuelPreferences, RoadRoute, RoutePoint, Station } from "./fuel-types";
-import { distanceMiles, METERS_PER_MILE, projectOnRoute } from "./gasoline-intelligence";
-import { FuelError } from "./fuel-validation";
-import { providerJson } from "./fuel-http";
-import { normalizeState } from "./fuel-regions";
-export { normalizeState } from "./fuel-regions";
+import type { Coordinate, FuelPreferences, RoadRoute, RoutePoint, Station } from "./types";
+import { distanceMiles, METERS_PER_MILE, projectOnRoute } from "./planner";
+import { FuelError } from "./validation";
+import { providerJson } from "./http";
+import { normalizeState } from "./regions";
+import { ResearchCache } from "./ai-cache";
+import { fuelQueueDelay } from "./budget";
+export { normalizeState } from "./regions";
 
 type GeoResult = { lat:string;lon:string;display_name:string;address?:{state?:string;state_code?:string;road?:string;house_number?:string;city?:string;town?:string;village?:string;county?:string;postcode?:string}; };
-type MapState = { geocodes:Map<string,{value:GeoResult;expires:number}>; queue:Promise<unknown>; nextCall:number; roadQueue?:Promise<unknown>;nextRoadCall?:number };
+type MapState = { geocodes:Map<string,{value:GeoResult;expires:number}>; queue:Promise<unknown>; nextCall:number; roadQueue?:Promise<unknown>;nextRoadCall?:number; pending?:Map<string,Promise<unknown>> };
 const globalMaps = globalThis as typeof globalThis & { fuelMapState?:MapState };
 const state:MapState = globalMaps.fuelMapState ??= { geocodes:new Map(),queue:Promise.resolve(),nextCall:0 };
 // One shared queue across users and hot reloads: public Nominatim allows at most one request/second.
 async function geocodeRequest<T>(url: string): Promise<T> {
+  const pending=state.pending ??=new Map<string,Promise<unknown>>();
+  const existing=pending.get(url);
+  if(existing)return existing as Promise<T>;
   const run = state.queue.catch(() => {}).then(async () => {
     const wait = Math.max(0,state.nextCall-Date.now());
-    if (wait) await new Promise(resolve => setTimeout(resolve,wait));
+    await fuelQueueDelay(wait);
     state.nextCall = Date.now()+1100;
-    return providerJson<T>(url,"OpenStreetMap address lookup",{headers:{"User-Agent":process.env.OSM_USER_AGENT || "TripTogether/0.1 (local road trip planner; https://github.com/Cole4eva123/TripTogether)","Accept-Language":"en"}},20000);
+    return providerJson<T>(url,"OpenStreetMap address lookup",{headers:{"User-Agent":process.env.OSM_USER_AGENT || "TripTogether/0.1 (local road trip planner; https://github.com/Cole4eva123/TripTogether)","Accept-Language":"en"}},8000);
   });
   state.queue = run;
-  return run;
+  pending.set(url,run);
+  try{return await run;}finally{pending.delete(url);}
 }
 const nominatim = () => (process.env.NOMINATIM_BASE_URL || "https://nominatim.openstreetmap.org").replace(/\/$/,"");
 export async function nearbyTown(location:Coordinate):Promise<string> {
   const key=`town:${location.lat.toFixed(3)},${location.lng.toFixed(3)}`;
-  let result=state.geocodes.get(key)?.value;
+  const cached=state.geocodes.get(key);
+  let result=cached && cached.expires>Date.now()?cached.value:undefined;
   if(!result) {
     const params=new URLSearchParams({lat:String(location.lat),lon:String(location.lng),format:"jsonv2",addressdetails:"1",zoom:"10"});
     result=await geocodeRequest<GeoResult>(`${nominatim()}/reverse?${params}`);
@@ -50,7 +57,8 @@ export function geocodedState(address:string):string {
 export async function addressFor(station: Station): Promise<Station> {
   if (station.state && station.address) return station;
   const key = `reverse:${station.location.lat.toFixed(5)},${station.location.lng.toFixed(5)}`;
-  let result = state.geocodes.get(key)?.value;
+  const cached=state.geocodes.get(key);
+  let result = cached && cached.expires>Date.now()?cached.value:undefined;
   if (!result) {
     const params = new URLSearchParams({lat:String(station.location.lat),lon:String(station.location.lng),format:"jsonv2",addressdetails:"1",zoom:"18"});
     result = await geocodeRequest<GeoResult>(`${nominatim()}/reverse?${params}`);
@@ -60,13 +68,19 @@ export async function addressFor(station: Station): Promise<Station> {
   return {...station,address:station.address || result.display_name || "Address not mapped",state:normalizeState(station.state || result.address?.state || result.address?.state_code || "")};
 }
 type OsrmRoute = { distance:number;duration:number;geometry:{coordinates:[number,number][]};legs:{distance:number;duration:number;annotation?:{distance:number[];duration:number[]}}[] };
+const sharedRoads=globalThis as typeof globalThis & { fuelRoadCache?:ResearchCache<RoadRoute> };
+const roads=sharedRoads.fuelRoadCache ??=new ResearchCache<RoadRoute>(16,300000);
 export async function roadRoute(origin: Coordinate, destination: Coordinate, stations: Station[] = []): Promise<RoadRoute> {
+  const key=JSON.stringify({base:process.env.OSRM_BASE_URL || "https://router.project-osrm.org",points:[origin,...stations.map(s=>s.location),destination]});
+  return roads.run(key,()=>uncachedRoadRoute(origin,destination,stations),()=>true);
+}
+async function uncachedRoadRoute(origin: Coordinate, destination: Coordinate, stations: Station[] = []): Promise<RoadRoute> {
   const locations = [origin,...stations.map(s => s.location),destination];
   const coords = locations.map(p => `${p.lng},${p.lat}`).join(";");
   const base = (process.env.OSRM_BASE_URL || "https://router.project-osrm.org").replace(/\/$/,"");
   const run=(state.roadQueue ?? Promise.resolve()).catch(()=>{}).then(async()=>{
     const wait=Math.max(0,(state.nextRoadCall ?? 0)-Date.now());
-    if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
+    await fuelQueueDelay(wait);
     state.nextRoadCall=Date.now()+1100;
     return providerJson<{code:string;routes?:OsrmRoute[]}>(`${base}/route/v1/driving/${coords}?overview=full&geometries=geojson&annotations=distance,duration&steps=false`,"OSRM road routing");
   });
@@ -97,10 +111,10 @@ export async function findStations(route: RoadRoute, input: FuelPreferences): Pr
   // Corridor query, not a state/country-wide download. Simplify to at most 300 vertices.
   const stride = Math.max(1,Math.ceil(route.points.length/299));
   const path = route.points.filter((_,i) => i%stride === 0 || i===route.points.length-1).map(p => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(",");
-  const query = `[out:json][timeout:35][maxsize:16777216];nwr["amenity"="fuel"](around:4000,${path})->.fuel;(.fuel;nwr(around.fuel:350)["amenity"~"^(restaurant|fast_food|toilets)$"];nwr(around.fuel:350)["shop"="convenience"];);out center tags;`;
+  const query = `[out:json][timeout:10][maxsize:16777216];nwr["amenity"="fuel"](around:4000,${path})->.fuel;(.fuel;nwr(around.fuel:350)["amenity"~"^(restaurant|fast_food|toilets)$"];nwr(around.fuel:350)["shop"="convenience"];);out center tags;`;
   const response = await providerJson<{elements:OsmElement[]}>(process.env.OVERPASS_API_URL || "https://overpass-api.de/api/interpreter","OpenStreetMap station search",{
     method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded","User-Agent":"TripTogether/0.1 (local road trip planner)"},body:new URLSearchParams({data:query}).toString(),
-  },45000);
+  },12000);
   if (!Array.isArray(response.elements)) throw new FuelError("Station search returned an incomplete response. Try again.",502);
   const facilities=response.elements.filter(e => e.tags?.amenity !== "fuel" && locationOf(e));
   const result: Station[]=[];

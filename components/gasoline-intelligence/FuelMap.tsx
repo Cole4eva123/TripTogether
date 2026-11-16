@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import type * as Leaflet from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { FuelStop, RoadRoute, Station } from "@/lib/fuel-types";
-import { formatDistance, type DistanceUnit, type StationDistances } from "@/lib/fuel-display";
+import type { FuelStop, RoadRoute, Station } from "@/lib/gasoline-intelligence/types";
+import { formatDistance, type DistanceUnit, type StationDistances } from "@/lib/gasoline-intelligence/display";
 import { duration } from "./FuelResults";
+import { createMapDisclosure } from "./AnimatedDisclosure";
 
 type MapStation = Station & { displayPrice:{value:number;kind:FuelStop["priceKind"]}|null;distances:StationDistances };
 type Props = { route:RoadRoute|null;stations:MapStation[];selectedIds:string[];activeId:string|null;onPick:(id:string) => void;distanceUnit:DistanceUnit };
@@ -65,7 +66,7 @@ export default function FuelMap({route,stations,selectedIds,activeId,onPick,dist
         const row=document.createElement("div");row.textContent=`${prefix}${formatDistance(miles,distanceUnit)} ${label}`;distances.append(row);
       }
       const cost=document.createElement("p");cost.className="font-semibold";cost.textContent=price?`${money.format(price.value)}/gal`:"Price unavailable";
-      popup.append(title,info,distances,cost);marker.bindPopup(popup);
+      popup.append(title,info,cost,createMapDisclosure("Distance Details",distances));marker.bindPopup(popup);
       marker.on("click",() => onPick(station.id));
       if (active) marker.openPopup();
     }

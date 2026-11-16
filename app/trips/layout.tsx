@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MeContext } from "@/components/me";
+import GasolineIntelligenceLink from "@/components/gasoline-intelligence/GasolineIntelligenceLink";
 import { api, ApiError, errorText } from "@/lib/api";
 import type { User } from "@/lib/types";
 
@@ -34,9 +35,7 @@ export default function TripsLayout({ children }: LayoutProps<"/trips">) {
           <Link href="/trips" className="sign sign-small">
             TripTogether
           </Link>
-          <Link href="/trips/gasoline-intelligence" className="btn btn-quiet">
-            Gasoline Intelligence
-          </Link>
+          <GasolineIntelligenceLink />
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2 text-muted">
           <span className="truncate">{me?.name}</span>

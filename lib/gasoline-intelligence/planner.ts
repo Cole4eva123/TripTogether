@@ -1,5 +1,5 @@
-import type { Coordinate, FuelPlan, FuelPreferences, FuelSearch, RegionPrice, RoadRoute, Station } from "./fuel-types.ts";
-import { FuelError } from "./fuel-validation.ts";
+import type { Coordinate, FuelPlan, FuelPreferences, FuelSearch, RegionPrice, RoadRoute, Station } from "./types.ts";
+import { FuelError } from "./validation.ts";
 
 export const METERS_PER_MILE = 1609.344;
 export const MAX_DRIVING_MINUTES = 180;
@@ -32,7 +32,16 @@ const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 export function membershipFor(station: Station, input: FuelPreferences) {
   return input.memberships.find(m => normalize(station.brand + station.name).includes(normalize(m.brand)));
 }
+export function hasVerifiedStationPrice(station: Station, now=Date.now()) {
+  const price=station.price;
+  if(!price || !Number.isFinite(price.perGallon) || price.perGallon<0.5 || price.perGallon>15)return false;
+  const observed=Date.parse(price.observedAt);
+  if(!Number.isFinite(observed) || observed>now+3600000 || now-observed>72*3600000)return false;
+  try { const url=new URL(price.source.url);return (url.protocol==="https:" || url.protocol==="http:") && !!url.hostname; }
+  catch {return false;}
+}
 export function stationPrice(station: Station, input: FuelPreferences, regions: RegionPrice[]) {
+  if(input.requireStationPrices!==false && !hasVerifiedStationPrice(station))return null;
   const regional = regions.find(r => r.state === station.state);
   const base = station.price?.perGallon ?? regional?.average ?? input.estimatedPrice;
   if (base == null) return null;
@@ -59,13 +68,13 @@ export function regionalPrices(stations: Station[], reports: RegionPrice[] = [])
   });
   return result.map((r,i) => ({ ...r, change: i ? r.average-result[i-1].average : null }));
 }
-export function eligibleStations(search: PlanningSearch, input: FuelPreferences) {
+export function eligibleStations(search: PlanningSearch, input: FuelPreferences, requirePrice=true) {
   return search.stations.filter(s => s.detourMinutes <= input.maxDetourMinutes &&
-    (!s.membersOnly || membershipFor(s,input)) && stationPrice(s,input,search.regions));
+    (!s.membersOnly || membershipFor(s,input)) && (!requirePrice || stationPrice(s,input,search.regions)));
 }
 
-export function findCoverageGaps(search:PlanningSearch,input:FuelPreferences):CoverageGap[] {
-  const stations=eligibleStations(search,input).sort((a,b)=>a.routeMiles-b.routeMiles);
+export function findCoverageGaps(search:PlanningSearch,input:FuelPreferences,geometryOnly=false):CoverageGap[] {
+  const stations=eligibleStations(search,input,!geometryOnly).sort((a,b)=>a.routeMiles-b.routeMiles);
   const positions=[{miles:0,minutes:0,detourMiles:0,detourMinutes:0},
     ...stations.map(s=>({miles:s.routeMiles,minutes:s.routeMinutes,detourMiles:s.detourMiles,detourMinutes:s.detourMinutes})),
     {miles:search.route.miles,minutes:search.route.minutes,detourMiles:0,detourMinutes:0}];
@@ -84,36 +93,42 @@ export function findCoverageGaps(search:PlanningSearch,input:FuelPreferences):Co
   return gaps;
 }
 
-// A forward shortest-path search balances price, extra driving and evenly spaced breaks.
+// Fuel-price scoring plus nonmonetary preferences for evenly spaced breaks and facilities.
 // Reachability is conservative; final quantities use the road legs returned by the routing service.
-export function selectStops(search: PlanningSearch, input: FuelPreferences): Station[] {
-  const stations = eligibleStations(search,input).sort((a,b) => a.routeMiles-b.routeMiles);
+export function selectStops(search: PlanningSearch, input: FuelPreferences, geometryOnly=false): Station[] {
+  const stations = eligibleStations(search,input,!geometryOnly).sort((a,b) => a.routeMiles-b.routeMiles);
   const usableRange = input.vehicle.tankGallons * (1-input.reservePercent/100) * input.vehicle.mpg;
   const startingRange = input.vehicle.tankGallons * (input.initialFuelPercent-input.reservePercent)/100 * input.vehicle.mpg;
   if (startingRange < 0) throw new FuelError("Starting fuel is below your reserve. Refuel before leaving or correct the fuel level.");
   const nodes: (Station | null)[] = [null, ...stations, null];
-  const costs = nodes.map(() => Infinity), previous = nodes.map(() => -1);
-  costs[0] = 0;
+  const scores = nodes.map(() => Infinity), previous = nodes.map(() => -1);
+  scores[0] = 0;
   const pos = (i: number) => i === 0 ? { miles: 0, minutes: 0 } : i === nodes.length-1 ? search.route : { miles: nodes[i]!.routeMiles, minutes: nodes[i]!.routeMinutes };
   for (let j = 1; j < nodes.length; j++) {
     const to = pos(j), station = nodes[j];
     for (let i = 0; i < j; i++) {
-      if (!Number.isFinite(costs[i])) continue;
+      if (!Number.isFinite(scores[i])) continue;
       const from = pos(i), before = nodes[i];
       const miles = to.miles-from.miles + (before?.detourMiles ?? 0)/2 + (station?.detourMiles ?? 0)/2;
       const minutes = to.minutes-from.minutes + (before?.detourMinutes ?? 0)/2 + (station?.detourMinutes ?? 0)/2;
       if (miles < 0 || (station && miles < 0.05) || miles > (i === 0 ? startingRange : usableRange) || minutes > MAX_DRIVING_MINUTES) continue;
-      const price = (station && stationPrice(station,input,search.regions)?.value) ?? input.estimatedPrice ?? 4;
+      // The geometry pass ranks reachability only; it never creates or stores quote values.
+      const price = geometryOnly ? 1 : (station && stationPrice(station,input,search.regions)?.value) ??
+        (before && stationPrice(before,input,search.regions)?.value) ?? (input.requireStationPrices===false ? input.estimatedPrice ?? 4 : 0);
       const matches = station ? input.amenities.filter(p => station.amenities.some(a => normalize(a).includes(normalize(p)))).length : 0;
       const spacing = 10 * (minutes/input.intervalMinutes - 1)**2;
       const shortBreak = station && minutes < 60 ? 10*(1-minutes/60) : 0;
-      const detour = (station?.detourMinutes ?? 0)/60*input.timeValue;
-      const cost = costs[i] + miles/input.vehicle.mpg*price + (station ? 2 : 0) + spacing + shortBreak + detour - Math.min(3,matches*1.5);
-      if (cost < costs[j]) { costs[j]=cost; previous[j]=i; }
+      const score = scores[i] + miles/input.vehicle.mpg*price + spacing + shortBreak - Math.min(3,matches*1.5);
+      if (score < scores[j]) { scores[j]=score; previous[j]=i; }
     }
   }
-  if (!Number.isFinite(costs.at(-1))) {
-    const gap=findCoverageGaps(search,input)[0];
+  if (!Number.isFinite(scores.at(-1))) {
+    if(!geometryOnly && input.requireStationPrices!==false) {
+      let geometryReachable=false;
+      try {selectStops(search,input,true);geometryReachable=true;}catch {/* The original geometry error is reported below. */}
+      if(geometryReachable)throw new FuelError("Not enough verified station prices were found to plan this route within your fuel reserve and driving limits. Stations without a recent, cited quote are excluded; state averages and fallback estimates are not used.",422);
+    }
+    const gap=findCoverageGaps(search,input,geometryOnly)[0];
     const detail=gap?` Eligible station coverage is missing between miles ${gap.fromMiles.toFixed(0)} and ${gap.toMiles.toFixed(0)} (${Math.round(gap.drivingMinutes)} driving minutes between available stops), exceeding ${gap.reason==="driving time"?"the three-hour driving limit":"the available fuel range"}.`:"";
     throw new FuelError(`No safe combination was found.${detail} Search again to look for more stations in the missing section, or review the detour, membership and price settings.`,422);
   }
@@ -127,7 +142,7 @@ export function buildFuelPlan(search: FuelSearch, input: FuelPreferences, statio
   if (route.legs.length !== stations.length+1) throw new FuelError("The routing service returned incomplete legs. Try again.",502);
   const tank = input.vehicle.tankGallons, reserve = tank*input.reservePercent/100, mpg = input.vehicle.mpg;
   const prices = stations.map(s => stationPrice(s,input,search.regions));
-  if (prices.some(p => !p)) throw new FuelError("A selected station has no usable price. Enter an estimated price or choose another station.");
+  if (prices.some(p => !p)) throw new FuelError(input.requireStationPrices!==false ? "A selected station has no recent, verified station price. Search again for station quotes." : "A selected station has no usable price. Enter an estimated price or choose another station.");
   let fuel = tank*input.initialFuelPercent/100, miles = 0, minutes = 0;
   const warnings = [...search.warnings];
   let purchaseCost = 0, purchased = 0;
@@ -166,15 +181,12 @@ export function buildFuelPlan(search: FuelSearch, input: FuelPreferences, statio
   if (fuel < reserve-0.001) throw new FuelError("The destination cannot be reached with your fuel reserve. Add a stop before arrival.",422);
   minutes += last.minutes;
   const gallonsUsed = route.miles/mpg;
-  const avgPrice = purchased > 0 ? purchaseCost/purchased : input.estimatedPrice ?? search.regions[0]?.average ?? search.stations.find(s => s.price)?.price?.perGallon;
-  if (avgPrice == null) throw new FuelError("Enter an estimated fuel price to calculate the value of fuel already in your tank.");
   if (stops.some(s => s.priceKind !== "web report")) warnings.push("Some prices are regional or user estimates. Compare the posted pump price before purchasing.");
   warnings.push("Driving times exclude live traffic. Opening hours, facilities and prices may change; confirm before arrival.");
-  const fuelConsumedCost = gallonsUsed*avgPrice;
   return {
     searchId: search.id, route, stops, arrival: new Date(Date.parse(input.departure)+minutes*60000).toISOString(),
     totalMinutes: minutes, detourMinutes: Math.max(0,route.minutes-search.route.minutes), detourMiles: Math.max(0,route.miles-search.route.miles),
     gallonsUsed, gallonsPurchased: purchased, fuelOnArrival: Math.max(0,fuel), purchaseCost,
-    fuelConsumedCost, totalCost: fuelConsumedCost+input.otherCosts, warnings: [...new Set(warnings)],
+    warnings: [...new Set(warnings)],
   };
 }

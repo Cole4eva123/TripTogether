@@ -13,17 +13,24 @@
 | `app/trips/gasoline-intelligence/` | 功能页面及加载状态，继承原来的 `app/trips/layout.tsx` 登录检查和导航 |
 | `app/api/gasoline-intelligence/` | `vehicle`、`search`、`plan` 三个 Route Handler，沿用原项目的服务端接口组织方式 |
 | `components/gasoline-intelligence/` | 页面主组件 `GasolineIntelligence.tsx`、交互地图 `FuelMap.tsx`、结果组件 `FuelResults.tsx`、搜索状态和单位开关 `FuelSearchBar.tsx`、悬停说明按钮 `OneClickPlanButton.tsx` |
-| `lib/gasoline-intelligence.ts` | 规划算法、续航检查、价格比较、建议加油量和费用计算 |
-| `lib/gasoline-intelligence.test.ts` | 规划逻辑测试，继续由现有 `npm test` 脚本发现 |
-| `lib/fuel-coverage.ts`、`lib/fuel-coverage.test.ts` | 检查路线候选站覆盖、针对断档补搜及回归测试，沿用现有服务层和测试命令 |
-| `lib/fuel-types.ts`、`lib/fuel-validation.ts` | 加油业务的数据类型和输入校验 |
-| `lib/fuel-display.ts`、`lib/fuel-display.test.ts` | mi/km 显示换算、站点三段距离和搜索有效期倒计时的格式与测试；接口仍使用英里 |
-| `lib/fuel-service.ts` | 会话检查、查询编排、用户隔离、临时缓存及限流 |
-| `lib/fuel-ai.ts`、`lib/fuel-maps.ts`、`lib/fuel-http.ts` | 外部服务访问和结果校验，供服务端接口调用 |
-| `lib/fuel-region-provider.ts`、`lib/fuel-regions.ts`、`lib/fuel-regions.test.ts` | 州均价获取、解析和测试 |
+| `lib/gasoline-intelligence/planner.ts` | 规划算法、续航检查、价格比较、建议加油量和费用计算 |
+| `lib/gasoline-intelligence/planner.test.ts` | 规划逻辑测试，继续由现有 `npm test` 脚本发现 |
+| `lib/gasoline-intelligence/coverage.ts`、`lib/gasoline-intelligence/coverage.test.ts` | 检查路线候选站覆盖、针对断档补搜及回归测试，沿用现有服务层和测试命令 |
+| `lib/gasoline-intelligence/types.ts`、`lib/gasoline-intelligence/validation.ts` | 加油业务的数据类型和输入校验 |
+| `lib/gasoline-intelligence/display.ts`、`lib/gasoline-intelligence/display.test.ts` | mi/km 显示换算、站点三段距离和搜索有效期倒计时的格式与测试；接口仍使用英里 |
+| `lib/gasoline-intelligence/form.ts`、`lib/gasoline-intelligence/form.test.ts` | 现有表单默认值、车辆回填和请求转换；隐藏可选面板后保留原默认行为 |
+| `lib/gasoline-intelligence/prompts.ts`、`docs/deepseek-prompts.md` | 集中维护实际 DeepSeek 提示词、schema 及完整中文说明 |
+| `lib/gasoline-intelligence/ai-cache.ts`、`lib/gasoline-intelligence/ai-cache.test.ts` | 有界缓存、重复请求合并和并行查询上限 |
+| `lib/gasoline-intelligence/stations.ts` | 独立的网页站点目录回退及地址缓存，仍通过 API 获取资料 |
+| `lib/gasoline-intelligence/eia.ts`、`lib/gasoline-intelligence/eia.test.ts` | 可选 EIA 官方 JSON API 的州、油品、日期和单位校验 |
+| `lib/gasoline-intelligence/service.ts` | 会话检查、查询编排、用户隔离、临时缓存及限流 |
+| `lib/gasoline-intelligence/ai.ts`、`lib/gasoline-intelligence/maps.ts`、`lib/gasoline-intelligence/http.ts` | 外部服务访问和结果校验，供服务端接口调用 |
+| `lib/gasoline-intelligence/region-provider.ts`、`lib/gasoline-intelligence/regions.ts`、`lib/gasoline-intelligence/regions.test.ts` | 州均价获取、解析和测试 |
 | `docs/gasoline-intelligence.md`、`docs/api.md` | 配置说明、业务行为和接口契约 |
 
-辅助文件中的 `fuel` 表示加油业务领域；对外入口和核心规划模块统一使用 `gasoline-intelligence`。
+模块源码和对应测试统一放在 `lib/gasoline-intelligence/`，使用 `planner.ts`、`ai.ts`、`types.ts` 等简短文件名。
+`budget.ts` 控制请求取消和等待上限；现有 `lib/server.ts` 等公共模块仍放在原处。
+`package.json` 的 `npm test` 同时发现 `lib/*.test.ts` 和 `lib/gasoline-intelligence/*.test.ts`，合并时保留两组测试。
 项目仍使用同一份 `package.json`、原有构建配置和测试命令，功能代码直接放在原来的目录体系中。
 样式继续使用现有主题色和 Tailwind 工具类。
 
@@ -38,7 +45,7 @@
 
 如果目标分支已接入 Better Auth，应保留目标分支的正式登录实现，再对齐上述公共函数的返回值。
 `currentUser()` 需要返回具有稳定 `id` 的用户对象；未登录时返回 `null`。如果其接口发生变化，
-主要调整 `lib/fuel-service.ts` 中的适配调用，并同步前端用户上下文。
+主要调整 `lib/gasoline-intelligence/service.ts` 中的适配调用，并同步前端用户上下文。
 
 ### 旅行信息
 
@@ -54,7 +61,16 @@
 应沿用团队的数据库和 ORM，在服务层增加持久化及旅行成员权限检查。
 候选站汇总行右侧的 mi/km 开关同步调整地图、规划和列表的距离；油品后面显示搜索剩余有效时间。
 页面底部保留灰色的数据来源及服务说明。车型资料和来源放在默认折叠的浅绿色信息块里，地区油价卡片保持等宽等高。
+金额只返回实际加油支出 `purchaseCost` 和单站 `cost`，删除已有燃油估值、总行程及其他费用。
+已用、购买、到达剩余油量改为三个格子；Distance Details 默认收起，车辆详情及地图/卡片的距离折叠统一带动画。
 推荐站点使用重新计算的实际道路距离，未规划或待重新计算的站点用 `~` 标记近似距离。
+推荐站点采用小卡片和顺序箭头，不显示 Details & sources。Stop preferences 与 Choose your stops 已从发布页面关闭，选站界面、卡片和控制 Hook 已合并为单个 `StopChoices.tsx.disabled`，仅保存在被忽略的 `.local-features/gasoline-intelligence/`。
+这些文件使用 `.disabled` 后缀，不参与构建，也不被运行代码导入；不要使用 `git add -f` 上传。
+原默认值和服务端偏好/手动选站能力仍保留，克隆代码后不需要该本地目录即可正常构建。
+配置 `EIA_API_KEY` 后优先使用官方州均价 JSON，未覆盖或无 key 时保留 AAA 回退；不会把区域均价充当某一站的实际价格。
+页面始终传入 `requireStationPrices:true`，只接受匹配具体站点地址、油品、引用及 72 小时内观察日期的报价。
+州均价仅供区域对比，缺少单站报价时不以州均价或 $3.50 替代。报价不足会明确返回 `422`，原续航和连续驾驶限制不放宽。
+显式 `requireStationPrices:false` 仅为旧 API/本地可选功能保留估算兼容路径。
 
 ### 接口路径
 
@@ -64,7 +80,7 @@
 | POST | `/api/gasoline-intelligence/search` | 查询道路路线、候选站和地区油价 |
 | POST | `/api/gasoline-intelligence/plan` | 自动推荐，或按照用户选择重新规划 |
 
-请求和响应类型见 `lib/fuel-types.ts`，状态码及字段约定见 `docs/api.md`。
+请求和响应类型见 `lib/gasoline-intelligence/types.ts`，状态码及字段约定见 `docs/api.md`。
 调整接口路径时，应同时修改页面调用、Route Handler 目录及接口文档。
 
 ## 容易发生冲突的共享文件
@@ -76,7 +92,7 @@
 | `package.json` | 沿用团队确定的框架版本和脚本，补入运行依赖 `leaflet` 与开发依赖 `@types/leaflet` |
 | `package-lock.json` | 先解决 `package.json`，再执行 `npm install --package-lock-only` 生成一致的锁文件，随后运行 `npm ci` 检查 |
 | `README.md`、`docs/api.md` | 保留团队其他模块的内容，将本模块的说明合并进去 |
-| `.gitignore` | 保留现有规则，并保留环境文件和本地凭据说明文件的忽略规则；`.env.example` 作为无密钥的配置模板纳入版本管理 |
+| `.gitignore` | 保留环境文件、本地凭据和 `.local-features/gasoline-intelligence/` 的忽略规则；`.env.example` 作为无密钥的配置模板纳入版本管理 |
 
 框架基础文件 `app/layout.tsx`、`app/globals.css`、`next.config.ts`、`tsconfig.json` 以及
 公共业务文件 `lib/server.ts`、`lib/api.ts`、`lib/mock-db.ts`、`components/me.tsx` 没有因本模块被重写。
@@ -139,7 +155,7 @@ npm run build
 2. 登录后能从导航及旅行详情进入 `/trips/gasoline-intelligence`，旅行的起终点能正确带入。
 3. 车型识别后直接显示 MPG、油箱容量和油品等级；参数完整即可查询并规划，无需勾选确认。
 4. 地图、站点、州均价、加油量、费用及到达时间正常显示；估算价有明确标签。
-5. 手动增删停靠点后可以重新计算；超出续航或连续驾驶时间限制时显示错误。
+5. 推荐站点按顺序以箭头连接；偏好和手动选站面板默认不显示。本地可选源码被 Git 忽略，主程序不依赖它们；服务端仍拒绝超出续航或连续驾驶限制的方案。
 6. 未登录调用三个新接口返回 `401`，项目代码和提交中没有实际密钥。
 
 ## 提交合并请求

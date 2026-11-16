@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildFuelPlan, distanceMiles, eligibleStations, projectOnRoute, regionalPrices, selectStops, stationPrice } from "./gasoline-intelligence.ts";
-import { parseFuelPreferences } from "./fuel-validation.ts";
-import type { FuelPreferences, FuelSearch, RoadRoute, Station } from "./fuel-types.ts";
+import { buildFuelPlan, distanceMiles, eligibleStations, projectOnRoute, regionalPrices, selectStops, stationPrice } from "./planner.ts";
+import { parseFuelPreferences } from "./validation.ts";
+import type { FuelPreferences, FuelSearch, RoadRoute, Station } from "./types.ts";
 
-const input:FuelPreferences={origin:"A",destination:"B",departure:"2026-11-20T12:00:00Z",vehicle:{year:2022,make:"Toyota",model:"RAV4",trim:"XLE",mpg:30,tankGallons:14,grade:"regular"},initialFuelPercent:100,reservePercent:15,intervalMinutes:60,maxDetourMinutes:20,stopMinutes:15,amenities:["Restroom"],memberships:[],estimatedPrice:3.5,timeValue:15,otherCosts:25};
+const input:FuelPreferences={origin:"A",destination:"B",departure:"2026-11-20T12:00:00Z",vehicle:{year:2022,make:"Toyota",model:"RAV4",trim:"XLE",mpg:30,tankGallons:14,grade:"regular"},initialFuelPercent:100,reservePercent:15,intervalMinutes:60,maxDetourMinutes:20,stopMinutes:15,amenities:["Restroom"],memberships:[],estimatedPrice:3.5,requireStationPrices:false};
 function route(distances:number[],minutes=distances):RoadRoute {
   const miles=distances.reduce((a,b)=>a+b,0),time=minutes.reduce((a,b)=>a+b,0);
   return {origin:{lat:40,lng:-90},destination:{lat:40,lng:-80},points:[{lat:40,lng:-90,miles:0,minutes:0},{lat:40,lng:-80,miles,minutes:time}],miles,minutes:time,legs:distances.map((m,i)=>({miles:m,minutes:minutes[i]}))};
 }
 function station(id:string,miles:number,price=3.5):Station {
-  return {id,name:id,brand:id,address:"1 Main St",state:"IL",location:{lat:40,lng:-90+miles/60},routeMiles:miles,routeMinutes:miles,detourMiles:0,detourMinutes:0,amenities:["Restroom"],membersOnly:false,price:{perGallon:price,source:{title:"test",url:"https://example.com/price"},observedAt:"2026-11-14T12:00:00Z"},open:"24/7",mapUrl:"https://www.openstreetmap.org"};
+  return {id,name:id,brand:id,address:"1 Main St",state:"IL",location:{lat:40,lng:-90+miles/60},routeMiles:miles,routeMinutes:miles,detourMiles:0,detourMinutes:0,amenities:["Restroom"],membersOnly:false,price:{perGallon:price,source:{title:"test",url:"https://example.com/price"},observedAt:new Date().toISOString()},open:"24/7",mapUrl:"https://www.openstreetmap.org"};
 }
 function search(miles:number,stations:Station[]):FuelSearch {
   return {id:"test",expiresAt:"2026-11-30T00:00:00Z",route:route([miles]),stations,regions:[],warnings:[],searchedAt:"2026-11-14T00:00:00Z"};
@@ -52,12 +52,15 @@ test("buys only enough at the expensive stop to reach cheaper fuel with reserve"
   assert.ok(Math.abs(plan.stops[0].buyGallons-3.2)<0.00001);
   assert.ok(Math.abs(plan.fuelOnArrival-2.1)<0.00001);
   assert.ok(plan.stops.every(s=>s.fuelAfterStop<=14));
+  assert.equal(plan.purchaseCost,plan.stops.reduce((sum,stop)=>sum+stop.cost,0));
+  assert.ok(!("fuelConsumedCost" in plan));
+  assert.ok(!("totalCost" in plan));
 });
 test("rest stops may buy zero gallons when existing fuel is sufficient",()=>{
   const s=station("rest",60);
   const plan=buildFuelPlan(search(120,[s]),input,[s],route([60,60]));
   assert.equal(plan.stops[0].buyGallons,0);assert.equal(plan.purchaseCost,0);
-  assert.equal(plan.fuelConsumedCost,14);assert.equal(plan.totalCost,39);
+  assert.equal(plan.gallonsUsed,4);
 });
 test("actual road distances can reject a candidate that looked reachable on the base route",()=>{
   const s=station("s",60);
@@ -93,4 +96,58 @@ test("departure preserves the trip's calendar day and validates real dates",()=>
   for(const departure of ["2026-02-29","2026-02-31","2026-13-01",""]) {
     assert.throws(()=>parseFuelPreferences({...body,departure}),/Departure date|departure date/);
   }
+});
+
+test("strict station prices never substitute state averages or fallback values",()=>{
+  const settings={...input,requireStationPrices:true,estimatedPrice:9};
+  const s=station("exact",60,3.25);
+  const reports=[{state:"IL",average:8,count:0,kind:"regional report" as const,source:null,observedAt:null,change:null}];
+  assert.equal(stationPrice(s,settings,reports)?.value,3.25);
+  assert.equal(stationPrice(s,settings,reports)?.kind,"web report");
+  assert.equal(stationPrice({...s,price:null},settings,reports),null);
+  for(const price of [
+    {...s.price!,observedAt:new Date(Date.now()-73*3600000).toISOString()},
+    {...s.price!,observedAt:new Date(Date.now()+2*3600000).toISOString()},
+    {...s.price!,source:{title:"missing",url:""}},
+    {...s.price!,source:{title:"unsafe",url:"javascript:alert(1)"}},
+  ])assert.equal(stationPrice({...s,price},settings,reports),null);
+});
+
+test("strict planning distinguishes missing station quotes from genuine road coverage gaps",()=>{
+  const settings={...input,requireStationPrices:true};
+  const unknowns=[60,120,180,240,300].map(m=>({...station(`unknown${m}`,m),price:null}));
+  const unpriced=search(360,unknowns);
+  assert.ok(selectStops(unpriced,settings,true).length>0);
+  assert.throws(()=>selectStops(unpriced,settings),/Not enough verified station prices/);
+  const quoted=[60,120,180,240,300].map(m=>station(`quoted${m}`,m));
+  assert.ok(selectStops(search(360,quoted),settings).every(s=>s.price));
+  assert.throws(()=>selectStops(search(600,[station("far",400)]),settings),/No safe combination/);
+});
+
+test("strict zero-purchase trips record zero cash cost while selected stops still require quotes",()=>{
+  const settings={...input,requireStationPrices:true,estimatedPrice:9};
+  const s=station("rest",60,3.5), searched=search(120,[s]);
+  searched.regions=[{state:"IL",average:8,count:0,kind:"regional report",source:null,observedAt:null,change:null}];
+  const plan=buildFuelPlan(searched,settings,[s],route([60,60]));
+  assert.equal(plan.purchaseCost,0);
+  assert.equal(plan.gallonsUsed,4);
+  assert.ok(plan.stops.every(stop=>stop.priceKind==="web report"));
+  const unknown={...s,price:null};
+  assert.throws(()=>buildFuelPlan(search(120,[unknown]),settings,[unknown],route([60,60])),/no recent, verified station price/);
+  const direct=buildFuelPlan(search(60,[]),settings,[],route([60]));
+  assert.equal(direct.purchaseCost,0);
+  assert.equal(direct.gallonsPurchased,0);
+  assert.equal(direct.gallonsUsed,2);
+  assert.equal(direct.fuelOnArrival,12);
+});
+
+test("legacy nonfuel cost inputs are ignored rather than charged or monetized",()=>{
+  const parsed=parseFuelPreferences({...input,timeValue:999,otherCosts:50000});
+  assert.ok(!("timeValue" in parsed));
+  assert.ok(!("otherCosts" in parsed));
+  const stations=[station("one",60,3.2),station("two",180,3.1)];
+  const settings={...parsed,initialFuelPercent:35};
+  const plan=buildFuelPlan(search(300,stations),settings,stations,route([60,120,120]));
+  assert.equal(plan.purchaseCost,plan.stops.reduce((sum,stop)=>sum+stop.buyGallons*stop.pricePerGallon,0));
+  assert.ok(!("totalCost" in plan));
 });

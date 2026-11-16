@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import Itinerary from "@/components/Itinerary";
 import { useMe } from "@/components/me";
 import TripSign from "@/components/TripSign";
+import GasolineIntelligenceLink from "@/components/gasoline-intelligence/GasolineIntelligenceLink";
 import { api, errorText } from "@/lib/api";
 import type { Member, PlanItem, Trip } from "@/lib/types";
 
@@ -75,9 +76,7 @@ export default function TripPage() {
         Back to your trips
       </Link>
       <TripSign trip={trip} />
-      <Link href={`/trips/gasoline-intelligence?${new URLSearchParams({ origin: trip.origin, destination: trip.destination, startDate: trip.startDate })}`} className="btn btn-quiet btn-small mt-4 mr-3">
-        Gasoline Intelligence
-      </Link>
+      <GasolineIntelligenceLink href={`/trips/gasoline-intelligence?${new URLSearchParams({ origin: trip.origin, destination: trip.destination, startDate: trip.startDate })}`} compact className="mt-4 mr-3" />
       {isOwner && (
         <Link href={`/trips/${trip.id}/edit`} className="btn btn-quiet btn-small mt-4">
           Edit trip

@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import type {FuelPreferences,RoadRoute,RoutePoint,Station} from "./fuel-types.ts";
-import type {PlanningSearch} from "./gasoline-intelligence.ts";
-import {findCoverageGaps,selectStops} from "./gasoline-intelligence.ts";
-import {coverageSearchPoints,fillStationCoverage,pointAlongRoute} from "./fuel-coverage.ts";
+import type {FuelPreferences,RoadRoute,RoutePoint,Station} from "./types.ts";
+import type {PlanningSearch} from "./planner.ts";
+import {findCoverageGaps,selectStops} from "./planner.ts";
+import {coverageSearchPoints,fillStationCoverage,pointAlongRoute,unpricedCandidatesForGaps} from "./coverage.ts";
 
 const input:FuelPreferences={origin:"Tahlequah, OK",destination:"Urbana, IL",departure:"2026-11-14T12:00:00Z",
   vehicle:{year:2010,make:"Toyota",model:"Corolla",trim:"LE",mpg:34,tankGallons:13.2,grade:"regular"},
   initialFuelPercent:85,reservePercent:25,intervalMinutes:90,stopMinutes:20,maxDetourMinutes:15,
-  amenities:["Restroom","McDonald's"],memberships:[],estimatedPrice:3.5,timeValue:15,otherCosts:0};
+  amenities:["Restroom","McDonald's"],memberships:[],estimatedPrice:3.5,requireStationPrices:false};
 const route:RoadRoute={origin:{lat:35.91,lng:-94.97},destination:{lat:40.11,lng:-88.2},miles:570.836,minutes:649.613,
   points:[{lat:35.91,lng:-94.97,miles:0,minutes:0},{lat:40.11,lng:-88.2,miles:570.836,minutes:649.613}],legs:[{miles:570.836,minutes:649.613}]};
 function station(id:string,point:RoutePoint):Station {
@@ -70,4 +70,24 @@ test("exact driving-time and reserve boundaries remain valid, while exceeding ei
   assert.deepEqual(selectStops(boundary,input),[]);
   assert.throws(()=>selectStops({...boundary,route:{...boundary.route,minutes:180.1}},input),/three-hour driving limit/);
   assert.throws(()=>selectStops({...boundary,route:{...boundary.route,miles:miles+0.01}},input),/available fuel range/);
+});
+
+test("geometry discovery does not mistake unpriced existing stations for missing addresses",async()=>{
+  const covered={...original,stations:[90,180,270,360,450,540,630].map((t,i)=>station(`covered-${i}`,pointAlongRoute(route,t)))};
+  const strict={...input,requireStationPrices:true};
+  const result=await fillStationCoverage(covered,strict,async()=>{assert.fail("geometry already covered; quotes are a later step");});
+  assert.equal(result.stations.length,covered.stations.length);
+  assert.ok(result.stations.every(station=>station.price===null));
+  assert.throws(()=>selectStops({...covered,stations:result.stations},strict),/Not enough verified station prices/);
+});
+
+test("quote repair chooses eligible existing candidates near gaps without repeating attempted IDs",()=>{
+  const strict={...input,requireStationPrices:true};
+  const candidates=[60,90,180,270,360,450,540,630].map((t,i)=>station(`candidate-${i}`,pointAlongRoute(route,t)));
+  const unavailable={...station("members-only",pointAlongRoute(route,120)),membersOnly:true};
+  const result=unpricedCandidatesForGaps({...original,stations:[...candidates,unavailable]},strict,new Set(["candidate-0","candidate-1"]),4);
+  assert.equal(result.length,4);
+  assert.ok(result.every(station=>!["candidate-0","candidate-1","members-only"].includes(station.id)));
+  assert.ok(result.every(station=>station.price===null));
+  assert.ok(result.some(station=>station.routeMinutes>400));
 });

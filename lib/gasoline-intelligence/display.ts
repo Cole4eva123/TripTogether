@@ -1,4 +1,4 @@
-import type { FuelStop, Station } from "./fuel-types.ts";
+import type { FuelStop, Station } from "./types.ts";
 
 export type DistanceUnit = "mi" | "km";
 export type StationDistances = {

@@ -40,7 +40,7 @@ export default function OneClickPlanButton() {
     </button>
     {open && <div id="one-click-plan-help" role="tooltip" className="absolute inset-x-0 bottom-full z-20 pb-3">
       <div className="relative rounded-xl border-2 border-green bg-paper px-4 py-3 text-[13px] leading-relaxed text-asphalt shadow-lg">
-        <p>Plan fuel and rest stops around your selected 1–3 hour interval, balancing prices, vehicle range, membership discounts, detours and preferred facilities.</p>
+        <p>Plan fuel and rest stops around a two-hour interval, balancing fuel prices, vehicle range, detours and restrooms.</p>
         <span aria-hidden="true" className="absolute -bottom-[7px] left-7 h-3 w-3 rotate-45 border-r-2 border-b-2 border-green bg-paper" />
       </div>
     </div>}

@@ -34,3 +34,12 @@ export function sharedWindow(a: DateRange, b: DateRange): (DateRange & { days: n
 
 /** True when a trip is over: its last day has passed. */
 export const hasEnded = (end: string, on = today()) => end < on;
+
+/** Where a stretch of dates sits on a longer one, as percentages from its start, for drawing it as a bar. */
+export function barWithin(range: DateRange, axis: DateRange): { left: number; width: number } {
+  const total = tripLength(axis.startDate, axis.endDate);
+  return {
+    left: ((tripLength(axis.startDate, range.startDate) - 1) / total) * 100,
+    width: (tripLength(range.startDate, range.endDate) / total) * 100,
+  };
+}

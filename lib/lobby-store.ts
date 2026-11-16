@@ -6,7 +6,7 @@ import { hasEnded, sharedWindow } from "./dates.ts";
 import { db, isUniqueViolation, ready } from "./db/client.ts";
 import { lobbyPosts, lobbyRequests, tripMembers, tripMessages, trips, users } from "./db/schema.ts";
 import { lobbyForTrip } from "./lobby.ts";
-import { similarity } from "./matching.ts";
+import { matchLabel, similarity } from "./matching.ts";
 import { isId, tripsFor } from "./store.ts";
 import type {
   ChatMessage,
@@ -163,7 +163,7 @@ export async function lobbyFor(
     const group = members.get(post.tripId)!;
     const ended = hasEnded(post.endDate);
     if (ownIds.includes(post.tripId)) {
-      return { ...post, mine: true, organizedByMe: organizerId === meId, score: 0, reasons: [], datesClash: false, ended, members: group, basis: null, myRequest: null };
+      return { ...post, mine: true, organizedByMe: organizerId === meId, score: 0, label: "", reasons: [], datesClash: false, ended, members: group, basis: null, myRequest: null };
     }
     const mine = basisFor(own, post, againstTripId);
     const match = mine && similarity(mine, post);
@@ -173,6 +173,7 @@ export async function lobbyFor(
       mine: false,
       organizedByMe: false,
       score: match?.score ?? 0,
+      label: match ? matchLabel(match.score) : "",
       reasons: match?.reasons ?? [],
       datesClash: !!mine && !window,
       ended,
@@ -195,7 +196,6 @@ export async function lobbyFor(
     ...lobbyForTrip(views, query, filters),
     requests: items,
     pendingRequestCount: items.filter((i) => i.mayAnswer).length,
-    publishedTripIds: posts.filter((p) => ownIds.includes(p.post.tripId)).map((p) => p.post.tripId),
   };
 }
 

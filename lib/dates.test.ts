@@ -2,7 +2,7 @@
 // they are checked on their own.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addDays, hasEnded, sharedWindow, today, tripLength } from "./dates.ts";
+import { addDays, barWithin, hasEnded, sharedWindow, today, tripLength } from "./dates.ts";
 
 test("a trip counts both ends", () => {
   assert.equal(tripLength("2026-11-27", "2026-11-30"), 4);
@@ -60,4 +60,10 @@ test("a trip is over once its last day has passed", () => {
 
 test("today is a plain date", () => {
   assert.match(today(), /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test("a bar sits on its axis by the days before it and the days it covers", () => {
+  const axis = { startDate: "2026-11-27", endDate: "2026-11-30" };
+  assert.deepEqual(barWithin({ startDate: "2026-11-27", endDate: "2026-11-28" }, axis), { left: 0, width: 50 });
+  assert.deepEqual(barWithin({ startDate: "2026-11-30", endDate: "2026-11-30" }, axis), { left: 75, width: 25 });
 });

@@ -1,61 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { api, errorText } from "@/lib/api";
-import { hasEnded } from "@/lib/dates";
+import { api } from "@/lib/api";
 import type { Trip } from "@/lib/types";
+import { useRun } from "./shared";
 
-/** The form that publishes one of the reader's trips to the lobby. */
+/** Shares one of the trips the reader organizes, and hasn't shared yet, in the lobby. */
 export default function PublishForm({
   trips,
-  publishedTripIds,
   onPublished,
 }: {
   trips: Trip[];
-  publishedTripIds: string[];
   onPublished: () => Promise<void>;
 }) {
   const [tripId, setTripId] = useState("");
   const [note, setNote] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { busy, error, run } = useRun();
 
-  const unpublished = trips.filter((t) => !publishedTripIds.includes(t.id) && !hasEnded(t.endDate));
-  const chosen = unpublished.some((trip) => trip.id === tripId) ? tripId : unpublished[0]?.id ?? "";
+  const chosen = trips.some((trip) => trip.id === tripId) ? tripId : trips[0]?.id ?? "";
 
-  async function submit(e: React.SubmitEvent<HTMLFormElement>) {
+  function submit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (busy || !chosen) return;
-    setBusy(true);
-    setError("");
-    try {
+    if (!chosen) return;
+    void run(async () => {
       await api("/lobby", "POST", { tripId: chosen, note: note.trim() });
       setTripId("");
       setNote("");
       await onPublished();
-    } catch (err) {
-      setError(errorText(err));
-    } finally {
-      // The button has to come back either way, or publishing one trip locks the form for good.
-      setBusy(false);
-    }
-  }
-
-  if (!unpublished.length) {
-    return (
-      <p className="max-w-[60ch] text-muted">
-        {trips.length
-          ? "No upcoming unpublished trips."
-          : "You have no trips yet. Make one on your trips page, then publish it here."}
-      </p>
-    );
+    });
   }
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
       <div className="grid content-start gap-1.5">
-        <label htmlFor="tripId" className="text-[12px] font-semibold text-muted">
-          Which trip are you publishing?
+        <label htmlFor="tripId" className="text-[14px] text-muted">
+          Trip to share
         </label>
         <select
           id="tripId"
@@ -65,7 +44,7 @@ export default function PublishForm({
           onChange={(e) => setTripId(e.target.value)}
           required
         >
-          {unpublished.map((t) => (
+          {trips.map((t) => (
             <option key={t.id} value={t.id}>
               {`${t.destination} · ${t.startDate} to ${t.endDate}`}
             </option>
@@ -73,8 +52,8 @@ export default function PublishForm({
         </select>
       </div>
       <div className="grid content-start gap-1.5">
-        <label htmlFor="note" className="text-[12px] font-semibold text-muted">
-          Tell other groups about it
+        <label htmlFor="note" className="text-[14px] text-muted">
+          A note for other groups
         </label>
         <textarea
           id="note"
@@ -87,15 +66,15 @@ export default function PublishForm({
           placeholder="Travel style, interests, or a little about your plans."
         />
       </div>
-      <p className="text-[11px] leading-relaxed text-muted">Keep names and contact details for the group chat.</p>
+      <p className="text-[13px] text-muted">Keep names and contact details for the group chat.</p>
       {error && (
         <p className="font-semibold text-red" role="alert">
           {error}
         </p>
       )}
       <div>
-        <button className="btn" disabled={busy}>
-          Publish to the lobby
+        <button className="btn btn-small" disabled={busy}>
+          Share in the lobby
         </button>
       </div>
     </form>

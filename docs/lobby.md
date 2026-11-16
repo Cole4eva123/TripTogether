@@ -55,9 +55,16 @@ Places are compared as real places, not as strings. Both names are looked up in 
 "Beijing" are one city, "Chicago" and "Chicago, IL" are one city, and two different cities are compared by the
 real distance between them. A name the gazetteer doesn't know is compared as text.
 
-Without `?against=`, each shared trip is compared with whichever of your trips matches it best. The lobby then
+Without `?against=`, each shared trip is compared with whichever of your trips matches it best. That is the
+page's default; "Compare with" pins the comparison to one of your trips. The lobby then
 sorts: trips that have already ended go last, then trips whose dates clash with yours, then by score, then by
 start date. The search matches destinations by any of their names (and by country or region), origins, and notes.
+The search, the dates and the order apply to everyone else's trips; your own are always listed.
+
+On the page a shared trip is a guide sign. Another group's sign carries the score and its label on the tab, and
+under it the two trips are drawn as bars on the same days, with the shared days marked (`barWithin` in
+`lib/dates.ts`). The lobby page fetches again every 15 seconds while its tab is in view, and waits 300 ms after
+the last keystroke before it searches.
 
 ### A request, and who answers it
 
@@ -74,8 +81,8 @@ orders the organizer's list.
   organizer said no), `asked` (the applicant took it back) or `gone` (the organizer took the post down, which
   closes every pending request). An accepted request stays accepted if the person later leaves the trip.
 
-Every member sees the requests about their trip, with the applicant's name and message. The person who asked sees
-their own.
+Every member sees the requests about their trip, with the applicant's name and message, in the "Requests to
+join" list at the top of the lobby. The person who asked sees their own on the trip's sign.
 
 ### The pending badge
 
@@ -119,10 +126,11 @@ All routes answer `401` when logged out.
 
 ### What `LobbyView` holds
 
-`LobbyView` is `{ mine, others, requests, pendingRequestCount, publishedTripIds }`:
+`LobbyView` is `{ mine, others, requests, pendingRequestCount }`:
 
-- **`mine` and `others`** are posts. Each one has its trip's details plus:
-  - `score` and `reasons`
+- **`mine` and `others`** are posts; `mine` is every trip of mine in the lobby, whatever the filters. Each one
+  has its trip's details plus:
+  - `score`, `label` ("Great match", "Possible match" or "Far off") and `reasons`
   - `datesClash` and `ended`
   - `members`, counted only, on others' cards
   - `basis`: which of my trips it was compared with, and the days in common
@@ -131,7 +139,6 @@ All routes answer `401` when logged out.
   - `role` is `member` or `applicant`.
   - `mayAnswer` is true only for the organizer, while the request is pending.
   - `gone` means the post has come down.
-- **`publishedTripIds`** lists my trips that are in the lobby, whatever the filters.
 
 A `JoinRequest` is `{ id, tripId, applicantId, applicantName, message, status, score, createdAt, respondedAt,
 closedBy }`. A `ChatMessage` is `{ id, tripId, senderId, senderName, body, sentAt }`.

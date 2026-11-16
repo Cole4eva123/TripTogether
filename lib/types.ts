@@ -116,6 +116,7 @@ export type LobbyPostView = LobbyPost & {
   mine: boolean; // I'm in this trip
   organizedByMe: boolean; // I'm its organizer, so I take it down and answer requests
   score: number; // the best match against any of my trips, 0 when I have none
+  label: string; // what to call the score ("Great match"), "" when there was nothing to compare with
   reasons: string[]; // why it matched, in plain words
   datesClash: boolean; // it shares no days with any of my trips
   ended: boolean; // the trip is over, so it can't be joined any more
@@ -134,7 +135,6 @@ export type LobbyPostView = LobbyPost & {
  */
 export type LobbyView = {
   pendingRequestCount: number; // open requests the reader can answer
-  publishedTripIds: string[]; // the reader's trips in the lobby, whatever the filters, so none is offered twice
   mine: LobbyPostView[];
   others: LobbyPostView[];
   requests: RequestItem[];

@@ -8,7 +8,7 @@ function post(id: string, patch: Partial<LobbyPostView> = {}): LobbyPostView {
     id, tripId: id,
     origin: "Chicago", destination: "Denver", startDate: "2099-06-01", endDate: "2099-06-05",
     memberCount: 1, members: [{ id, name: id }], note: "", publishedAt: "2099-01-01T00:00:00Z",
-    mine: false, organizedByMe: false, score: 0, reasons: [], datesClash: false, ended: false, basis: null,
+    mine: false, organizedByMe: false, score: 0, reasons: [], datesClash: false, ended: false, basis: null, label: "",
     myRequest: null,
     ...patch,
   };
@@ -144,4 +144,10 @@ test("every sorting mode is deterministic, respects its primary key and puts end
   for(const input of [[a,b,c,old],[old,c,b,a],[b,old,a,c]]) assert.deepEqual(lobbyForTrip(input,"",{sort}).others.map(p=>p.id),expected[sort]);
  }
  const equal=[post("z"),post("a")];for(const sort of ["closest","soonest","soonest-end"] as const)assert.deepEqual(lobbyForTrip(equal,"",{sort}).others.map(p=>p.id),["a","z"]);
+});
+
+test("the reader's own trips stay, whatever the search and the dates", () => {
+  const result = lobbyForTrip([post("own", { mine: true }), post("other")], "boston", { from: "2100-01-01" });
+  assert.deepEqual(result.mine.map((item) => item.id), ["own"]);
+  assert.deepEqual(result.others, []);
 });

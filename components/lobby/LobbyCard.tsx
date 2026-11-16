@@ -2,58 +2,60 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { api, errorText } from "@/lib/api";
-import type { LobbyPostView, RequestItem } from "@/lib/types";
+import { api } from "@/lib/api";
+import { barWithin } from "@/lib/dates";
+import type { JoinRequest, LobbyPostView, MatchBasis, RequestItem } from "@/lib/types";
+import { dates, useRun } from "./shared";
 
-const dateFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-const day = (value: string) => new Date(`${value}T00:00:00Z`);
-// A range of days. A missing end means a single day, and a missing start means there is nothing to show.
-const dates = (start: string, end: string) => {
-  if (!start) return "";
-  if (!end || end === start) return dateFmt.format(day(start));
-  return dateFmt.formatRange(day(start), day(end));
+/** Why a request closed, as its trip's members and its applicant read it. */
+const closedText: Record<NonNullable<JoinRequest["closedBy"]>, string> = {
+  answerer: "Request declined",
+  asked: "Request withdrawn",
+  gone: "Closed: the trip left the lobby",
 };
 
-const chip = "inline-flex rounded-full bg-paper/80 px-2.5 py-1 text-[10px] font-semibold tracking-[0.02em] text-muted";
+/** What rides on the sign's tab: whose trip it is, or how close it is to the reader's own. */
+function tabFor(post: LobbyPostView) {
+  if (post.mine) return post.organizedByMe ? "You organize this" : "You're in this";
+  if (post.ended) return "Ended";
+  if (!post.basis) return null;
+  if (post.datesClash) return "No shared days";
+  return (
+    <>
+      <span className="sr-only">Match score </span>
+      {post.score}
+      <span className="ml-2 font-semibold tracking-normal">{post.label}</span>
+    </>
+  );
+}
 
-export default function LobbyCard({ post, requests, onChanged, onUnpublish }: {
+/**
+ * A trip in the lobby: a guide sign, with what the reader can do about it on a plate hung underneath. On another
+ * group's trip the sign's tab carries the match score, where the reader's own trips carry their invite code.
+ */
+export default function LobbyCard({ post, requests, onChanged }: {
   post: LobbyPostView;
   requests: RequestItem[];
   onChanged: () => Promise<void>;
-  onUnpublish?: (tripId: string) => Promise<void>;
 }) {
   const [asking, setAsking] = useState(false);
   const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { busy, error, run } = useRun();
 
-  // The comparison against the reader's own trip is worked out on the server, so the card and the request it
-  // sends always talk about the same trip and the same days.
-  const basis = post.basis;
-  const overlapDays = basis?.overlapDays ?? 0;
-  const hasOverlap = overlapDays > 0;
+  const here = requests.filter((item) => item.request.tripId === post.tripId);
+  const closed = here.filter((item) => item.request.status === "declined");
+  const pending = post.myRequest?.status === "pending" ? post.myRequest : null;
+  const tab = tabFor(post);
 
-  // The requests about this trip. Its members see the ones waiting (only the organizer answers them); an
-  // applicant sees the one they made.
-  const here = requests.filter((request) => request.request.tripId === post.tripId);
-  const waiting = here.filter((request) => request.role === "member" && request.request.status === "pending");
-  const mine = here.find((request) => request.role === "applicant");
-  const closed = here.filter((request) => request.request.status === "declined");
+  const withdraw = (id: string) =>
+    run(async () => { await api(`/join-requests/${id}`, "PATCH", { action: "withdraw" }); await onChanged(); });
 
-  async function run(action: () => Promise<unknown>) {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try { await action(); }
-    catch (e) { setError(errorText(e)); }
-    finally { setBusy(false); }
-  }
+  const unpublish = () => {
+    if (!confirm("Take this trip out of the lobby? Requests still waiting will be closed.")) return;
+    void run(async () => { await api(`/lobby/${post.tripId}`, "DELETE"); await onChanged(); });
+  };
 
-  function respond(id: string, action: "accept" | "decline" | "withdraw") {
-    return run(async () => { await api(`/join-requests/${id}`, "PATCH", { action }); await onChanged(); });
-  }
-
-  async function send(event: React.FormEvent<HTMLFormElement>) {
+  async function send(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     await run(async () => {
       await api("/join-requests", "POST", { postId: post.id, message: message.trim() });
@@ -64,132 +66,115 @@ export default function LobbyCard({ post, requests, onChanged, onUnpublish }: {
   }
 
   return (
-    <article id={`lobby-trip-${post.tripId}`} data-mine={post.mine} aria-label={`${post.destination} trip`} className={`relative grid min-w-0 content-start gap-4 rounded-xl border bg-white p-5 shadow-[0_2px_8px_rgba(35,39,43,0.025)] transition-colors hover:border-green/35 [overflow-wrap:anywhere] max-sm:p-5 ${waiting.length ? "border-green/50" : "border-line/60"}`}>
-      {(post.mine || waiting.length > 0 || post.ended) && <div className="flex flex-wrap items-center gap-2">
-        {post.organizedByMe && <span className={chip}>You organize this trip</span>}
-        {post.mine && !post.organizedByMe && <span className={chip}>You&apos;re in this trip</span>}
-        {waiting.length > 0 && <span className="inline-flex rounded-full bg-green/10 px-2.5 py-1 text-[10px] font-semibold text-green">{`${waiting.length} ${waiting.length === 1 ? "request" : "requests"}`}</span>}
-        {post.ended && <span className={chip}>Trip ended</span>}
-      </div>}
-      <div className="grid grid-cols-[10px_minmax(0,1fr)] gap-x-3 gap-y-3">
-        <div aria-hidden="true" className="relative row-span-2 my-2 w-2"><span className="absolute inset-y-1 left-[3px] border-l border-line"/><span className="absolute top-0 h-2 w-2 rounded-full border border-muted bg-white"/><span className="absolute bottom-0 h-2 w-2 rounded-full bg-green"/></div>
-        <div className="grid min-w-0 gap-0.5"><p className="text-[10px] font-semibold tracking-[0.1em] text-muted uppercase">From</p><p className="text-[16px] leading-snug font-semibold text-asphalt">{post.origin}</p></div>
-        <div className="grid min-w-0 gap-0.5"><p className="text-[10px] font-semibold tracking-[0.1em] text-muted uppercase">To</p><h3 className="text-[25px] leading-tight font-extrabold tracking-[-0.025em] text-green">{post.destination}</h3></div>
+    <article aria-label={`${post.destination} trip`} className="grid min-w-0 content-start pt-9 wrap-anywhere">
+      <div className={`sign relative grid gap-1 px-[30px] pt-6 pb-5 max-sm:px-6 ${post.ended ? "[--bg:var(--color-muted)]" : ""}`}>
+        {tab && <span className="sign-tab">{tab}</span>}
+        <h3 className="text-[30px] leading-[1.05] font-extrabold">{post.destination}</h3>
+        <p className="text-[16px] font-semibold">From {post.origin}</p>
+        <p className="text-[16px] font-semibold">
+          {dates(post.startDate, post.endDate)}
+          <span className="ml-3 font-normal">{`${post.members.length} ${post.members.length === 1 ? "traveler" : "travelers"}`}</span>
+        </p>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-y border-line/40 py-3">
-        <p className="text-[13px] font-medium text-asphalt">{dates(post.startDate, post.endDate)}</p>
-        <p className="text-[12px] text-muted">{`${post.members.length} ${post.members.length === 1 ? "traveler" : "travelers"}`}</p>
-      </div>
-      {post.mine && <p className="text-[13px] text-muted">{post.members.map((m) => m.name).join(", ")}</p>}
-      {post.note && <p className="border-l-2 border-line/50 pl-3 text-[13px] leading-relaxed whitespace-pre-wrap text-muted">{post.note}</p>}
 
-      {!post.mine && basis && (
-        <div className="grid gap-1">
-          {hasOverlap ? (
-            <p className="text-[12px] font-semibold text-green">
-              {`${overlapDays} ${overlapDays === 1 ? "day" : "days"} in common · ${dates(basis.overlapStart, basis.overlapEnd)}`}
-            </p>
-          ) : (
-            <p className="text-[12px] font-medium text-muted">Your dates don&apos;t overlap.</p>
-          )}
-          <p className="text-[12px] text-muted">{`Compared with your ${basis.destination} trip.`}</p>
-          {hasOverlap && post.reasons.length > 0 && (
-            <ul className="flex flex-wrap gap-1.5 pt-1">
-              {post.reasons.map((reason) => <li key={reason} className={chip}>{reason}</li>)}
+      <div className="mx-3 grid gap-4 rounded-b-xl border-2 border-t-0 border-line bg-white p-5">
+        {post.mine && <p className="text-[14px] text-muted">{post.members.map((m) => m.name).join(", ")}</p>}
+        {!post.mine && post.basis && <Overlap post={post} basis={post.basis} />}
+        {post.note && <p className="border-l-4 border-line pl-3 text-[15px] whitespace-pre-wrap">{post.note}</p>}
+
+        {post.mine ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href={`/trips/${post.tripId}`} className="btn btn-small">Open the trip</Link>
+            <Link href={`/trips/${post.tripId}/chat`} className="btn btn-small btn-quiet">Chat</Link>
+            {post.organizedByMe && <button className="link-btn text-[14px]" disabled={busy} onClick={unpublish}>Remove from lobby</button>}
+          </div>
+        ) : post.ended ? (
+          <p className="text-[14px] text-muted">This trip is over.</p>
+        ) : pending ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="text-[15px] font-bold">Waiting for the organizer&apos;s answer</p>
+            <button className="link-btn text-[14px]" disabled={busy} onClick={() => withdraw(pending.id)}>Withdraw request</button>
+          </div>
+        ) : asking ? (
+          <form onSubmit={send} className="grid gap-2">
+            <label htmlFor={`message-${post.id}`} className="text-[14px]">Say hello (optional)</label>
+            <textarea id={`message-${post.id}`} rows={2} maxLength={500} value={message} disabled={busy} onChange={(event) => setMessage(event.target.value)} placeholder="Who you are and what you're looking for." />
+            <div className="flex flex-wrap gap-2">
+              <button className="btn btn-small" disabled={busy}>{busy ? "Sending…" : "Send request"}</button>
+              <button type="button" className="btn btn-small btn-quiet" disabled={busy} onClick={() => setAsking(false)}>Cancel</button>
+            </div>
+          </form>
+        ) : (
+          <div>
+            <button className="btn btn-small" onClick={() => setAsking(true)}>{post.myRequest ? "Ask again" : "Ask to join"}</button>
+          </div>
+        )}
+
+        {/* Requests that ended without anyone joining. Members see everyone's; an applicant sees their own, so
+            "turned down" reads differently from "the trip left the lobby". */}
+        {closed.length > 0 && (
+          <details className="text-[14px] text-muted">
+            <summary className="cursor-pointer">{`Closed requests (${closed.length})`}</summary>
+            <ul className="grid gap-1 pt-2">
+              {closed.map(({ request, role }) => (
+                <li key={request.id}>
+                  {role === "member" && <span className="font-semibold text-asphalt">{request.applicantName}: </span>}
+                  {closedText[request.closedBy ?? "answerer"]}
+                </li>
+              ))}
             </ul>
-          )}
-        </div>
-      )}
-
-      {/* The people waiting to join this trip. Every member sees them; the organizer answers. */}
-      {post.mine && waiting.map((item) => (
-        <RequestRow key={item.request.id} item={item} busy={busy} onRespond={respond} />
-      ))}
-
-      {/* What the reader can do about this trip. It depends on where they stand with it, not on whether
-          they are one of its members: someone who was let in is a member now, and still needs to be told so
-          and given a way into the trip and its chat. */}
-      {post.mine ? (
-        <div className="grid gap-3 border-t border-line/60 pt-4">
-          <p className="text-[14px] font-semibold">You&apos;re in this trip.</p>
-          <div className="flex flex-wrap gap-2">
-            <Link href={`/trips/${post.tripId}`} className="btn btn-small rounded-lg text-[13px]">Open the trip</Link>
-            <Link href={`/trips/${post.tripId}/chat`} className="btn btn-small rounded-lg text-[13px] btn-quiet">Open the chat group</Link>
-          </div>
-        </div>
-      ) : post.ended ? (
-        <div className="border-t border-line pt-4">
-          <p className="text-[14px] text-muted">That trip is already over.</p>
-        </div>
-      ) : mine?.request.status === "pending" ? (
-        <div className="grid gap-3 border-t border-line/60 pt-4">
-          <p className="text-[14px] font-semibold">Waiting for an answer.</p>
-          <button className="link-btn justify-self-start" disabled={busy} onClick={() => respond(mine.request.id, "withdraw")}>Withdraw request</button>
-        </div>
-      ) : asking ? (
-        <form onSubmit={send} className="grid gap-3 border-t border-line pt-4">
-          <label htmlFor={`message-${post.id}`} className="text-[14px] font-bold">Say hello (optional)</label>
-          <textarea id={`message-${post.id}`} rows={2} maxLength={500} value={message} disabled={busy} onChange={(event) => setMessage(event.target.value)} placeholder="Tell them who you are and what you're looking for." />
-          <div className="flex flex-wrap gap-2">
-            <button className="btn btn-small rounded-lg text-[13px]" disabled={busy}>{busy ? "Sending…" : "Send request"}</button>
-            <button type="button" className="btn btn-small rounded-lg text-[13px] btn-quiet" disabled={busy} onClick={() => setAsking(false)}>Cancel</button>
-          </div>
-        </form>
-      ) : (
-        <div className="border-t border-line pt-4">
-          <button className="btn btn-small rounded-lg text-[13px] justify-self-start" onClick={() => setAsking(true)}>
-            {mine ? "Ask again" : "Ask to join"}
-          </button>
-        </div>
-      )}
-      {/* The requests about this trip that are closed. The owner sees the ones that were turned down; the
-          applicant sees their own, so they can tell "turned down" from "the trip left the lobby" from
-          "they were let in and then left the trip themselves". */}
-      {(post.mine || mine) && closed.length > 0 && (
-        <details className="border-t border-line pt-3 text-[14px]">
-          <summary className="cursor-pointer text-muted">{`Closed requests (${closed.length})`}</summary>
-          <div className="grid gap-3 pt-3">{closed.map((item) => <RequestRow key={item.request.id} item={item} busy={busy} onRespond={respond} />)}</div>
-        </details>
-      )}
-      {error && <p role="alert" className="text-[14px] text-red">{error}</p>}
-
-      {post.organizedByMe && onUnpublish && (
-        <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-          <button className="btn btn-small rounded-lg text-[13px] btn-quiet" disabled={busy} onClick={() => run(() => onUnpublish(post.tripId))}>Remove from lobby</button>
-        </div>
-      )}
+          </details>
+        )}
+        {error && <p role="alert" className="text-[14px] font-semibold text-red">{error}</p>}
+      </div>
     </article>
   );
 }
 
-function RequestRow({ item, busy, onRespond }: {
-  item: RequestItem;
-  busy: boolean;
-  onRespond: (id: string, action: "accept" | "decline" | "withdraw") => Promise<void>;
-}) {
-  const { request } = item;
-  const pending = request.status === "pending";
-  const status = statusText(request);
+/**
+ * The reader's trip and this one as two bars on the same stretch of days, with the days they share marked in
+ * centre-line yellow. The sentence above says the same thing, so the drawing is hidden from screen readers.
+ */
+function Overlap({ post, basis }: { post: LobbyPostView; basis: MatchBasis }) {
+  const axis = {
+    startDate: post.startDate < basis.startDate ? post.startDate : basis.startDate,
+    endDate: post.endDate > basis.endDate ? post.endDate : basis.endDate,
+  };
+  const pct = ({ left, width }: { left: number; width: number }) => ({ left: `${left}%`, width: `${width}%` });
+  const shared = basis.overlapDays > 0;
+  const rows = [
+    { name: "This trip", colour: "bg-green", range: post },
+    { name: `Your ${basis.destination} trip`, colour: "bg-asphalt", range: basis },
+  ];
   return (
-    <div className="grid gap-3 border-t border-line/60 pt-4">
-      <p className="text-[14px] font-bold">{request.applicantName}</p>
-      <p className="text-[14px] font-semibold">{status}</p>
-      {request.message && <p className="text-[14px] whitespace-pre-wrap text-muted">{request.message}</p>}
-      {pending && !item.mayAnswer && item.role === "member" && <p className="text-[13px] text-muted">Waiting for the organizer to answer.</p>}
-      {item.mayAnswer && (
-        <div className="flex flex-wrap gap-2">
-          <button className="btn btn-small rounded-lg text-[13px]" disabled={busy} onClick={() => onRespond(request.id, "accept")}>Let them join</button>
-          <button className="btn btn-small rounded-lg text-[13px] btn-quiet" disabled={busy} onClick={() => onRespond(request.id, "decline")}>Decline</button>
-        </div>
-      )}
+    <div className="grid gap-2">
+      <p className="text-[15px] font-bold">
+        {shared
+          ? `${basis.overlapDays} ${basis.overlapDays === 1 ? "day" : "days"} together, ${dates(basis.overlapStart, basis.overlapEnd)}`
+          : "No days in common"}
+      </p>
+      <div aria-hidden className="relative grid gap-1.5 py-1.5">
+        {shared && (
+          <span
+            className="absolute inset-y-0 min-w-1.5 rounded-sm bg-lane/40"
+            style={pct(barWithin({ startDate: basis.overlapStart, endDate: basis.overlapEnd }, axis))}
+          />
+        )}
+        {rows.map((row) => (
+          <span key={row.name} className="relative h-2.5 rounded-full bg-paper">
+            <span className={`absolute inset-y-0 min-w-1.5 rounded-full ${row.colour}`} style={pct(barWithin(row.range, axis))} />
+          </span>
+        ))}
+      </div>
+      <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted">
+        {rows.map((row) => (
+          <span key={row.name} className="inline-flex items-center gap-1.5">
+            <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${row.colour}`} />
+            {row.name}
+          </span>
+        ))}
+      </p>
+      {shared && post.reasons.length > 0 && <p className="text-[13px] text-muted">{post.reasons.join(". ")}.</p>}
     </div>
   );
-}
-
-function statusText(request: RequestItem["request"]): string {
-  if (request.status === "pending") return "Wants to join your trip";
-  if (request.status === "accepted") return "In your trip";
-  if (request.closedBy === "gone") return "Closed: the trip left the lobby";
-  if (request.closedBy === "asked") return "Request withdrawn";
-  return "Request declined";
 }

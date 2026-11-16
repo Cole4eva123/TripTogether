@@ -29,11 +29,9 @@ export function lobbyForTrip(posts: LobbyPostView[], query: string, filters?: Pa
   const from = filters?.from ?? "";
   const to = filters?.to ?? "";
   const sort = filters?.sort ?? "closest";
-  // The reader's own trips answer the same filters as everybody else's: the filters are for the lobby, and
-  // the reader's trips are in it. A search that hid them would hide a trip the reader is in.
-  const mine = posts
-    .filter((post) => post.mine && matchesQuery(post, query) && matchesDates(post, from, to))
-    .sort(comparator(sort));
+  // The filters narrow down everyone else's trips. The reader's own stay put, so a search never hides a trip
+  // they manage.
+  const mine = posts.filter((post) => post.mine);
   const others = posts
     .filter((post) => !post.mine && matchesQuery(post, query) && matchesDates(post, from, to))
     .sort(comparator(sort));

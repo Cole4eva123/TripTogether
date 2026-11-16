@@ -80,12 +80,12 @@ export default function TripNav() {
     };
   }, [me]);
 
-  const review = () => window.dispatchEvent(new Event("lobby:review-requests"));
+  const review = () => document.getElementById("requests")?.scrollIntoView({ behavior: "smooth" });
 
   return (
     <nav className="relative flex min-w-0 items-center">
       <Link
-        href={count ? "/trips/lobby#your-group" : "/trips/lobby"}
+        href={count ? "/trips/lobby#requests" : "/trips/lobby"}
         aria-current={current ? "page" : undefined}
         onClick={(event) => {
           // Already on the lobby: scroll to the requests instead of reloading it.
@@ -117,7 +117,7 @@ export default function TripNav() {
         >
           New request to join your trip.{" "}
           <Link
-            href="/trips/lobby#your-group"
+            href="/trips/lobby#requests"
             className="link-btn"
             onClick={() => {
               review();

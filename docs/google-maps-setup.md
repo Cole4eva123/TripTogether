@@ -1,7 +1,7 @@
 # Google Maps 配置步骤
 
 本功能使用 Routes API 计算路线，Places API (New) 返回单站油价，Maps JavaScript API 展示地图。
-DeepSeek 继续识别车型；选择 Google 后，路线和油价查询不经过 DeepSeek 网页研究。
+DeepSeek 只识别车型；路线和油价查询不经过 DeepSeek 网页研究。当前版本只有 Google 实现，缺少配置时不会自动切换其他服务。
 
 ## 1. 选择项目并启用 API
 
@@ -18,12 +18,16 @@ API 启用和 key 限制变更可能需要几分钟生效。
 
 ## 2. 创建两个不同的 key
 
-在「API 和服务 → 凭据 → 创建凭据 → API 密钥」创建以下两项：
+在「Keys & Credentials」顶部选择 **Create credentials → API key**，分别创建以下两项。
+浏览器 key 可命名为 `TripTogether Browser`，创建后点击名称进入编辑页面：
 
 | Key 用途 | 应用限制 | API 限制 |
 | --- | --- | --- |
 | 服务端查询 | 本地开发没有固定出口 IP 时暂不设 IP 限制；部署后限制为服务端出口 IP | 仅 Routes API、Places API (New) |
 | 浏览器地图 | 网站（HTTP 引荐来源），添加下面两个本地地址 | 仅 Maps JavaScript API |
+
+浏览器 key 的 **Application restrictions** 选择 **Websites**，**API restrictions** 选择
+**Restrict key**，仅勾选 **Maps JavaScript API** 后保存。API key 登录方式无需配置 OAuth consent screen。
 
 浏览器 key 的允许网站：
 
@@ -39,10 +43,10 @@ http://127.0.0.1:3000/*
 
 ## 3. 填写本地环境变量
 
-打开项目根目录 `.env.local`，保留已有 DeepSeek 配置，增加以下内容，将占位文字换成真实 key：
+首次配置时复制 `.env.example` 为项目根目录的 `.env.local`；已有该文件时只补充缺失变量，
+不要覆盖已有 DeepSeek 或其他模块配置。分别填写两个不同的 key：
 
 ```dotenv
-FUEL_DATA_PROVIDER=google
 GOOGLE_MAPS_API_KEY=你的服务端key
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=你的浏览器key
 NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID=DEMO_MAP_ID
@@ -53,9 +57,11 @@ NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID=DEMO_MAP_ID
 `.env.local` 已被 Git 忽略，不要提交，也不要把 key 贴到聊天或截图里。
 `.env.example` 仅包含空变量，可正常提交。
 
-`FUEL_DATA_PROVIDER=google` 会明确选择 Google；缺少配置时在付费查询前报错。
-`auto` 在服务端 key 未配置时保留原流程，配置后使用 Google。
-`openstreetmap` 明确选择原流程；原来的 `FUEL_STATION_PROVIDER=web` 只影响原流程，不覆盖 Google 设置。
+服务端和浏览器 key 都配置后才能进行完整查询。服务端 key 需要同时允许 Routes 和 Places API (New)，
+浏览器 key 仅允许 Maps JavaScript API，并限制网站来源。程序不会把服务端 key 自动复制到浏览器变量。
+应用只从环境变量读取 key；`basic_info.md` 等个人凭据笔记不会由运行中的应用自动加载，
+也不应提交到仓库。修改笔记后，仍需将对应值更新到 `.env.local`。
+旧的数据源开关和端点变量不再使用；开源地图和网页查价实现已移到本地忽略目录，仅供手动回滚。
 
 ## 4. 重启并检查
 
@@ -92,7 +98,8 @@ Dynamic Maps 每月 10,000 次免费加载，超出后首档每 1,000 次 $7。
 
 可先在「结算 → 预算和提醒」设置小额预算提醒，再在各 API 的「配额」页面降低可修改的调用配额。
 预算提醒不是硬性消费上限。Cloud 试用额度是否适用、剩余额度和到期日，以该结算账户实际显示为准。
-更多供应商与价格比较见 [fuel-price-apis.md](fuel-price-apis.md)。
+历史供应商与费用调研只在本地保留，未纳入发布仓库；当前服务计费以以上官方链接为准。
 
-Google 模式不将站点数据绘制到 OSM 地图；Google 标识与返回的第三方署名保留在地图中。
+Google 标识与返回的第三方署名保留在地图中，不与非 Google 地图混合。
 查询结果只服务当前登录用户的临时行程，不写入持久站点数据库或跨用户报价研究缓存。
+请求只包含路线、站点身份和地址、对应油品报价、地图链接及必要署名；不查询餐厅、厕所、营业时间、评论或照片。

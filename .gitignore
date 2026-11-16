@@ -45,4 +45,7 @@ basic_info.md
 
 # Locally retained optional UI; not part of the shipped module.
 /.local-features/gasoline-intelligence/
-docs/deepseek-prompts.md
+
+# Local research/reference notes; shared setup, API and merge docs stay tracked.
+/docs/deepseek-prompts.md
+/docs/fuel-price-apis.md

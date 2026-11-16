@@ -92,9 +92,9 @@ test("Google station parsing binds price to a US place and excludes unrelated lo
   assert.equal(stations[0].state, "IL");
   assert.equal(stations[0].price?.source.url, mapUrl);
   assert.equal(stations[0].price?.perGallon, 3.259);
-  assert.deepEqual(stations[0].amenities, ["Convenience store"]);
+  assert.deepEqual(stations[0].amenities, []);
   assert.deepEqual(stations[0].attributions, [{ title: "Provider", url: "https://example.com/" }]);
-  assert.ok(parseGoogleStations({ places: [{ ...valid, restroom: true }] }, route, input, now)[0].amenities.includes("Restroom"));
+  assert.deepEqual(parseGoogleStations({ places: [{ ...valid, restroom: true }] }, route, input, now)[0].amenities, []);
   assert.ok(Math.abs(stations[0].routeMinutes - 5) < 0.001);
   assert.equal(parseGoogleStations({ places: [{ ...valid, fuelOptions: {} }] }, route, input, now)[0].price, null);
 });
@@ -106,6 +106,7 @@ test("Google requests resolve addresses directly and bound route station searche
   assert.ok(GOOGLE_ROUTES_FIELDS.includes("routes.legs.steps.staticDuration"));
   assert.ok(GOOGLE_PLACES_FIELDS.includes("places.fuelOptions"));
   assert.ok(!GOOGLE_PLACES_FIELDS.includes("*"));
+  for (const unused of ["restroom", "types", "reviews", "photos", "openingHours", "rating"]) assert.ok(!GOOGLE_PLACES_FIELDS.includes(`places.${unused}`));
   const search = googleStationRequest(polyline);
   assert.equal(search.pageSize, 20);
   assert.equal(search.strictTypeFiltering, true);

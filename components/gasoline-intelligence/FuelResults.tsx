@@ -34,13 +34,22 @@ export function RegionalPrices({search}:{search:FuelSearch}) {
 export function PlanSummary({plan,input,distanceUnit}:{plan:FuelPlan;input:FuelPreferences;distanceUnit:DistanceUnit}) {
   const dateOnly=/^\d{4}-\d{2}-\d{2}$/.test(input.departure);
   const departureDay=dateOnly?new Date(`${input.departure}T00:00:00Z`).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"}):null;
+  const needsFuel=plan.gallonsPurchased>0.000001;
+  const fuelMetrics=[
+    ...(needsFuel?[{label:"Fuel cost",value:money(plan.purchaseCost),unit:""}]:[]),
+    {label:"Fuel used",value:plan.gallonsUsed.toFixed(1),unit:" gal"},
+    ...(needsFuel?[{label:"Fuel purchased",value:plan.gallonsPurchased.toFixed(1),unit:" gal"}]:[]),
+    {label:"Fuel on arrival",value:plan.fuelOnArrival.toFixed(1),unit:" gal"},
+  ];
   return <section className="grid gap-5" aria-labelledby="plan-heading">
     <div><h2 id="plan-heading">Your Plan</h2><p className="text-[14px] text-muted">{dateOnly?`Departure ${departureDay}`:`ETA ${arrival(plan.arrival)}`}</p></div>
     <div className="grid grid-cols-2 gap-3">
-      {[["Distance",formatDistance(plan.route.miles,distanceUnit,0)],["With breaks",duration(plan.totalMinutes)],["Fuel cost",money(plan.purchaseCost)],["Detour",`${formatDistance(plan.detourMiles,distanceUnit)} · ${duration(plan.detourMinutes)}`]].map(([label,value]) => <div key={label} className="rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
+      {[["Distance",formatDistance(plan.route.miles,distanceUnit,0)],["Duration with breaks",duration(plan.totalMinutes)]].map(([label,value]) => <div key={label} className="min-w-0 rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}</p></div>)}
     </div>
-    <div className="grid grid-cols-3 gap-3">
-      {[["Fuel used",plan.gallonsUsed],["Fuel purchased",plan.gallonsPurchased],["Fuel on arrival",plan.fuelOnArrival]].map(([label,value]) => <div key={label} className="min-w-0 rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{Number(value).toFixed(1)}<span className="text-[12px] font-normal"> gal</span></p></div>)}
+    {(plan.detourMiles>=0.05 || plan.detourMinutes>=0.5) && <p className="text-[13px] text-muted">Detour: {formatDistance(plan.detourMiles,distanceUnit)} · {duration(plan.detourMinutes)}</p>}
+    {!needsFuel && <p className="rounded-lg border border-green/20 bg-green/5 p-4 text-[14px] leading-relaxed text-green">Your current fuel is enough to reach your destination without dropping below your selected {input.reservePercent}% reserve.</p>}
+    <div className={`grid gap-3 ${needsFuel?"grid-cols-4 max-sm:grid-cols-2":"grid-cols-2"}`}>
+      {fuelMetrics.map(({label,value,unit}) => <div key={label} className="min-w-0 rounded-lg border border-line bg-white p-3"><p className="text-[12px] font-semibold text-muted">{label}</p><p className="mt-1 text-[20px] font-bold text-green">{value}{unit && <span className="text-[12px] font-normal">{unit}</span>}</p></div>)}
     </div>
     <h2 id="recommended-stops-heading">Your Recommended Stops</h2>
     {plan.stops.length===0 && <p className="rounded-lg border border-green bg-white p-4">No fuel or rest stops needed.</p>}

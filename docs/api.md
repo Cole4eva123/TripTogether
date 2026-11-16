@@ -79,11 +79,13 @@ The fuel planner uses the existing session cookie. All three endpoints return `4
 Bodies and response shapes are defined in `lib/gasoline-intelligence/types.ts`; provider configuration, estimates and
 planning behavior are documented in `docs/gasoline-intelligence.md`.
 
-`FuelSearch.provider` identifies `google` or `openstreetmap`; clients must display Google station data
-on the Google map. Optional `Station.attributions` contains provider names and links to retain with
-the map. Google mode returns station-specific Places `fuelOptions` prices without DeepSeek price
-research, regional HTML requests or OSM geocoding. Missing Google keys return `503`; upstream failures
-do not silently switch providers. See `docs/google-maps-setup.md` for configuration.
+New searches return `FuelSearch.provider:"google"`; clients display station data on the Google map.
+Optional `Station.attributions` contains provider names and links to retain with the map. Routes,
+station lookup and station-specific `fuelOptions` quotes use Google only. DeepSeek identifies vehicles
+only. There is no web-price research, regional HTML request, extra facility lookup or provider fallback.
+Missing Google keys return `503`; upstream failures do not switch providers. Searches from the archived
+non-Google implementation cannot be reused and return `410` during planning.
+See `docs/google-maps-setup.md` for configuration.
 
 `FuelPreferences.departure` is a calendar date (`YYYY-MM-DD`), passed through from the trip's `startDate`.
 Legacy ISO timestamp values remain accepted. With a date-only departure, the UI displays elapsed travel
@@ -94,18 +96,18 @@ time at each stop rather than an assumed departure/arrival clock time.
 removed. Gallons used, purchased and remaining are still returned separately; old nonfuel cost inputs
 are ignored. No-purchase plans cost zero without assigning a dollar value to starting fuel.
 Provider timeouts return `504`: vehicle identification has a 45-second budget, route search 90 seconds,
-and final road planning 30 seconds. Optional regional comparison work is cancelled when the search completes.
+and final road planning 30 seconds. Each Google request has a 15-second timeout within that budget.
 
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/gasoline-intelligence/vehicle` | `{ description: string }` (up to 500 characters) | `200 VehicleSuggestion` with cited research and editable partial vehicle specs | `400` invalid input; `429` rate limit; `502` upstream failure; `503` missing DeepSeek key |
-| POST | `/api/gasoline-intelligence/search` | `FuelPreferences` | `200 FuelSearch`, including an opaque user-bound search ID, route, stations, regions and warnings | `400` invalid settings; `404` location/stations not found; `429`; `502` map failure |
+| POST | `/api/gasoline-intelligence/search` | `FuelPreferences` | `200 FuelSearch`, including an opaque user-bound search ID, route, stations, regional station samples and warnings | `400` invalid settings; `404` location/stations not found; `429`; `502` map failure; `503` missing Google configuration; `504` timeout |
 | POST | `/api/gasoline-intelligence/plan` | `{ searchId, stationIds?: string[] }` | `200 FuelPlan` with road-verified stops, quantities, costs and arrival times | `400` invalid selection; `410` expired/unavailable search; `422` insufficient verified station prices, insufficient range or over three hours between stops; `429`; `502` upstream failure |
 
 Searches last 30 minutes and are not persisted. Search/vehicle/plan rate limits are respectively
 4/6/20 requests per five minutes per user. `FuelPreferences.requireStationPrices` defaults to `true`;
-the page always enables it. Recommended stops require a recent, cited quote for that exact station and
-fuel grade. Regional averages remain comparison data. If verified quotes cannot support a safe route,
+the page always enables it. Recommended stops require a recent Google quote for that exact US station,
+USD currency and selected fuel grade. Regional station samples remain comparison data. If verified quotes cannot support a safe route,
 planning returns `422` explaining the missing station prices. Explicit `false` is retained only for
 legacy estimate-enabled API clients/local optional controls. Membership eligibility, prices and route
 coordinates are resolved on the server, not trusted from a planning request.

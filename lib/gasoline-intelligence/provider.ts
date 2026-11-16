@@ -7,15 +7,13 @@ type ProviderEnvironment = {
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?: string;
 };
 
-// Keep provider selection explicit: a failed Google request must not silently
-// start the slower, separately billed research path or mix map data providers.
-export function fuelDataProvider(env: ProviderEnvironment): "google" | "openstreetmap" {
-  const configured = env.FUEL_DATA_PROVIDER?.trim() || "auto";
-  if (!["auto", "google", "openstreetmap"].includes(configured)) {
-    throw new FuelError("Set FUEL_DATA_PROVIDER to auto, google or openstreetmap.", 503);
+// The previous providers live only in the ignored local rollback snapshot.
+// Never fall back to another network or a model when Google is unavailable.
+export function fuelDataProvider(env: ProviderEnvironment): "google" {
+  const configured = env.FUEL_DATA_PROVIDER?.trim();
+  if (configured && configured !== "google" && configured !== "auto") {
+    throw new FuelError("This planner uses Google Maps. Set FUEL_DATA_PROVIDER to google and restart the development server.", 503);
   }
-  if (configured === "openstreetmap") return "openstreetmap";
-  if (configured === "auto" && !env.GOOGLE_MAPS_API_KEY?.trim()) return "openstreetmap";
   if (!env.GOOGLE_MAPS_API_KEY?.trim()) {
     throw new FuelError("Add GOOGLE_MAPS_API_KEY to .env.local and restart the development server.", 503);
   }

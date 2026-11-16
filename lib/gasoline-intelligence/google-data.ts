@@ -11,8 +11,8 @@ export const GOOGLE_ROUTES_FIELDS = [
 ].join(",");
 export const GOOGLE_PLACES_FIELDS = [
   "places.id", "places.displayName", "places.formattedAddress", "places.addressComponents",
-  "places.location", "places.types", "places.fuelOptions", "places.googleMapsUri",
-  "places.businessStatus", "places.attributions", "places.restroom",
+  "places.location", "places.fuelOptions", "places.googleMapsUri",
+  "places.businessStatus", "places.attributions",
 ].join(",");
 export type GoogleRoute = RoadRoute & { encodedPolyline: string };
 type Json = Record<string, unknown>;
@@ -155,13 +155,10 @@ export function parseGoogleStations(payload: unknown, route: RoadRoute, input: F
     // Screening estimate only; the final Google route through selected stations
     // supplies actual road-leg distances for the fuel/reserve calculation.
     const detourMiles = projection.offRoute * 2.6;
-    const amenities = list(place.types).includes("convenience_store") ? ["Convenience store"] : [];
-    if (place.restroom === true) amenities.push("Restroom");
-    if (list(place.types).some(type => type === "restaurant" || type === "fast_food_restaurant")) amenities.push("Restaurant");
     const attributions: Source[] = list(place.attributions).map(value => { const item = json(value); return { title: string(item.provider), url: link(item.providerUri) ?? "" }; }).filter(source => source.title && source.url);
     stations.push({ id: `google:${id}`, name, brand: name, address, state: normalizeState(string(state?.shortText) || string(state?.longText)),
       location, routeMiles: projection.miles, routeMinutes: projection.minutes, detourMiles, detourMinutes: detourMiles / 25 * 60 + 2,
-      amenities, membersOnly: /costco|sam.?s club/i.test(name), price: googleFuelPrice(place.fuelOptions, input.vehicle.grade, mapUrl, now), open: "Hours not confirmed", mapUrl,
+      amenities: [], membersOnly: /costco|sam.?s club/i.test(name), price: googleFuelPrice(place.fuelOptions, input.vehicle.grade, mapUrl, now), open: "Hours not requested", mapUrl,
       source: { title: "Google Maps", url: mapUrl }, ...(attributions.length ? { attributions } : {}),
     });
   }

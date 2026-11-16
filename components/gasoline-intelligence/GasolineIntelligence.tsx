@@ -101,7 +101,6 @@ export default function GasolineIntelligence() {
     }
   }
   const plan=storedPlan?.stops.every(stop=>stop.priceKind === "web report")?storedPlan:null;
-  const mapProvider = search?.provider ?? (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? "google" : "openstreetmap");
   const selectedIds = plan?.stops.map(stop => stop.station.id) ?? [];
   const selectedStations = plan?.stops.map(stop => stop.station) ?? [];
   const mapStations =
@@ -350,7 +349,6 @@ export default function GasolineIntelligence() {
         <div className="grid min-w-0 gap-6">
           <div className="grid gap-3">
             <FuelMap
-              provider={mapProvider}
               route={plan?.route ?? search?.route ?? null}
               stations={mapStations}
               selectedIds={selectedIds}
@@ -395,10 +393,7 @@ export default function GasolineIntelligence() {
         </div>
       </div>
       <footer className="mt-10 text-[12px] leading-relaxed text-muted">
-        {mapProvider === "google" ? <p>Route, station and fuel price data: Google Maps. Vehicle research: DeepSeek with linked sources.</p> : <>
-          <p>Map and facility data © OpenStreetMap contributors; driving estimates by OSRM. Price reports and vehicle research by DeepSeek with linked sources.</p>
-          <p>Public map services may be busy; local demo use is rate limited.</p>
-        </>}
+        <p>Route, station and fuel price data: Google Maps. Vehicle research: DeepSeek with linked sources.</p>
       </footer>
     </main>
   );

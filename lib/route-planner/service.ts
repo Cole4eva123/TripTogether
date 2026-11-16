@@ -42,7 +42,8 @@ async function searchWithinBudget(ownerId: string, typed: FuelPreferences): Prom
   fuelDataProvider(process.env);
   const { route, stations, warnings } = await googleSearchRoute(input);
   // No stations is not an error yet: the fuel in the tank may be enough for the whole trip.
-  if (!stations.some(hasVerifiedStationPrice)) warnings.push("Google has no recent prices for the selected fuel grade near this route, so there is nowhere to plan a purchase.");
+  // Not passed bare: `some` would hand the station's index in as `now`, and no price would ever count as recent.
+  if (!stations.some(station => hasVerifiedStationPrice(station))) warnings.push("Google has no recent prices for the selected fuel grade near this route, so there is nowhere to plan a purchase.");
   return storeSearch(ownerId, input, route, stations, regionalPrices(stations), warnings);
 }
 function storeSearch(ownerId:string,input:FuelPreferences,route:RoadRoute,stations:Station[],regions:RegionPrice[],warnings:string[]):FuelSearch {

@@ -130,7 +130,7 @@ function basisFor(own: Trip[], to: LobbyPost, againstTripId?: string) {
 /**
  * The lobby as one person sees it: the trips of theirs that are in it, everyone else's (filtered and ordered,
  * compared with their own trips), and the requests about the trips they are in or that they made.
- * ponytail: reads and scores every post on each call (the nav polls it); page or prefilter by date if the lobby grows.
+ * ponytail: reads and scores every post on each call; page or prefilter by date if the lobby grows.
  */
 export async function lobbyFor(
   meId: string,
@@ -197,6 +197,17 @@ export async function lobbyFor(
     pendingRequestCount: items.filter((i) => i.mayAnswer).length,
     publishedTripIds: posts.filter((p) => ownIds.includes(p.post.tripId)).map((p) => p.post.tripId),
   };
+}
+
+/** How many requests wait for this person's answer: the pending ones on the trips they organize. The nav polls it. */
+export async function pendingRequestCount(meId: string): Promise<number> {
+  await ready();
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(lobbyRequests)
+    .innerJoin(trips, eq(trips.id, lobbyRequests.tripId))
+    .where(and(eq(trips.ownerId, meId), eq(lobbyRequests.status, "pending")));
+  return row.n;
 }
 
 // --- Posts ---

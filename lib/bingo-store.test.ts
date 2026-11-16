@@ -227,3 +227,28 @@ test("taking a task out of the library withdraws the challenges that use it", as
   assert.ok(!(await bingo.challenges("Chicago")).some((c) => c.id === chicago.id));
   assert.ok(await starter("Nashville"), "challenges without it stay on offer");
 });
+
+test("a task can't move to another city while a challenge on offer uses it", async () => {
+  const nashville = await starter("Nashville");
+  const task = nashville.tasks[0];
+  await rejects(bingo.editTask(task.id, { region: "Chicago", title: task.title, description: "" }), 409);
+  const edited = await bingo.editTask(task.id, { region: "Nashville", title: task.title, description: "Reworded" });
+  assert.equal(edited.description, "Reworded", "rewording it in its own city is fine");
+});
+
+test("a challenge published while one of its tasks is taken out never stays on offer with it", async () => {
+  const titles = Array.from({ length: 28 }, (_, i) => `Springfield task ${i}`);
+  const ids: string[] = [];
+  for (const title of titles) ids.push((await bingo.submitTask(ADMIN, { region: "Springfield", title, description: "" }, true)).id);
+  const fixed = ids.slice(0, 8);
+  let published = 0;
+  for (const removed of ids.slice(8)) {
+    const input = { region: "Springfield", title: `Race ${removed}`, description: "", size: 3, taskIds: [...fixed, removed] };
+    const [publish] = await Promise.allSettled([bingo.publishChallenge(ADMIN, input), bingo.removeTask(removed, ADMIN)]);
+    if (publish.status === "fulfilled") published++;
+  }
+  assert.ok(published > 0, "some publishes won the race, so the check below means something");
+  const live = await bingo.challenges("Springfield");
+  const library = new Set((await bingo.tasksIn("Springfield")).map((t) => t.id));
+  assert.deepEqual(live.filter((c) => c.tasks.some((t) => !library.has(t.id))).map((c) => c.title), []);
+});

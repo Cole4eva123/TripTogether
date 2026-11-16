@@ -1,8 +1,8 @@
 // Travel Bingo's rules, as pure functions: finding finished lines, matching a trip's destination to a region, and
 // checking what people send in, tasks and challenges. Tested in lib/bingo.test.ts.
 
-// Place names, read the same way the lobby's matcher reads them (lib/matching.ts on the lobby branches), so
-// "Chicago, IL" names the Chicago library. A copy, since this branch has no lobby.
+// Place names, read as plain text so this module stays small enough for the browser (the lobby's gazetteer in
+// lib/places.ts is server-only and far bigger than Bingo needs): "Chicago, IL" names the Chicago library.
 
 /** The nickname people write for a place, mapped to what people type in the destination field. */
 const ALIASES: Record<string, string> = {
@@ -14,6 +14,11 @@ const ALIASES: Record<string, string> = {
   "the big apple": "new york",
   "the bay area": "san francisco",
 };
+
+/** The two-letter US state codes. DC stays on, so "Washington DC" never reads as the state. */
+const STATE_CODES = new Set(
+  "al ak az ar ca co ct de fl ga hi id il in ia ks ky la me md ma mi mn ms mo mt ne nv nh nj nm ny nc nd oh ok or pa ri sc sd tn tx ut vt va wa wv wi wy".split(" "),
+);
 
 /** The full names of the US states, so "Chicago, Illinois" reads the same as "Chicago, IL". */
 const STATE_NAMES = new Set([
@@ -32,13 +37,14 @@ const STATE_NAMES = new Set([
  */
 function normalizePlace(s: string): string {
   let out = s.toLowerCase().trim();
-  out = out.replace(/[.,/#!?;:'"()\[\]]+/g, " "); // punctuation becomes a space
+  out = out.replace(/['’]/g, ""); // "Xi'an" is one word, not "Xi" and "an"
+  out = out.replace(/[.,/#!?;:"()\[\]]+/g, " "); // other punctuation becomes a space
   out = out.replace(/\s+/g, " ").trim();
   // A trailing state code or name: "Chicago, IL", "Chicago IL", "Chicago, Illinois".
   const parts = out.split(" ");
   if (parts.length > 1) {
     const last = parts[parts.length - 1];
-    if (/^[a-z]{2,3}$/.test(last) || STATE_NAMES.has(last)) parts.pop();
+    if (STATE_CODES.has(last) || STATE_NAMES.has(last)) parts.pop();
   }
   out = parts.join(" ").trim();
   return ALIASES[out] ?? out;

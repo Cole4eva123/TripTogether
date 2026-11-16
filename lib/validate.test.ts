@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parsePlanInput, parseTripInput } from "./validate.ts";
+import { isDay, parsePlanInput, parseTripInput } from "./validate.ts";
 
 const ok = { origin: " Champaign ", destination: "Chicago", startDate: "2026-11-27", endDate: "2026-11-30" };
 
@@ -48,4 +48,9 @@ test("plan input: rejects bad input with a message", () => {
   ]) {
     assert.equal(typeof parsePlanInput(bad, span), "string", JSON.stringify(bad));
   }
+});
+
+test("a day is a real YYYY-MM-DD date, leap years included", () => {
+  for (const value of ["2028-02-29", "2027-12-31", "2027-01-01"]) assert.ok(isDay(value));
+  for (const value of ["2027-02-29", "2027-02-31", "2027-13-01", "2027-1-2", "invalid", ""]) assert.equal(isDay(value), false);
 });

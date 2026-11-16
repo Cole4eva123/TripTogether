@@ -85,6 +85,17 @@ test("members see a request with the applicant's name; only the organizer answer
   assert.equal((await lobby.requestFor(request.id, SAM)).status, "accepted");
 });
 
+test("the pending count is the organizer's requests to answer, the same as the lobby's", async () => {
+  const counts = async (who: string) => [await lobby.pendingRequestCount(who), (await lobby.lobbyFor(who)).pendingRequestCount];
+  const postId = (await lobby.lobbyFor(LEE)).others.find((p) => p.tripId === chicago.id)!.id;
+  const request = await lobby.createJoinRequest(LEE, postId, "");
+  assert.deepEqual(await counts(MAYA), [1, 1]);
+  assert.deepEqual(await counts(ANA), [0, 0], "members don't answer requests");
+  assert.deepEqual(await counts(LEE), [0, 0], "nor do the people who asked");
+  await lobby.withdrawRequest(request.id, LEE);
+  assert.deepEqual(await counts(MAYA), [0, 0]);
+});
+
 test("accepting someone who joined meanwhile with the invite code just keeps them in", async () => {
   const postId = (await lobby.lobbyFor(LEE)).others.find((p) => p.tripId === chicago.id)!.id;
   const request = await lobby.createJoinRequest(LEE, postId, "");

@@ -3,11 +3,12 @@ import type { PlanInput, Trip, TripInput } from "./types.ts";
 const MAX_TRIP_DAYS = 60;
 const DAY_MS = 86_400_000;
 
-const isDay = (v: unknown): v is string =>
+/** A real YYYY-MM-DD day: rejects 2026-02-31 and 2026-1-2. */
+export const isDay = (v: unknown): v is string =>
   typeof v === "string" &&
   /^\d{4}-\d{2}-\d{2}$/.test(v) &&
   !Number.isNaN(Date.parse(v)) &&
-  new Date(v).toISOString().slice(0, 10) === v; // rejects 2026-02-31
+  new Date(v).toISOString().slice(0, 10) === v;
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 

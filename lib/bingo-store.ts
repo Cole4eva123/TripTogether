@@ -1,6 +1,6 @@
 // Travel Bingo's data: the task library, its review queue, and each trip's card. In PostgreSQL like the rest
 // (tables in lib/db/schema.ts); the rules themselves are the pure functions in lib/bingo.ts.
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { STARTER_TASKS } from "./bingo-catalog.ts";
 import { canonicalRegion, DEFAULT_SIZE, finishedLines, type ChallengeInput, type TaskInput } from "./bingo.ts";
@@ -185,17 +185,30 @@ async function libraryTask(taskId: string) {
   return task;
 }
 
-/** Admins: rewrites a task in the library. Cards that already have it show the new wording. */
+/**
+ * Admins: rewrites a task in the library. Cards that already have it show the new wording. It can't move to another
+ * city while a challenge on offer uses it, or that challenge would mix two cities.
+ */
 export async function editTask(taskId: string, input: TaskInput): Promise<BingoTask> {
   await bingoReady();
   await libraryTask(taskId);
   const region = await libraryRegion(input.region);
   await mustBeNew(region, input.title, taskId);
-  await db
-    .update(bingoTasks)
-    .set({ region, title: input.title, description: input.description })
-    .where(eq(bingoTasks.id, taskId))
-    .catch(sameSentMeanwhile(region, input.title, taskId));
+  await db.transaction(async (tx) => {
+    // The update locks the row first, so a challenge being published with it (publishChallenge) is seen below.
+    await tx
+      .update(bingoTasks)
+      .set({ region, title: input.title, description: input.description })
+      .where(eq(bingoTasks.id, taskId))
+      .catch(sameSentMeanwhile(region, input.title, taskId));
+    const [used] = await tx
+      .select({ region: bingoChallenges.region })
+      .from(bingoChallengeTasks)
+      .innerJoin(bingoChallenges, eq(bingoChallenges.id, bingoChallengeTasks.challengeId))
+      .where(and(eq(bingoChallengeTasks.taskId, taskId), isNull(bingoChallenges.withdrawnAt), ne(bingoChallenges.region, region)))
+      .limit(1);
+    if (used) throw new BingoError(409, `A challenge on offer uses this task. Withdraw it before moving the task out of ${used.region}.`);
+  });
   return (await taskById(taskId))!;
 }
 
@@ -297,15 +310,23 @@ const liveChallenge = async (id: string) =>
 export async function publishChallenge(adminId: string, input: ChallengeInput): Promise<BingoChallenge> {
   await bingoReady();
   const region = await libraryRegion(input.region);
-  const approved = new Set(await approvedIdsIn(region));
-  if (!input.taskIds.every((id) => approved.has(id))) {
-    throw new BingoError(400, `Every square needs a task from the ${region} library. Reload the page and pick again.`);
-  }
-  const id = await insertChallenge(db, { ...input, region }, adminId);
+  const notInLibrary = new BingoError(400, `Every square needs a task from the ${region} library. Reload the page and pick again.`);
+  if (!input.taskIds.every(isId)) throw notInLibrary;
+  const id = await db.transaction(async (tx) => {
+    // Shares the tasks' rows until the challenge is in: taking one out (removeTask) or moving it (editTask) waits,
+    // then sees this challenge; one that got there first has left the row no longer approved here.
+    const approved = await tx
+      .select({ id: bingoTasks.id })
+      .from(bingoTasks)
+      .where(and(inArray(bingoTasks.id, input.taskIds), eq(bingoTasks.region, region), eq(bingoTasks.status, "approved")))
+      .for("share");
+    if (approved.length !== input.taskIds.length) throw notInLibrary;
+    return insertChallenge(tx, { ...input, region }, adminId);
+  });
   return (await liveChallenge(id))!;
 }
 
-async function insertChallenge(q: Tx | typeof db, input: ChallengeInput, createdById: string | null) {
+async function insertChallenge(q: Tx, input: ChallengeInput, createdById: string | null) {
   const [row] = await q
     .insert(bingoChallenges)
     .values({ region: input.region, title: input.title, description: input.description, size: input.size, createdById })
@@ -379,14 +400,6 @@ export async function cardFor(tripId: string): Promise<BingoCard | null> {
     createdAt: card.c.createdAt.toISOString(),
   };
 }
-
-const approvedIdsIn = async (region: string) =>
-  (
-    await db
-      .select({ id: bingoTasks.id })
-      .from(bingoTasks)
-      .where(and(eq(bingoTasks.region, region), eq(bingoTasks.status, "approved")))
-  ).map((t) => t.id);
 
 /**
  * The trip takes a challenge on: its squares are copied onto the trip's card, so later changes to the challenge

@@ -68,6 +68,14 @@ test("a destination falls in the region it names, however it's written", () => {
   assert.ok(!inRegion("", "Chicago"));
 });
 
+test("only a real state code comes off the end of a place", () => {
+  assert.ok(inRegion("Big Sur, CA", "Big Sur"));
+  assert.ok(inRegion("Washington, DC", "Washington DC"));
+  assert.ok(!inRegion("Big Sky", "Big Sur"), "Sur and Sky are not state codes");
+  assert.ok(!inRegion("Xi'an", "Xi"));
+  assert.ok(!inRegion("Washington state", "Washington DC"));
+});
+
 test("the most specific region wins", () => {
   const regions = ["Chicago", "Great Smoky Mountains", "Smoky Mountains"];
   assert.equal(regionFor("Great Smoky Mountains", regions), "Great Smoky Mountains");

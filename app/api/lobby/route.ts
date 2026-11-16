@@ -1,9 +1,8 @@
-import { validLobbyDate } from "@/lib/lobby-dates";
 import { lobbyAnswer } from "@/lib/lobby-api";
 import { lobbyFor, publishPost } from "@/lib/lobby-store";
 import { fail, readJson } from "@/lib/server";
 import type { LobbyFilters } from "@/lib/types";
-import { parsePublishInput } from "@/lib/validate";
+import { isDay, parsePublishInput } from "@/lib/validate";
 
 /**
  * The lobby as the reader sees it. `?against=` is which of their trips the others are compared with (by trip
@@ -14,7 +13,7 @@ export async function GET(req: Request) {
     const params = new URL(req.url).searchParams;
     const from = params.get("from") ?? "";
     const to = params.get("to") ?? "";
-    if ((from && !validLobbyDate(from)) || (to && !validLobbyDate(to)) || (from && to && from > to)) {
+    if ((from && !isDay(from)) || (to && !isDay(to)) || (from && to && from > to)) {
       return fail(400, "Choose valid dates, with the end on or after the start.");
     }
     const sort = params.get("sort");

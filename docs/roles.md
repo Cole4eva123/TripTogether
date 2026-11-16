@@ -9,7 +9,7 @@ stored on the account:
 
 The two are independent. An admin can't edit, delete or manage the members of someone else's trip, and an
 organizer has no extra say over the task library. The one overlap is a trip's Bingo card, below: an admin who is
-a member of the trip may also redraw it and undo anyone's square. The organizer/member split follows the proposal's Appendix A; admins are Appendix B's "Task Review
+a member of the trip may also switch its challenge and undo anyone's square. The organizer/member split follows the proposal's Appendix A; admins are Appendix B's "Task Review
 (admin)".
 
 ## Where each role comes from
@@ -41,12 +41,11 @@ ever to be appointed from inside the app, add a `role` column to `users` and cha
 
 | Action | Admin | Organizer | Member |
 |---|---|---|---|
-| Draw the trip's first card | ✅ | ✅ | ✅ |
-| Draw a new card over an existing one (clears every square) | ✅ | ✅ | ❌ 403 |
+| Pick the trip's first challenge | ✅ | ✅ | ✅ |
+| Switch to another challenge (clears every square) | ✅ | ✅ | ❌ 403 |
 | Check a square off | ✅ | ✅ | ✅ |
 | Undo a square they checked off themselves | ✅ | ✅ | ✅ |
-| Undo, or swap the task of, a square someone else checked off | ✅ | ❌ 403 | ❌ 403 |
-| Swap the task of a square nobody has checked off | ✅ | ✅ | ✅ |
+| Undo a square someone else checked off | ✅ | ❌ 403 | ❌ 403 |
 
 An admin still has to be a member of the trip to see its card at all.
 
@@ -57,6 +56,7 @@ An admin still has to be a member of the trip to see its card at all.
 | Browse every region's tasks | ✅ | ✅ |
 | Add a task | ✅ straight into the library | ✅ as a suggestion, waiting for review |
 | Edit or take out a task in the library | ✅ | ❌ 403 |
+| Publish or withdraw a challenge | ✅ | ❌ 403 |
 | Approve or turn down suggestions | ✅ | ❌ 403 |
 | See the "Admin: Bingo task library" line on the trips page | ✅ | hidden |
 
@@ -78,9 +78,12 @@ A third account, registered and joined to Maya's Chicago trip, shows a plain mem
 
 1. **Organizer.** Log in as Sam and open his Great Smoky Mountains trip: he can edit and delete it.
 2. **Member.** Still as Sam, open Maya's Chicago trip: no edit or delete. He can add to the itinerary and
-   play Bingo, but "Draw a new card" isn't offered, and squares others checked off have no Undo.
+   play Bingo, but "Switch challenge" isn't offered, and squares others checked off have no Undo.
 3. **Suggesting a task.** On that Bingo page Sam follows "Suggest a task" and sends one in. It shows as
    "Waiting for review".
 4. **Admin.** Log in as Maya. The foot of the trips page reads "Admin: Bingo task library · 1 suggestion to
    review". She approves Sam's task, and can edit or take out any task in any region.
-5. **Back to Sam.** His task now reads "In the library", and Chicago cards can draw it.
+5. **Publishing a challenge.** Still as Maya, she follows "Bingo challenges", picks Chicago, fills the nine
+   squares (Sam's task among them) and publishes it. Every group can now take it on.
+6. **Back to Sam.** His task now reads "In the library", and the new challenge shows on his Chicago trip's
+   Bingo page.

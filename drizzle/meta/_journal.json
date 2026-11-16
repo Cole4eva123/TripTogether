@@ -22,6 +22,13 @@
       "when": 1794805162520,
       "tag": "0002_blind_box",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794805665579,
+      "tag": "0003_bingo_challenges",
+      "breakpoints": true
     }
   ]
 }

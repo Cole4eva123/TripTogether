@@ -4,21 +4,21 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import BingoGrid from "@/components/bingo/BingoGrid";
-import DrawForm from "@/components/bingo/DrawForm";
+import ChallengeList from "@/components/bingo/ChallengeList";
 import Toast, { type ToastNote } from "@/components/bingo/Toast";
 import { api, errorText } from "@/lib/api";
 import { lineName, newLines } from "@/lib/bingo";
-import type { BingoCard, BingoCell, BingoView } from "@/lib/bingo-types";
+import type { BingoCard, BingoCell, BingoChallenge, BingoView } from "@/lib/bingo-types";
 import type { Trip } from "@/lib/types";
 
-/** A trip's Travel Bingo card: draw one from the destination's task library, then check squares off on the way. */
+/** A trip's Travel Bingo card: take on one of the published challenges, then check its squares off on the way. */
 export default function BingoPage() {
   const { id } = useParams<{ id: string }>();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [view, setView] = useState<BingoView | null>(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState<string | null>(null); // a square's id, or "draw"
-  const [redrawing, setRedrawing] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null); // a square's id, or "pick"
+  const [switching, setSwitching] = useState(false);
   const [note, setNote] = useState<ToastNote | null>(null);
   const [flash, setFlash] = useState<{ id: number; positions: number[] } | null>(null);
   const closeNote = useCallback(() => setNote(null), []);
@@ -53,7 +53,7 @@ export default function BingoPage() {
     try {
       const { card } = await call();
       setView((v) => v && { ...v, card });
-      setRedrawing(false);
+      setSwitching(false);
       setNote({ id: Date.now(), ...told(before, card) });
     } catch (e) {
       setError(errorText(e));
@@ -62,12 +62,12 @@ export default function BingoPage() {
     }
   }
 
-  const draw = (region: string, size: number) => {
-    if (view?.card && !confirm("Draw a new card? The squares you've checked off on this one will be gone.")) return;
+  const pick = (challenge: BingoChallenge) => {
+    if (view?.card && !confirm("Switch challenge? Every square you've checked off will be cleared.")) return;
     run(
-      "draw",
-      () => api(`/trips/${id}/bingo`, "POST", { region, size }),
-      (_, after) => ({ title: "New card drawn", detail: `${after.size} × ${after.size}, from the ${after.region} library.` }),
+      "pick",
+      () => api(`/trips/${id}/bingo`, "POST", { challengeId: challenge.id }),
+      (before) => ({ title: before ? "Challenge switched" : "Challenge on", detail: challenge.title }),
     );
   };
 
@@ -93,13 +93,6 @@ export default function BingoPage() {
       },
     );
 
-  const swap = (cell: BingoCell) =>
-    run(
-      cell.id,
-      () => api(`/trips/${id}/bingo/cells/${cell.id}`, "PATCH", { action: "replace" }),
-      (_, after) => ({ title: "Task swapped", detail: `New: ${after.cells[cell.position].task.title}` }),
-    );
-
   const errorLine = error && (
     <p className="font-semibold text-red" role="alert">
       {error}
@@ -114,8 +107,8 @@ export default function BingoPage() {
       </main>
     );
 
-  const { card, regions, suggestedRegion, viewer } = view;
-  // The card's region; before a card, the library that matches the destination, or the destination itself.
+  const { card, challenges, suggestedRegion, viewer } = view;
+  // The card's city; before a card, the city of challenges that matches the destination, or the destination itself.
   const libraryRegion = card?.region ?? suggestedRegion ?? trip.destination;
   // Each finished line, and who checked off its last square.
   const finished = (card?.lines ?? []).map((line) => {
@@ -135,8 +128,8 @@ export default function BingoPage() {
         <h1>Travel Bingo</h1>
         <p className="max-w-[60ch] text-muted">
           {card
-            ? `${card.region} · ${card.size} × ${card.size} card${card.createdBy ? `, drawn by ${card.createdBy}` : ""}. Anyone in the group can check a square off; only whoever did, or an admin, can undo it. A full row, column or diagonal is a Bingo.`
-            : `Draw a card of things to do in ${trip.destination}, then check them off as your group does them. A full row, column or diagonal is a Bingo.`}
+            ? "Anyone in the group can check a square off; only whoever did, or an admin, can undo it. A full row, column or diagonal is a Bingo."
+            : "Pick a challenge, a card of things to do in one city, and check its squares off as your group does them. A full row, column or diagonal is a Bingo."}
         </p>
         {/* A quiet way into the task library; admins manage it from the trips page too. */}
         <p className="text-[14px] text-muted">
@@ -149,8 +142,13 @@ export default function BingoPage() {
 
       {card ? (
         <>
-          <section className="flex flex-wrap items-center gap-x-6 gap-y-3" aria-live="polite">
-            <p className="text-[22px] leading-[1.2] font-extrabold">
+          <section className="grid gap-1" aria-live="polite">
+            <h2>{card.challenge.title}</h2>
+            <p className="text-muted">
+              {card.region}, {card.size} × {card.size}
+              {card.createdBy && `, picked by ${card.createdBy}`}
+            </p>
+            <p className="mt-2 text-[22px] leading-[1.2] font-extrabold">
               {card.completed} of {card.cells.length} done
             </p>
           </section>
@@ -175,54 +173,44 @@ export default function BingoPage() {
             </section>
           )}
 
-          <BingoGrid card={card} viewer={viewer} flash={flash} busy={busy} onMark={mark} onSwap={swap} />
+          <BingoGrid card={card} viewer={viewer} flash={flash} busy={busy} onMark={mark} />
           {errorLine}
 
-          <section className="grid justify-items-start gap-3 border-t border-line pt-6">
-            <h2>Change the card</h2>
-            <p className="max-w-[60ch] text-muted">
-              {viewer.mayRedraw
-                ? "Swap a single square with its \u201cSwap task\u201d link, or draw a whole new card."
-                : "Swap a single square with its \u201cSwap task\u201d link. Only the trip\u2019s creator or an admin can draw a whole new card, since it clears everyone\u2019s progress."}
-            </p>
-            {!viewer.mayRedraw ? null : redrawing ? (
-              <DrawForm
-                regions={regions}
-                initialRegion={card.region}
-                label="Draw a new card"
-                busy={busy === "draw"}
-                onDraw={draw}
-              />
-            ) : (
-              <button className="btn btn-quiet" onClick={() => setRedrawing(true)}>
-                Draw a new card
-              </button>
-            )}
-          </section>
+          {viewer.maySwitch && (
+            <section className="grid justify-items-start gap-3 border-t border-line pt-6">
+              <h2>Switch challenge</h2>
+              <p className="max-w-[60ch] text-muted">
+                Your group plays one challenge at a time. Switching starts the new one from an empty card.
+              </p>
+              {switching ? (
+                <ChallengeList
+                  challenges={challenges}
+                  region={card.region}
+                  current={card.challenge.id}
+                  busy={busy === "pick"}
+                  onPick={pick}
+                />
+              ) : (
+                <button className="btn btn-quiet" onClick={() => setSwitching(true)}>
+                  Show other challenges
+                </button>
+              )}
+            </section>
+          )}
         </>
       ) : (
         <section className="grid gap-4">
-          <h2>Draw your card</h2>
-          {suggestedRegion ? (
+          <h2>Pick a challenge</h2>
+          {!suggestedRegion && (
             <p className="max-w-[60ch] text-muted">
-              The {suggestedRegion} library matches your destination, so it&rsquo;s picked for you.
-            </p>
-          ) : (
-            <p className="max-w-[60ch] text-muted">
-              There&rsquo;s no library for {trip.destination} yet. Pick a region below, or{" "}
+              There&rsquo;s no challenge for {trip.destination} yet. Take one from another city, or{" "}
               <Link href={`/trips/bingo/tasks?region=${encodeURIComponent(trip.destination)}`}>
-                {viewer.admin ? "start one by adding tasks" : "start one by suggesting tasks"}
+                {viewer.admin ? "start its library" : "suggest tasks for it"}
               </Link>
               .
             </p>
           )}
-          <DrawForm
-            regions={regions}
-            initialRegion={suggestedRegion}
-            label="Draw a card"
-            busy={busy === "draw"}
-            onDraw={draw}
-          />
+          <ChallengeList challenges={challenges} region={suggestedRegion} busy={busy === "pick"} onPick={pick} />
           {errorLine}
         </section>
       )}

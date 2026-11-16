@@ -160,12 +160,48 @@ export const bingoTasks = pgTable(
   ],
 );
 
+// A challenge an admin publishes: a city's tasks at fixed squares, which every group can take on. Withdrawing one
+// takes it off offer; the cards already playing it keep their squares.
+export const bingoChallenges = pgTable(
+  "bingo_challenges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    region: text("region").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    size: integer("size").notNull(), // 3 means a 3×3 card
+    // Null for the starter challenges the app ships with.
+    createdById: text("created_by_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+  },
+  (t) => [index("bingo_challenges_region_idx").on(t.region)],
+);
+
+export const bingoChallengeTasks = pgTable(
+  "bingo_challenge_tasks",
+  {
+    challengeId: uuid("challenge_id")
+      .notNull()
+      .references(() => bingoChallenges.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(), // 0 … size²−1, row by row
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => bingoTasks.id),
+  },
+  (t) => [primaryKey({ columns: [t.challengeId, t.position] })],
+);
+
+// A trip's card: the challenge it took on, with that challenge's squares copied into bingo_cells.
 export const bingoCards = pgTable("bingo_cards", {
   id: uuid("id").primaryKey().defaultRandom(),
   tripId: uuid("trip_id")
     .notNull()
     .unique() // one card per trip
     .references(() => trips.id, { onDelete: "cascade" }),
+  challengeId: uuid("challenge_id")
+    .notNull()
+    .references(() => bingoChallenges.id),
   region: text("region").notNull(),
   size: integer("size").notNull(), // 3 means a 3×3 card
   createdById: text("created_by_id").references(() => users.id, { onDelete: "set null" }),

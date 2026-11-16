@@ -46,27 +46,28 @@ test("the starter library is there on first use, once", async () => {
   assert.equal((await bingo.tasksIn("Chicago")).length, STARTER_TASKS.Chicago.length);
 });
 
-test("a trip starts with no card, and a drawn 3×3 card has 9 different Chicago tasks", async () => {
-  assert.equal(await bingo.cardFor(tripId), null);
-  const card = await bingo.createCard(tripId, MAYA, "Chicago", 3, true);
-  assert.equal(card.size, 3);
-  assert.equal(card.region, "Chicago");
-  assert.equal(card.createdBy, "Maya Chen");
-  assert.deepEqual(
-    card.cells.map((c) => c.position),
-    [0, 1, 2, 3, 4, 5, 6, 7, 8],
-  );
-  assert.equal(new Set(card.cells.map((c) => c.task.id)).size, 9);
-  const chicago = new Set((await bingo.tasksIn("Chicago")).map((t) => t.id));
-  assert.ok(card.cells.every((c) => chicago.has(c.task.id)));
-  assert.equal(card.completed, 0);
-  assert.deepEqual(card.lines, []);
+/** The starter challenge of a region. */
+const starter = async (region: string) => (await bingo.challenges(region)).find((c) => c.createdBy === null)!;
+
+test("each starter region has a starter challenge of its first nine tasks, once", async () => {
+  const all = await bingo.challenges();
+  assert.deepEqual(all.map((c) => c.region).sort(), Object.keys(STARTER_TASKS).sort());
+  const chicago = await starter("Chicago");
+  assert.equal(chicago.size, 3);
+  assert.deepEqual(chicago.tasks.map((t) => t.title), STARTER_TASKS.Chicago.slice(0, 9).map(([title]) => title));
 });
 
-test("a region too small for the card is refused with the numbers", async () => {
-  await rejects(bingo.createCard(tripId, MAYA, "Chicago", 5, true), 400);
-  await rejects(bingo.createCard(tripId, MAYA, "Atlantis", 3, true), 400);
-  assert.equal((await bingo.cardFor(tripId))?.size, 3, "the old card is kept");
+test("a trip starts with no card, and taking a challenge copies its squares in order", async () => {
+  assert.equal(await bingo.cardFor(tripId), null);
+  const challenge = await starter("Chicago");
+  const card = await bingo.chooseChallenge(tripId, SAM, challenge.id, false); // any member picks the first
+  assert.deepEqual(card.challenge, { id: challenge.id, title: challenge.title });
+  assert.equal(card.region, "Chicago");
+  assert.equal(card.createdBy, "Sam Okafor");
+  assert.deepEqual(card.cells.map((c) => c.task.id), challenge.tasks.map((t) => t.id));
+  assert.deepEqual(card.cells.map((c) => c.position), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(card.completed, 0);
+  await rejects(bingo.chooseChallenge(tripId, MAYA, "not-an-id", true), 404);
 });
 
 const sam = { id: SAM, admin: false };
@@ -91,9 +92,8 @@ test("any member checks squares off, and a full row is a Bingo", async () => {
 test("only the member who checked a square off, or an admin, can undo it", async () => {
   let card = (await bingo.cardFor(tripId))!;
   const [samsSquare, mayasSquare, samsOther] = card.cells;
-  // Maya, not an admin, can't take back Sam's square, nor swap it away, nor take it over by checking it again.
+  // Maya, not an admin, can't take back Sam's square, nor take it over by checking it again.
   await rejects(bingo.markCell(tripId, samsSquare.id, maya, false), 403);
-  await rejects(bingo.replaceCell(tripId, samsSquare.id, maya, null), 403);
   card = await bingo.markCell(tripId, samsSquare.id, maya, true);
   assert.equal(card.cells[0].completedById, SAM, "checking a done square again keeps who did it");
 
@@ -126,23 +126,6 @@ test("an undo never wipes a check someone else made after it looked", async () =
   await bingo.markCell(tripId, square.id, maya, false);
 });
 
-test("a square can be swapped for a random task or a chosen one, and starts over", async () => {
-  let card = (await bingo.cardFor(tripId))!;
-  const square = card.cells[0]; // checked off above
-  card = await bingo.replaceCell(tripId, square.id, sam, null);
-  const swapped = card.cells[0];
-  assert.notEqual(swapped.task.id, square.task.id);
-  assert.equal(swapped.completedBy, null);
-  assert.equal(new Set(card.cells.map((c) => c.task.id)).size, 9, "never a task already on the card");
-
-  const spare = (await bingo.tasksIn("Chicago")).find((t) => !card.cells.some((c) => c.task.id === t.id))!;
-  card = await bingo.replaceCell(tripId, square.id, sam, spare.id);
-  assert.equal(card.cells[0].task.id, spare.id);
-  await rejects(bingo.replaceCell(tripId, square.id, sam, card.cells[1].task.id), 409);
-  const nashville = (await bingo.tasksIn("Nashville"))[0];
-  await rejects(bingo.replaceCell(tripId, square.id, sam, nashville.id), 400);
-});
-
 test("a square from another trip's card can't be touched", async () => {
   const other = await store.createTrip(SAM, {
     origin: "Urbana, IL",
@@ -150,7 +133,7 @@ test("a square from another trip's card can't be touched", async () => {
     startDate: "2027-01-08",
     endDate: "2027-01-11",
   });
-  const theirs = await bingo.createCard(other.id, SAM, "Nashville", 3, false);
+  const theirs = await bingo.chooseChallenge(other.id, SAM, (await starter("Nashville")).id, false);
   await rejects(bingo.markCell(tripId, theirs.cells[0].id, maya, true), 404);
   await rejects(bingo.markCell(tripId, "not-an-id", maya, true), 404);
   // Deleting the trip takes its card with it.
@@ -158,14 +141,48 @@ test("a square from another trip's card can't be touched", async () => {
   assert.equal(await bingo.cardFor(other.id), null);
 });
 
-test("only the creator or an admin can replace the card, which starts it over", async () => {
+test("only the organizer or an admin can switch challenges, which starts the card over", async () => {
   const before = (await bingo.cardFor(tripId))!;
-  await rejects(bingo.createCard(tripId, SAM, "Chicago", 3, false), 403);
+  assert.ok(before.completed > 0);
+  const other = await bingo.publishChallenge(ADMIN, {
+    region: "chicago, il",
+    title: "Loop day",
+    description: "",
+    size: 3,
+    taskIds: (await bingo.tasksIn("Chicago")).slice(3, 12).map((t) => t.id),
+  });
+  assert.equal(other.region, "Chicago", "joins the library's spelling");
+  await rejects(bingo.chooseChallenge(tripId, SAM, other.id, false), 403);
   assert.equal((await bingo.cardFor(tripId))!.id, before.id, "the card is kept");
-  const after = await bingo.createCard(tripId, MAYA, "Chicago", 3, true);
-  assert.notEqual(after.id, before.id);
+  const after = await bingo.chooseChallenge(tripId, MAYA, other.id, true);
+  assert.equal(after.challenge.title, "Loop day");
   assert.equal(after.completed, 0);
-  assert.equal(after.createdBy, "Maya Chen");
+  assert.equal(after.cells[0].task.id, other.tasks[0].id);
+});
+
+test("a challenge takes only approved tasks of its own region, and withdrawing one keeps the cards playing it", async () => {
+  const chicago = (await bingo.tasksIn("Chicago")).slice(0, 9).map((t) => t.id);
+  const nashville = (await bingo.tasksIn("Nashville"))[0].id;
+  const input = { region: "Chicago", title: "Mixed up", description: "", size: 3, taskIds: [...chicago.slice(1), nashville] };
+  await rejects(bingo.publishChallenge(ADMIN, input), 400);
+  const live = await bingo.publishChallenge(ADMIN, { ...input, taskIds: chicago });
+  assert.equal(live.createdBy, "Ada Admin");
+  const playing = (await bingo.cardFor(tripId))!;
+  await bingo.withdrawChallenge(playing.challenge.id);
+  assert.ok(!(await bingo.challenges("Chicago")).some((c) => c.id === playing.challenge.id), "off offer");
+  assert.equal((await bingo.cardFor(tripId))!.id, playing.id, "the trip keeps playing it");
+  await rejects(bingo.chooseChallenge(tripId, MAYA, playing.challenge.id, true), 404);
+  await rejects(bingo.withdrawChallenge(playing.challenge.id), 404);
+});
+
+test("two first picks at once leave one card", async () => {
+  const t = await store.createTrip(MAYA, { origin: "Urbana", destination: "Chicago", startDate: "2027-02-01", endDate: "2027-02-02" });
+  const id = (await starter("Chicago")).id;
+  const results = await Promise.allSettled([bingo.chooseChallenge(t.id, MAYA, id, false), bingo.chooseChallenge(t.id, MAYA, id, false)]);
+  const failed = results.filter((r) => r.status === "rejected");
+  assert.equal(failed.length, 1, "the second is refused");
+  for (const r of failed) assert.ok(r.reason instanceof bingo.BingoError && [403, 409].includes(r.reason.status));
+  assert.ok(await bingo.cardFor(t.id));
 });
 
 test("a task sent in waits for review, then joins the library when approved", async () => {
@@ -202,4 +219,11 @@ test("a turned-down task stays out, says why, and can be sent in again", async (
   assert.equal(mine[0].id, task.id);
   const again = await bingo.submitTask(MAYA, { region: "Denver", title: "Climb a fourteener", description: "Mt. Evans" });
   assert.equal(again.status, "pending");
+});
+
+test("taking a task out of the library withdraws the challenges that use it", async () => {
+  const chicago = await starter("Chicago");
+  await bingo.removeTask(chicago.tasks[4].id, ADMIN);
+  assert.ok(!(await bingo.challenges("Chicago")).some((c) => c.id === chicago.id));
+  assert.ok(await starter("Nashville"), "challenges without it stay on offer");
 });

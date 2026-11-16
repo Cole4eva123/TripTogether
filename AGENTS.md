@@ -31,9 +31,10 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
 - `lib/db/schema.ts` — every table; `npm run db:generate` turns a change into a migration in `drizzle/`, which the
   app applies on the first request. `lib/db/client.ts` is the pool; `lib/db/test-db.ts` sets up the store tests.
 - `lib/store.ts` — trips, members and the itinerary. `lib/auth.ts` — Better Auth, called from `app/api/auth/*`.
-- Travel Bingo: `lib/bingo.ts` (the rules, pure), `lib/bingo-store.ts` (task library, review queue, cards),
+- Travel Bingo: `lib/bingo.ts` (the rules, pure), `lib/bingo-store.ts` (task library, review queue, challenges, cards),
   `app/api/bingo/**`, `app/api/trips/[id]/bingo/**`, `app/trips/bingo/**`, `app/trips/[id]/bingo`,
-  `components/bingo/**`. Admins are the emails in `ADMIN_EMAILS`; roles are in `docs/roles.md`.
+  `components/bingo/**`. Admins publish challenges (one city's tasks in fixed squares, `/trips/bingo/challenges`); a trip plays one at a time, and switching starts an empty card.
+  Admins are the emails in `ADMIN_EMAILS`; roles are in `docs/roles.md`.
 - Travel blind box: `lib/blind-box.ts` (the rules, pure), `lib/blind-box-store.ts` (rounds and sealed ideas; every
   write locks the round row), `app/api/trips/[id]/blind-box`, `app/trips/[id]/blind-box`, `components/BlindBox*.tsx`.
   Only the trip's organizer (`trip.ownerId`) starts, reveals or resets a box.

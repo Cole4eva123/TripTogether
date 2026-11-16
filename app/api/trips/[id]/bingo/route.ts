@@ -1,34 +1,33 @@
 import { isAdmin } from "@/lib/auth";
-import { parseCardInput, regionFor } from "@/lib/bingo";
+import { regionFor } from "@/lib/bingo";
 import { bingoAnswer } from "@/lib/bingo-api";
-import { cardFor, createCard, regions } from "@/lib/bingo-store";
+import { cardFor, challenges, chooseChallenge } from "@/lib/bingo-store";
 import { fail, memberTrip, readJson } from "@/lib/server";
 
 /**
- * The trip's card (null before one is drawn), the regions to draw from, the one its destination is in, and who
- * is asking (so the page offers Undo and redrawing only where they're allowed).
+ * The trip's card (null before it takes a challenge on), the challenges on offer, the region of its destination
+ * among them, and who is asking (so the page offers Undo and switching only where they're allowed).
  */
 export async function GET(_req: Request, ctx: RouteContext<"/api/trips/[id]/bingo">) {
   const m = await memberTrip((await ctx.params).id);
   if (m instanceof Response) return m;
-  const [card, all] = await Promise.all([cardFor(m.trip.id), regions()]);
-  const suggestedRegion = regionFor(m.trip.destination, all.map((r) => r.region));
+  const [card, all] = await Promise.all([cardFor(m.trip.id), challenges()]);
+  const suggestedRegion = regionFor(m.trip.destination, [...new Set(all.map((c) => c.region))]);
   const admin = isAdmin(m.me.email);
   return Response.json({
     card,
-    regions: all,
+    challenges: all,
     suggestedRegion,
-    viewer: { id: m.me.id, admin, mayRedraw: admin || m.trip.ownerId === m.me.id },
+    viewer: { id: m.me.id, admin, maySwitch: admin || m.trip.ownerId === m.me.id },
   });
 }
 
-/** Draws a card from a region's tasks. Any member draws the first; only the creator or an admin replaces one. */
+/** Takes a challenge on. Any member picks the first; only the organizer or an admin switches to another. */
 export async function POST(req: Request, ctx: RouteContext<"/api/trips/[id]/bingo">) {
   const m = await memberTrip((await ctx.params).id);
   if (m instanceof Response) return m;
-  const input = parseCardInput(await readJson(req));
-  if (typeof input === "string") return fail(400, input);
-  return bingoAnswer(async () =>
-    Response.json({ card: await createCard(m.trip.id, m.me.id, input.region, input.size, isAdmin(m.me.email) || m.trip.ownerId === m.me.id) }, { status: 201 }),
-  );
+  const { challengeId } = await readJson(req);
+  if (typeof challengeId !== "string" || !challengeId) return fail(400, "Pick a challenge to take on.");
+  const maySwitch = isAdmin(m.me.email) || m.trip.ownerId === m.me.id;
+  return bingoAnswer(async () => Response.json({ card: await chooseChallenge(m.trip.id, m.me.id, challengeId, maySwitch) }, { status: 201 }));
 }

@@ -15,14 +15,12 @@ export default function BingoGrid({
   flash,
   busy,
   onMark,
-  onSwap,
 }: {
   card: BingoCard;
   viewer: BingoView["viewer"];
   flash: { id: number; positions: number[] } | null;
   busy: string | null; // the id of the square waiting on the server
   onMark: (cell: BingoCell, done: boolean) => void;
-  onSwap: (cell: BingoCell) => void;
 }) {
   const onLine = new Set(card.lines.flat());
   const squares = useRef(new Map<number, HTMLLIElement>());
@@ -67,7 +65,7 @@ export default function BingoGrid({
               <div className="grid gap-1">
                 <p className="text-[16px] leading-[1.25] font-bold max-sm:text-[14px]">{cell.task.title}</p>
                 {cell.task.description && (
-                  <p className={`text-[13px] leading-[1.35] max-sm:hidden ${done ? "sign-body-quiet" : "text-muted"}`}>
+                  <p className={`text-[13px] leading-[1.35] max-sm:hidden ${done ? "text-white/80" : "text-muted"}`}>
                     {cell.task.description}
                   </p>
                 )}
@@ -75,7 +73,7 @@ export default function BingoGrid({
               <div className="grid justify-items-start gap-1 text-[13px]">
                 {done ? (
                   <>
-                    <span className="sign-body-quiet">Done by {cell.completedBy}</span>
+                    <span className="text-white/80">Done by {cell.completedBy}</span>
                     {(viewer.admin || cell.completedById === viewer.id) && (
                       <button
                         className="link-btn text-white"
@@ -87,18 +85,13 @@ export default function BingoGrid({
                     )}
                   </>
                 ) : (
-                  <>
-                    <button
-                      className="btn btn-small max-sm:px-2.5"
-                      disabled={busy === cell.id}
-                      onClick={() => onMark(cell, true)}
-                    >
-                      Done
-                    </button>
-                    <button className="link-btn" disabled={busy === cell.id} onClick={() => onSwap(cell)}>
-                      Swap task
-                    </button>
-                  </>
+                  <button
+                    className="btn btn-small max-sm:px-2.5"
+                    disabled={busy === cell.id}
+                    onClick={() => onMark(cell, true)}
+                  >
+                    Done
+                  </button>
                 )}
               </div>
             </li>

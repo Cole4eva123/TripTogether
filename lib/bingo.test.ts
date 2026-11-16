@@ -3,47 +3,14 @@ import { test } from "node:test";
 import {
   bingoLines,
   canonicalRegion,
-  drawCard,
   finishedLines,
   inRegion,
   lineName,
   newLines,
-  parseCardInput,
+  parseChallengeInput,
   parseTaskInput,
-  pickReplacement,
   regionFor,
 } from "./bingo.ts";
-
-/** A repeatable stand-in for Math.random. */
-function seeded(seed: number) {
-  return () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
-}
-
-test("a drawn card has the right number of distinct tasks from the pool", () => {
-  const pool = Array.from({ length: 12 }, (_, i) => `t${i}`);
-  for (let s = 1; s < 50; s++) {
-    const card = drawCard(pool, 9, seeded(s))!;
-    assert.equal(card.length, 9);
-    assert.equal(new Set(card).size, 9);
-    assert.ok(card.every((t) => pool.includes(t)));
-  }
-});
-
-test("a pool smaller than the card can't make one", () => {
-  assert.equal(drawCard(["a", "b"], 9), null);
-  assert.deepEqual(drawCard(["a"], 1), ["a"]);
-});
-
-test("different draws give different cards", () => {
-  const pool = Array.from({ length: 20 }, (_, i) => i);
-  assert.notDeepEqual(drawCard(pool, 9, seeded(1)), drawCard(pool, 9, seeded(2)));
-});
-
-test("a replacement is never a task already on the card", () => {
-  const pool = ["a", "b", "c", "d"];
-  for (let s = 1; s < 30; s++) assert.equal(pickReplacement(pool, ["a", "b", "c"], seeded(s)), "d");
-  assert.equal(pickReplacement(pool, pool), null);
-});
 
 test("a 3×3 card has 3 rows, 3 columns and 2 diagonals", () => {
   const lines = bingoLines(3);
@@ -125,10 +92,14 @@ test("task input needs an area and a title, within limits", () => {
   assert.equal(typeof parseTaskInput({ region: "Chicago", title: "x", description: "x".repeat(501) }), "string");
 });
 
-test("card input defaults to 3×3 and takes only the sizes on offer", () => {
-  assert.deepEqual(parseCardInput({ region: "Chicago" }), { region: "Chicago", size: 3 });
-  assert.deepEqual(parseCardInput({ region: "Chicago", size: 5 }), { region: "Chicago", size: 5 });
-  assert.equal(typeof parseCardInput({ region: "Chicago", size: 6 }), "string");
-  assert.equal(typeof parseCardInput({ region: "Chicago", size: "3" }), "string");
-  assert.equal(typeof parseCardInput({}), "string");
+test("a challenge needs a region, a title, a size on offer, and one different task per square", () => {
+  const nine = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
+  const ok = { region: " Chicago ", title: " Weekend ", size: 3, taskIds: nine };
+  assert.deepEqual(parseChallengeInput(ok), { region: "Chicago", title: "Weekend", description: "", size: 3, taskIds: nine });
+  for (const bad of [
+    { region: "" }, { title: "" }, { title: "x".repeat(81) }, { description: "x".repeat(301) },
+    { size: 6 }, { size: "3" }, { taskIds: nine.slice(1) }, { taskIds: [...nine, "j"] },
+    { taskIds: [...nine.slice(1), "b"] }, { taskIds: [...nine.slice(1), 7] }, { taskIds: "abc" },
+  ]) assert.equal(typeof parseChallengeInput({ ...ok, ...bad }), "string", JSON.stringify(bad));
+  assert.equal(typeof parseChallengeInput({ ...ok, size: 4, taskIds: nine }), "string", "a 4×4 needs 16");
 });

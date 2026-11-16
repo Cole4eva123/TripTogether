@@ -37,7 +37,7 @@ export default function ReviewPage() {
       <header className="grid gap-2">
         <h1>Review tasks</h1>
         <p className="max-w-[60ch] text-muted">
-          Approve a task to add it to its region&rsquo;s library, where groups draw their cards from. Turn it down if
+          Approve a task to add it to its region&rsquo;s library, where challenges are built from. Turn it down if
           it&rsquo;s unsafe, not really in that place, or already there under another name.
         </p>
       </header>

@@ -55,11 +55,12 @@ export default function TaskLibraryPage() {
         <h1>Bingo task library</h1>
         <p className="max-w-[60ch] text-muted">
           {admin
-            ? "Things to do in each place. Groups draw their Bingo cards from here. As an admin, you can add tasks straight in, rewrite them, or take them out."
-            : "Things to do in each place, sent in by travelers. Groups draw their Bingo cards from here. Suggest a task and it joins the library once an admin approves it."}
+            ? "Things to do in each place. Bingo challenges are built from these. As an admin, you can add tasks straight in, rewrite them, or take them out."
+            : "Things to do in each place, sent in by travelers. Bingo challenges are built from these. Suggest a task and it joins the library once an admin approves it."}
         </p>
         {admin && (
-          <p>
+          <p className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <Link href="/trips/bingo/challenges">Build a challenge</Link>
             {lib.pendingCount > 0 ? (
               <Link href="/trips/bingo/review" className="btn btn-small">
                 {lib.pendingCount === 1 ? "1 suggestion" : `${lib.pendingCount} suggestions`} waiting for review
@@ -103,8 +104,8 @@ export default function TaskLibraryPage() {
             <p className="max-w-[60ch] text-muted">
               There are no tasks for {region} yet.{" "}
               {admin
-                ? "Add the first ones, and groups going there can draw a card."
-                : "Suggest the first ones, and once they're approved, groups going there can draw a card."}
+                ? "Add the first ones, then build a challenge from them."
+                : "Suggest the first ones, and once they're approved, an admin can build a challenge from them."}
             </p>
           )}
           {lib && known && (

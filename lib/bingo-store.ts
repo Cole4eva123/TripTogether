@@ -1,12 +1,12 @@
 // Travel Bingo's data: the task library, its review queue, and each trip's card. In PostgreSQL like the rest
 // (tables in lib/db/schema.ts); the rules themselves are the pure functions in lib/bingo.ts.
-import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { STARTER_TASKS } from "./bingo-catalog.ts";
-import { canonicalRegion, drawCard, finishedLines, pickReplacement, type TaskInput } from "./bingo.ts";
-import type { BingoCard, BingoRegion, BingoTask } from "./bingo-types.ts";
+import { canonicalRegion, DEFAULT_SIZE, finishedLines, type ChallengeInput, type TaskInput } from "./bingo.ts";
+import type { BingoCard, BingoChallenge, BingoRegion, BingoTask } from "./bingo-types.ts";
 import { db, isUniqueViolation, ready } from "./db/client.ts";
-import { bingoCards, bingoCells, bingoTasks, users } from "./db/schema.ts";
+import { bingoCards, bingoCells, bingoChallenges, bingoChallengeTasks, bingoTasks, users } from "./db/schema.ts";
 import { isId } from "./store.ts";
 
 /** A rule broken by a request, with the status and message the API answers with. */
@@ -20,18 +20,49 @@ export class BingoError extends Error {
 
 // --- Setup ---
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 const g = globalThis as { __bingoReady?: Promise<void> };
 
-/** The tables are ready and the starter tasks are in. Runs the seeding once per server process. */
+/**
+ * The tables are ready, with the starter tasks in and a starter challenge for each of their regions, so groups can
+ * play before an admin has published anything. Runs once per server process, one process at a time.
+ */
 function bingoReady(): Promise<void> {
   g.__bingoReady ??= (async () => {
     await ready();
-    const [shipped] = await db.select({ id: bingoTasks.id }).from(bingoTasks).where(isNull(bingoTasks.submittedById)).limit(1);
-    if (shipped) return;
-    const rows = Object.entries(STARTER_TASKS).flatMap(([region, tasks]) =>
-      tasks.map(([title, description]) => ({ region, title, description, status: "approved" as const })),
-    );
-    await db.insert(bingoTasks).values(rows).onConflictDoNothing(); // another process may be seeding at the same time
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('bingo starter seed'))`);
+      const shippedTask = await tx.select({ id: bingoTasks.id }).from(bingoTasks).where(isNull(bingoTasks.submittedById)).limit(1);
+      if (!shippedTask.length) {
+        const rows = Object.entries(STARTER_TASKS).flatMap(([region, tasks]) =>
+          tasks.map(([title, description]) => ({ region, title, description, status: "approved" as const })),
+        );
+        await tx.insert(bingoTasks).values(rows);
+      }
+      const shippedChallenge = await tx
+        .select({ id: bingoChallenges.id })
+        .from(bingoChallenges)
+        .where(isNull(bingoChallenges.createdById))
+        .limit(1);
+      if (shippedChallenge.length) return;
+      for (const [region, tasks] of Object.entries(STARTER_TASKS)) {
+        const titles = tasks.slice(0, DEFAULT_SIZE ** 2).map(([title]) => title);
+        const found = await tx
+          .select({ id: bingoTasks.id, title: bingoTasks.title })
+          .from(bingoTasks)
+          .where(and(eq(bingoTasks.region, region), eq(bingoTasks.status, "approved"), inArray(bingoTasks.title, titles)));
+        const taskIds = titles.map((t) => found.find((f) => f.title === t)?.id);
+        if (taskIds.some((id) => !id)) continue; // an admin has taken one of them out of the library
+        const starter = {
+          region,
+          title: `${region} starter`,
+          description: `The first nine things to do in ${region}.`,
+          size: DEFAULT_SIZE,
+          taskIds: taskIds as string[],
+        };
+        await insertChallenge(tx, starter, null);
+      }
+    });
   })().catch((e) => {
     g.__bingoReady = undefined;
     throw e;
@@ -169,16 +200,23 @@ export async function editTask(taskId: string, input: TaskInput): Promise<BingoT
 }
 
 /**
- * Admins: takes a task out of the library, so no new card draws it. Cards that already have it keep it. Its
- * sender sees it as turned down, with the reason.
+ * Admins: takes a task out of the library, and withdraws the challenges that use it, so no new card gets it. Cards
+ * that already have it keep it. Its sender sees it as turned down, with the reason.
  */
 export async function removeTask(taskId: string, adminId: string): Promise<void> {
   await bingoReady();
   await libraryTask(taskId);
-  await db
-    .update(bingoTasks)
-    .set({ status: "rejected", reviewedById: adminId, reviewNote: "Taken out of the library by an admin.", reviewedAt: new Date() })
-    .where(eq(bingoTasks.id, taskId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(bingoTasks)
+      .set({ status: "rejected", reviewedById: adminId, reviewNote: "Taken out of the library by an admin.", reviewedAt: new Date() })
+      .where(eq(bingoTasks.id, taskId));
+    const using = tx.select({ id: bingoChallengeTasks.challengeId }).from(bingoChallengeTasks).where(eq(bingoChallengeTasks.taskId, taskId));
+    await tx
+      .update(bingoChallenges)
+      .set({ withdrawnAt: new Date() })
+      .where(and(isNull(bingoChallenges.withdrawnAt), inArray(bingoChallenges.id, using)));
+  });
 }
 
 async function taskById(id: string): Promise<BingoTask | null> {
@@ -216,16 +254,90 @@ export async function reviewTask(
   return (await taskById(taskId))!;
 }
 
+// --- Challenges ---
+
+const author = alias(users, "author");
+
+/** Published challenges, a region's or every one, with their squares in position order. Newest first. */
+export async function challenges(region?: string): Promise<BingoChallenge[]> {
+  await bingoReady();
+  return challengesWhere(and(isNull(bingoChallenges.withdrawnAt), region ? eq(bingoChallenges.region, region) : undefined));
+}
+
+async function challengesWhere(where: SQL | undefined): Promise<BingoChallenge[]> {
+  const rows = await db
+    .select({ c: bingoChallenges, createdBy: author.name })
+    .from(bingoChallenges)
+    .leftJoin(author, eq(author.id, bingoChallenges.createdById))
+    .where(where)
+    .orderBy(desc(bingoChallenges.createdAt));
+  if (!rows.length) return [];
+  const squares = await db
+    .select({ challengeId: bingoChallengeTasks.challengeId, id: bingoTasks.id, title: bingoTasks.title, description: bingoTasks.description })
+    .from(bingoChallengeTasks)
+    .innerJoin(bingoTasks, eq(bingoTasks.id, bingoChallengeTasks.taskId))
+    .where(inArray(bingoChallengeTasks.challengeId, rows.map((r) => r.c.id)))
+    .orderBy(asc(bingoChallengeTasks.position));
+  return rows.map(({ c, createdBy }) => ({
+    id: c.id,
+    region: c.region,
+    title: c.title,
+    description: c.description,
+    size: c.size,
+    tasks: squares.filter((s) => s.challengeId === c.id).map(({ id, title, description }) => ({ id, title, description })),
+    createdBy,
+    createdAt: c.createdAt.toISOString(),
+  }));
+}
+
+const liveChallenge = async (id: string) =>
+  isId(id) ? (await challengesWhere(and(eq(bingoChallenges.id, id), isNull(bingoChallenges.withdrawnAt))))[0] : undefined;
+
+/** Admins: publishes a challenge. Every square's task must be in the region's library, approved. */
+export async function publishChallenge(adminId: string, input: ChallengeInput): Promise<BingoChallenge> {
+  await bingoReady();
+  const region = await libraryRegion(input.region);
+  const approved = new Set(await approvedIdsIn(region));
+  if (!input.taskIds.every((id) => approved.has(id))) {
+    throw new BingoError(400, `Every square needs a task from the ${region} library. Reload the page and pick again.`);
+  }
+  const id = await insertChallenge(db, { ...input, region }, adminId);
+  return (await liveChallenge(id))!;
+}
+
+async function insertChallenge(q: Tx | typeof db, input: ChallengeInput, createdById: string | null) {
+  const [row] = await q
+    .insert(bingoChallenges)
+    .values({ region: input.region, title: input.title, description: input.description, size: input.size, createdById })
+    .returning({ id: bingoChallenges.id });
+  await q.insert(bingoChallengeTasks).values(input.taskIds.map((taskId, position) => ({ challengeId: row.id, position, taskId })));
+  return row.id;
+}
+
+/** Admins: takes a challenge off offer. Groups already playing it keep their cards. */
+export async function withdrawChallenge(id: string): Promise<void> {
+  await bingoReady();
+  const rows = isId(id)
+    ? await db
+        .update(bingoChallenges)
+        .set({ withdrawnAt: new Date() })
+        .where(and(eq(bingoChallenges.id, id), isNull(bingoChallenges.withdrawnAt)))
+        .returning({ id: bingoChallenges.id })
+    : [];
+  if (!rows.length) throw new BingoError(404, "That challenge isn't on offer.");
+}
+
 // --- Cards ---
 
 const completer = alias(users, "completer");
 
-/** The trip's card with its squares and progress, or null when it has none yet. */
+/** The trip's card with its squares and progress, or null when it hasn't taken a challenge on yet. */
 export async function cardFor(tripId: string): Promise<BingoCard | null> {
   await bingoReady();
   const [card] = await db
-    .select({ c: bingoCards, createdBy: users.name })
+    .select({ c: bingoCards, createdBy: users.name, title: bingoChallenges.title })
     .from(bingoCards)
+    .innerJoin(bingoChallenges, eq(bingoChallenges.id, bingoCards.challengeId))
     .leftJoin(users, eq(users.id, bingoCards.createdById))
     .where(eq(bingoCards.tripId, tripId));
   if (!card) return null;
@@ -249,6 +361,7 @@ export async function cardFor(tripId: string): Promise<BingoCard | null> {
   return {
     id: card.c.id,
     tripId: card.c.tripId,
+    challenge: { id: card.c.challengeId, title: card.title },
     region: card.c.region,
     size: card.c.size,
     cells: cells.map((c) => ({
@@ -276,34 +389,31 @@ const approvedIdsIn = async (region: string) =>
   ).map((t) => t.id);
 
 /**
- * Draws a new card for the trip from the region's approved tasks. Any member draws the first one; replacing a
- * card wipes everyone's progress, so only those who `mayRedraw` (the trip's creator or an admin) can.
+ * The trip takes a challenge on: its squares are copied onto the trip's card, so later changes to the challenge
+ * leave the card alone. Any member picks the first one; switching wipes everyone's progress, so only those who
+ * `maySwitch` (the trip's organizer or an admin) can.
  */
-export async function createCard(
-  tripId: string,
-  userId: string,
-  region: string,
-  size: number,
-  mayRedraw: boolean,
-): Promise<BingoCard> {
+export async function chooseChallenge(tripId: string, userId: string, challengeId: string, maySwitch: boolean): Promise<BingoCard> {
   await bingoReady();
-  if (!mayRedraw && (await db.select({ id: bingoCards.id }).from(bingoCards).where(eq(bingoCards.tripId, tripId))).length) {
-    throw new BingoError(403, "Only the trip's creator or an admin can draw a new card.");
-  }
-  const pool = await approvedIdsIn(region);
-  if (!pool.length) throw new BingoError(400, `There are no tasks for ${region} yet. Pick another region.`);
-  const picked = drawCard(pool, size * size);
-  if (!picked) {
-    throw new BingoError(
-      400,
-      `${region} has only ${pool.length} tasks, and a ${size}×${size} card needs ${size * size}. Pick a smaller card, or add tasks for ${region}.`,
-    );
-  }
-  await db.transaction(async (tx) => {
-    await tx.delete(bingoCards).where(eq(bingoCards.tripId, tripId)); // its squares go with it
-    const [card] = await tx.insert(bingoCards).values({ tripId, region, size, createdById: userId }).returning({ id: bingoCards.id });
-    await tx.insert(bingoCells).values(picked.map((taskId, position) => ({ cardId: card.id, position, taskId })));
-  });
+  const challenge = await liveChallenge(challengeId);
+  if (!challenge) throw new BingoError(404, "That challenge isn't on offer any more. Reload the page.");
+  await db
+    .transaction(async (tx) => {
+      const [current] = await tx.select({ id: bingoCards.id }).from(bingoCards).where(eq(bingoCards.tripId, tripId)).for("update");
+      if (current) {
+        if (!maySwitch) throw new BingoError(403, "Only the trip's organizer or an admin can switch to another challenge.");
+        await tx.delete(bingoCards).where(eq(bingoCards.id, current.id)); // its squares go with it
+      }
+      const [card] = await tx
+        .insert(bingoCards)
+        .values({ tripId, challengeId: challenge.id, region: challenge.region, size: challenge.size, createdById: userId })
+        .returning({ id: bingoCards.id });
+      await tx.insert(bingoCells).values(challenge.tasks.map((t, position) => ({ cardId: card.id, position, taskId: t.id })));
+    })
+    .catch((e) => {
+      // Two members picking the trip's first challenge at once: there was no card to lock, so trip_id stops the second.
+      throw isUniqueViolation(e) ? new BingoError(409, "Someone in your group just picked a challenge. Reload the page.") : e;
+    });
   return (await cardFor(tripId))!;
 }
 
@@ -312,25 +422,24 @@ async function cellOn(tripId: string, cellId: string) {
   const missing = new BingoError(404, "That square isn't on this trip's card. Reload the page.");
   if (!isId(cellId)) throw missing;
   const [row] = await db
-    .select({ cell: bingoCells, card: bingoCards })
+    .select({ cell: bingoCells })
     .from(bingoCells)
     .innerJoin(bingoCards, eq(bingoCards.id, bingoCells.cardId))
     .where(and(eq(bingoCells.id, cellId), eq(bingoCards.tripId, tripId)));
   if (!row) throw missing;
-  return row;
+  return row.cell;
 }
 
 /** Who is acting on a square: a trip member, and whether they are an app admin (ADMIN_EMAILS). */
 export type Actor = { id: string; admin: boolean };
 
 /**
- * A square someone has checked off is theirs: only they, or an admin, may take the check back (or swap the
- * task, which takes it back too). A square checked off by a member who has since deleted their account is
- * left to admins.
+ * A square someone has checked off is theirs: only they, or an admin, may take the check back. A square checked
+ * off by a member who has since deleted their account is left to admins.
  */
 function mustOwnCheck(cell: { completedAt: Date | null; completedById: string | null }, actor: Actor) {
   if (cell.completedAt && cell.completedById !== actor.id && !actor.admin) {
-    throw new BingoError(403, "Only the member who checked this square off, or an admin, can undo or swap it.");
+    throw new BingoError(403, "Only the member who checked this square off, or an admin, can undo it.");
   }
 }
 
@@ -344,25 +453,13 @@ function sameCheckAs(cell: Cell) {
 }
 
 /**
- * Writes `values` to the square only if its check is still what mustOwnCheck looked at, so an undo or a swap never
- * wipes a check someone else made in between.
- */
-async function setIfUnchanged(cell: Cell, values: Partial<Cell>) {
-  const rows = await db
-    .update(bingoCells)
-    .set(values)
-    .where(and(eq(bingoCells.id, cell.id), sameCheckAs(cell)))
-    .returning({ id: bingoCells.id });
-  if (!rows.length) throw new BingoError(409, "Someone else just changed this square. Reload the page.");
-}
-
-/**
  * Checks a square off, or takes the check back. Any member may check a square off; checking one that is
- * already done changes nothing, so it keeps the member who did it. Undoing follows mustOwnCheck.
+ * already done changes nothing, so it keeps the member who did it. Undoing follows mustOwnCheck, and only writes
+ * if the check is still the one it looked at, so it never wipes a check someone else made in between.
  */
 export async function markCell(tripId: string, cellId: string, actor: Actor, done: boolean): Promise<BingoCard> {
   await bingoReady();
-  const { cell } = await cellOn(tripId, cellId);
+  const cell = await cellOn(tripId, cellId);
   if (done) {
     // Someone checking it off at the same moment keeps it: the first one wins, the second changes nothing.
     await db
@@ -371,37 +468,12 @@ export async function markCell(tripId: string, cellId: string, actor: Actor, don
       .where(and(eq(bingoCells.id, cellId), isNull(bingoCells.completedAt)));
   } else if (cell.completedAt) {
     mustOwnCheck(cell, actor);
-    await setIfUnchanged(cell, { completedById: null, completedAt: null });
+    const rows = await db
+      .update(bingoCells)
+      .set({ completedById: null, completedAt: null })
+      .where(and(eq(bingoCells.id, cell.id), sameCheckAs(cell)))
+      .returning({ id: bingoCells.id });
+    if (!rows.length) throw new BingoError(409, "Someone else just changed this square. Reload the page.");
   }
-  return (await cardFor(tripId))!;
-}
-
-/**
- * Swaps the task on a square: for the one asked for, or a random one from the region that isn't on the card.
- * The square starts over, unchecked, so a square someone else checked off follows mustOwnCheck.
- */
-export async function replaceCell(
-  tripId: string,
-  cellId: string,
-  actor: Actor,
-  taskId: string | null,
-): Promise<BingoCard> {
-  await bingoReady();
-  const { card, cell } = await cellOn(tripId, cellId);
-  mustOwnCheck(cell, actor);
-  const pool = await approvedIdsIn(card.region);
-  const onCard = (await db.select({ taskId: bingoCells.taskId }).from(bingoCells).where(eq(bingoCells.cardId, card.id))).map(
-    (c) => c.taskId,
-  );
-  let next: string | null;
-  if (taskId) {
-    if (!pool.includes(taskId)) throw new BingoError(400, `That task isn't in the ${card.region} library.`);
-    if (onCard.includes(taskId)) throw new BingoError(409, "That task is already on the card.");
-    next = taskId;
-  } else {
-    next = pickReplacement(pool, onCard);
-    if (!next) throw new BingoError(409, `Every ${card.region} task is already on the card. Add more tasks first.`);
-  }
-  await setIfUnchanged(cell, { taskId: next, completedById: null, completedAt: null });
   return (await cardFor(tripId))!;
 }

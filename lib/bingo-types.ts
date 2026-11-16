@@ -25,10 +25,23 @@ export type BingoCell = {
   completedAt: string | null; // ISO
 };
 
-/** A trip's Bingo card, with the progress worked out. */
+/** A challenge an admin published: a region's tasks at fixed squares, which any group can take on. */
+export type BingoChallenge = {
+  id: string;
+  region: string;
+  title: string;
+  description: string;
+  size: number; // 3 means 3×3
+  tasks: Pick<BingoTask, "id" | "title" | "description">[]; // one per square, in position order
+  createdBy: string | null; // the admin's name; null for the starter challenges the app ships with
+  createdAt: string; // ISO
+};
+
+/** A trip's Bingo card: the challenge it took on, with the progress worked out. */
 export type BingoCard = {
   id: string;
   tripId: string;
+  challenge: Pick<BingoChallenge, "id" | "title">;
   region: string;
   size: number; // 3 means 3×3
   cells: BingoCell[]; // in position order
@@ -44,9 +57,9 @@ export type BingoRegion = { region: string; taskCount: number };
 /** What the trip's Bingo page loads. */
 export type BingoView = {
   card: BingoCard | null;
-  regions: BingoRegion[];
+  challenges: BingoChallenge[]; // every published one, those of suggestedRegion first
   suggestedRegion: string | null; // the region that matches the trip's destination, if one does
-  // Who is looking: an admin may undo any square, others only their own; the trip's creator and admins may
-  // replace the card with a new one.
-  viewer: { id: string; admin: boolean; mayRedraw: boolean };
+  // Who is looking: an admin may undo any square, others only their own; the trip's organizer and admins may
+  // switch the trip to another challenge.
+  viewer: { id: string; admin: boolean; maySwitch: boolean };
 };

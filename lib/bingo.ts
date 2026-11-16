@@ -1,5 +1,5 @@
-// Travel Bingo's rules, as pure functions: drawing a card, swapping a square, finding finished lines, matching a
-// trip's destination to a region, and checking what people send in. Tested in lib/bingo.test.ts.
+// Travel Bingo's rules, as pure functions: finding finished lines, matching a trip's destination to a region, and
+// checking what people send in, tasks and challenges. Tested in lib/bingo.test.ts.
 
 // Place names, read the same way the lobby's matcher reads them (lib/matching.ts on the lobby branches), so
 // "Chicago, IL" names the Chicago library. A copy, since this branch has no lobby.
@@ -47,27 +47,6 @@ function normalizePlace(s: string): string {
 /** Card sizes on offer. The proposal's default is 3×3. */
 export const BINGO_SIZES = [3, 4, 5] as const;
 export const DEFAULT_SIZE = 3;
-
-/** A random number in [0, 1), like Math.random. Passed in so the tests can fix it. */
-export type Rand = () => number;
-
-/** `count` distinct items from `pool`, in random order, or null when the pool is too small. */
-export function drawCard<T>(pool: readonly T[], count: number, rand: Rand = Math.random): T[] | null {
-  if (pool.length < count) return null;
-  const a = [...pool];
-  // The first `count` steps of a Fisher–Yates shuffle.
-  for (let i = 0; i < count; i++) {
-    const j = i + Math.floor(rand() * (a.length - i));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a.slice(0, count);
-}
-
-/** A random item from `pool` that isn't already on the card, or null when there's none left. */
-export function pickReplacement<T>(pool: readonly T[], onCard: readonly T[], rand: Rand = Math.random): T | null {
-  const left = pool.filter((t) => !onCard.includes(t));
-  return left.length ? left[Math.floor(rand() * left.length)] : null;
-}
 
 /** Every row, column and the two diagonals of a size×size card, as positions (row by row from 0). */
 export function bingoLines(size: number): number[][] {
@@ -138,13 +117,27 @@ export function parseTaskInput(body: Record<string, unknown>): TaskInput | strin
   return { region, title, description };
 }
 
-export type CardInput = { region: string; size: number };
+export type ChallengeInput = { region: string; title: string; description: string; size: number; taskIds: string[] };
 
-/** Checks a request for a new card. Returns the cleaned input, or the message to show. */
-export function parseCardInput(body: Record<string, unknown>): CardInput | string {
+/**
+ * Checks a challenge an admin publishes: a region, a title, a size, and one task per square in position order,
+ * none twice. Whether the tasks are in the region's library is the store's to check. Returns the cleaned input, or
+ * the message to show.
+ */
+export function parseChallengeInput(body: Record<string, unknown>): ChallengeInput | string {
   const region = text(body.region);
-  const size = body.size === undefined || body.size === null ? DEFAULT_SIZE : body.size;
-  if (!region) return "Pick a region for the card.";
+  const title = text(body.title);
+  const description = text(body.description);
+  const { size, taskIds } = body;
+  if (!region) return "Pick the city this challenge is in.";
+  if (!title) return "Give the challenge a title.";
+  if (title.length > 80) return "Keep the title under 80 characters.";
+  if (description.length > 300) return "Keep the description under 300 characters.";
   if (!BINGO_SIZES.includes(size as (typeof BINGO_SIZES)[number])) return "Pick a 3×3, 4×4 or 5×5 card.";
-  return { region, size: size as number };
+  const squares = (size as number) ** 2;
+  if (!Array.isArray(taskIds) || taskIds.length !== squares || taskIds.some((t) => typeof t !== "string")) {
+    return `Fill all ${squares} squares with a task.`;
+  }
+  if (new Set(taskIds).size !== squares) return "Use each task once.";
+  return { region, title, description, size: size as number, taskIds };
 }

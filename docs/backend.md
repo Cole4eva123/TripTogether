@@ -27,6 +27,8 @@ The app applies pending migrations itself on the first request, on either databa
 | `BETTER_AUTH_URL` | The address the app is served from | `http://localhost:3000` |
 | `ADMIN_EMAILS` | Comma-separated emails of the people who review Travel Bingo tasks | nobody |
 
+Who may do what, and how admins differ from trip organizers: `docs/roles.md`.
+
 ## Files
 
 - `lib/db/schema.ts` — every table. After changing it, run `npm run db:generate` and commit the new file in

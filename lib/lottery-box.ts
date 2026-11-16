@@ -1,4 +1,4 @@
-import { categories, type BlindBoxOption, type BlindBoxOptionInput, type BlindBoxResult, type BlindBoxSettings } from "./blind-box-types.ts";
+import { categories, type LotteryBoxOption, type LotteryBoxOptionInput, type LotteryBoxResult, type LotteryBoxSettings } from "./lottery-box-types.ts";
 import { parsePlanInput } from "./validate.ts";
 import type { Trip } from "./types.ts";
 
@@ -8,7 +8,7 @@ const integer = (value: unknown, min: number, max: number): value is number => t
 export const timeMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
 const clock = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
-export function parseBlindBoxSettings(body: Record<string, unknown>, trip: Pick<Trip, "startDate" | "endDate">): BlindBoxSettings | string {
+export function parseLotteryBoxSettings(body: Record<string, unknown>, trip: Pick<Trip, "startDate" | "endDate">): LotteryBoxSettings | string {
   const destination = text(body.destination);
   if (!destination || destination.length > 120) return "Enter a destination of up to 120 characters.";
   const plan = parsePlanInput({ date: body.date, time: body.startTime, title: "Mystery itinerary" }, trip);
@@ -22,15 +22,15 @@ export function parseBlindBoxSettings(body: Record<string, unknown>, trip: Pick<
   return { destination, date: plan.date, startTime: plan.time, budget: body.budget, availableMinutes: body.availableMinutes, maxStops: body.maxStops, preferences: [...new Set(body.preferences)] };
 }
 
-export function parseBlindBoxOption(body: Record<string, unknown>): BlindBoxOptionInput | string {
+export function parseLotteryBoxOption(body: Record<string, unknown>): LotteryBoxOptionInput | string {
   const title = text(body.title), place = text(body.place), note = text(body.note);
   if (!title || title.length > 120) return "Enter an activity title of up to 120 characters.";
   if (!place || place.length > 120) return "Enter a place of up to 120 characters.";
   if (note.length > 500) return "Keep the note under 500 characters.";
-  if (!categories.includes(body.category as BlindBoxOptionInput["category"])) return "Choose an activity category.";
+  if (!categories.includes(body.category as LotteryBoxOptionInput["category"])) return "Choose an activity category.";
   if (!money(body.cost)) return "Enter a cost from $0 to $10,000, with up to two decimal places.";
   if (!integer(body.durationMinutes, 15, 720)) return "Choose an activity duration of 15 to 720 minutes.";
-  return { title, place, note, category: body.category as BlindBoxOptionInput["category"], cost: body.cost, durationMinutes: body.durationMinutes };
+  return { title, place, note, category: body.category as LotteryBoxOptionInput["category"], cost: body.cost, durationMinutes: body.durationMinutes };
 }
 
 // Match a city or the same city followed by a region, without matching unrelated substrings.
@@ -39,18 +39,18 @@ export function destinationKey(destination: string) {
   return ({ nyc: "new york", "new york city": "new york", sf: "san francisco", "芝加哥": "chicago", "纽约": "new york", "旧金山": "san francisco" } as Record<string, string>)[key] ?? key;
 }
 
-export function eligibleOptions(settings: BlindBoxSettings, options: BlindBoxOption[]) {
+export function eligibleOptions(settings: LotteryBoxSettings, options: LotteryBoxOption[]) {
   return options.filter((option) => destinationKey(option.destination) === destinationKey(settings.destination) && settings.preferences.includes(option.category) && Math.round(option.cost * 100) <= Math.round(settings.budget * 100) && option.durationMinutes <= settings.availableMinutes);
 }
 
 /** Shuffle eligible candidates, then take up to maxStops within the combined limits. */
-export function drawBlindBox(settings: BlindBoxSettings, options: BlindBoxOption[], randomIndex = (max: number) => Math.floor(Math.random() * max)): BlindBoxResult | null {
+export function drawLotteryBox(settings: LotteryBoxSettings, options: LotteryBoxOption[], randomIndex = (max: number) => Math.floor(Math.random() * max)): LotteryBoxResult | null {
   const pool = [...eligibleOptions(settings, options)];
   for (let i = pool.length - 1; i > 0; i--) {
     const j = randomIndex(i + 1);
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  const stops: BlindBoxResult["stops"] = [];
+  const stops: LotteryBoxResult["stops"] = [];
   const seen = new Set<string>();
   let cents = 0, minutes = 0;
   for (const option of pool) {

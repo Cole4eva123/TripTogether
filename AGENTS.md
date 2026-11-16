@@ -27,7 +27,7 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
 ## Layout
 
 - `docs/` — one doc per area, each saying what it does, how it is designed, and its API: `database.md` (setup,
-  tables, conventions, the base features' endpoints), `roles.md`, `bingo.md`, `blind-box.md`, `lobby.md`,
+  tables, conventions, the base features' endpoints), `roles.md`, `bingo.md`, `lottery-box.md`, `lobby.md`,
   `route-planner.md`.
 - `app/api/` — route handlers. Their contract (paths, status codes, shapes, error messages) is in those docs.
   The frontend depends only on that contract, through `lib/api.ts`.
@@ -43,8 +43,8 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
   `lib/places.ts` + `lib/places.json.gz` (the gazetteer, server only), `app/api/lobby/**`, `app/api/join-requests/**`,
   `app/api/trips/[id]/chat`, `app/trips/lobby`, `app/trips/[id]/chat`, `components/lobby/**`. Only the organizer
   shares a trip, takes it down and answers requests; a post stores only the trip and its note.
-- Travel blind box: `lib/blind-box.ts` (the rules, pure), `lib/blind-box-store.ts` (rounds and sealed ideas; every
-  write locks the round row), `app/api/trips/[id]/blind-box`, `app/trips/[id]/blind-box`, `components/BlindBox*.tsx`.
+- Travel lottery box: `lib/lottery-box.ts` (the rules, pure), `lib/lottery-box-store.ts` (rounds and sealed ideas; every
+  write locks the round row), `app/api/trips/[id]/lottery-box`, `app/trips/[id]/lottery-box`, `components/LotteryBox*.tsx`.
   Only the trip's organizer (`trip.ownerId`) starts, reveals or resets a box.
 - Route planner (fuel planner): `lib/route-planner/**` (`planner.ts` the rules, pure: the cheapest
   stations to buy at; `google.ts` + `google-data.ts` Routes and Places; `service.ts` searches kept in memory;

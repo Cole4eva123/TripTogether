@@ -74,7 +74,7 @@ another's work.
 | Approve or turn down suggestions | ✅ | ❌ 403 |
 | See the "Admin: Bingo task library" line on the trips page | ✅ | hidden |
 
-### Travel blind box (per trip)
+### Travel lottery box (per trip)
 
 | Action | Organizer | Member |
 |---|---|---|

@@ -1,14 +1,14 @@
 "use client";
 
-import type { BlindBoxSettings } from "@/lib/blind-box-types";
-import { categories } from "@/lib/blind-box-types";
+import type { LotteryBoxSettings } from "@/lib/lottery-box-types";
+import { categories } from "@/lib/lottery-box-types";
 import type { Trip } from "@/lib/types";
 
 type Submit = (body: Record<string, unknown>, method?: string) => Promise<boolean>;
 const fieldClass = "grid content-start gap-1.5";
 
-export function BlindBoxSetup({ trip, previous, busy, submit, onCancel }: {
-  trip: Trip; previous?: { id: string; settings: BlindBoxSettings }; busy: boolean; submit: Submit; onCancel?: () => void;
+export function LotteryBoxSetup({ trip, previous, busy, submit, onCancel }: {
+  trip: Trip; previous?: { id: string; settings: LotteryBoxSettings }; busy: boolean; submit: Submit; onCancel?: () => void;
 }) {
   const defaults = previous?.settings;
   async function create(event: React.SubmitEvent<HTMLFormElement>) {
@@ -19,7 +19,7 @@ export function BlindBoxSetup({ trip, previous, busy, submit, onCancel }: {
   }
   return (
     <form className="grid gap-5 rounded-md border-2 border-green bg-white p-5" onSubmit={create}>
-      <h2>{previous ? "Plan another surprise" : "Pack your blind box"}</h2>
+      <h2>{previous ? "Plan another surprise" : "Pack your lottery box"}</h2>
       <p className="text-muted">Set the limits, invite hidden ideas, then reveal a mystery itinerary for everyone.</p>
       <fieldset disabled={busy} className="grid gap-4 disabled:opacity-60">
         <div className={fieldClass}>
@@ -72,7 +72,7 @@ export function BlindBoxSetup({ trip, previous, busy, submit, onCancel }: {
   );
 }
 
-export function BlindBoxOptionForm({ settings, busy, submit }: { settings: BlindBoxSettings; busy: boolean; submit: Submit }) {
+export function LotteryBoxOptionForm({ settings, busy, submit }: { settings: LotteryBoxSettings; busy: boolean; submit: Submit }) {
   async function add(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const element = event.currentTarget;

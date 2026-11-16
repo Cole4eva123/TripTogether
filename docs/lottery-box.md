@@ -1,4 +1,4 @@
-# Travel blind box
+# Travel lottery box
 
 The organizer sets the limits for a surprise outing: a day and start time, a budget per person, the time
 available, how many stops, and the kinds of activity. Each member seals ideas into the box without anyone else
@@ -8,15 +8,15 @@ one click.
 
 | Where | What |
 |---|---|
-| `lib/blind-box.ts` | The rules, as pure functions: parsing the settings and ideas, which options fit, the draw (tested in `lib/blind-box.test.ts`) |
-| `lib/blind-box-store.ts` | Rounds and sealed ideas; every write locks the round row (tested in `lib/blind-box-store.test.ts`) |
-| `lib/blind-box-catalog.ts` | Demo ideas for Chicago, New York and San Francisco |
-| `lib/blind-box-types.ts` | `BlindBoxSettings`, `BlindBoxOptionInput`, `BlindBoxResult`, `BlindBoxView` |
-| `app/trips/[id]/blind-box`, `components/BlindBox*.tsx` | The page, the forms, and the slot-machine reveal |
+| `lib/lottery-box.ts` | The rules, as pure functions: parsing the settings and ideas, which options fit, the draw (tested in `lib/lottery-box.test.ts`) |
+| `lib/lottery-box-store.ts` | Rounds and sealed ideas; every write locks the round row (tested in `lib/lottery-box-store.test.ts`) |
+| `lib/lottery-box-catalog.ts` | Demo ideas for Chicago, New York and San Francisco |
+| `lib/lottery-box-types.ts` | `LotteryBoxSettings`, `LotteryBoxOptionInput`, `LotteryBoxResult`, `LotteryBoxView` |
+| `app/trips/[id]/lottery-box`, `components/LotteryBox*.tsx` | The page, the forms, and the slot-machine reveal |
 
 ## How it works
 
-![One round from settings to the itinerary](img/blind-box-round.png)
+![One round from settings to the itinerary](img/lottery-box-round.png)
 
 ### One round per trip
 
@@ -42,7 +42,7 @@ seal up to 10 ideas per round.
 
 ### The draw
 
-`drawBlindBox` takes every option that fits: the right city (demo ideas are matched by name, members' ideas take
+`drawLotteryBox` takes every option that fits: the right city (demo ideas are matched by name, members' ideas take
 the round's destination), a chosen category, a cost within the budget, and a duration within the time available.
 It shuffles them (Fisher–Yates with `crypto.randomInt`), then walks the list and keeps each option that still
 fits both limits, counting a 15-minute transfer between stops, until it has `maxStops`.
@@ -69,13 +69,13 @@ The page polls every five seconds, so other members see new counts and the revea
 
 ## API
 
-`/api/trips/:id/blind-box` checks the session and membership like every trip route (`401` / `404`). Every success
-returns `{ box: BlindBoxView | null }` with `Cache-Control: private, no-store`.
+`/api/trips/:id/lottery-box` checks the session and membership like every trip route (`401` / `404`). Every success
+returns `{ box: LotteryBoxView | null }` with `Cache-Control: private, no-store`.
 
 | Method | Body | Success | Errors |
 |---|---|---|---|
 | GET | none | `200`, `null` when there is no round | none |
-| POST | `BlindBoxSettings`, plus `previousRoundId` when replacing a revealed round | `201`, a new collecting round | `400` invalid settings; `403` not the organizer; `409` a round is collecting, or the round changed |
+| POST | `LotteryBoxSettings`, plus `previousRoundId` when replacing a revealed round | `201`, a new collecting round | `400` invalid settings; `403` not the organizer; `409` a round is collecting, or the round changed |
 | PATCH | `{ roundId, action: "submit", option }` | `200`, the idea is sealed | `400` invalid, doesn't fit, or more than 10; `409` stale or revealed round |
 | PATCH | `{ roundId, action: "remove", optionId }` | `200`, my idea is removed | `404` not mine; `409` stale or revealed round |
 | PATCH | `{ roundId, action: "reveal" }` | `200`, the shared result (a repeat returns the same one) | `400` nothing fits, or the day is now outside the trip; `403`; `409` stale round |
@@ -95,7 +95,7 @@ returns `{ box: BlindBoxView | null }` with `Cache-Control: private, no-store`.
 
 ## Checking it by hand
 
-1. As the organizer, create a trip to Chicago and open the blind box. Set $60, 240 minutes, 3 stops, and a few
+1. As the organizer, create a trip to Chicago and open the lottery box. Set $60, 240 minutes, 3 stops, and a few
    preferences.
 2. In a private window, register a second traveler, join with the invite code, and seal a matching idea. Within
    five seconds, the organizer's view should show the count go up but not the idea itself.

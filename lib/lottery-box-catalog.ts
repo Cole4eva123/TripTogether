@@ -1,7 +1,7 @@
-import type { BlindBoxCategory, BlindBoxOption } from "./blind-box-types";
+import type { LotteryBoxCategory, LotteryBoxOption } from "./lottery-box-types";
 
 // Illustrative seed ideas and estimates, not live prices, availability or opening hours.
-const ideas: [string, string, string, BlindBoxCategory, number, number][] = [
+const ideas: [string, string, string, LotteryBoxCategory, number, number][] = [
   ["Chicago", "Find the Cloud Gate reflection", "Millennium Park", "Sightseeing", 0, 45],
   ["Chicago", "Take a lakeside walk", "Lakefront Trail", "Outdoors", 0, 60],
   ["Chicago", "Try a deep-dish lunch", "A restaurant in the Loop", "Food", 30, 75],
@@ -22,6 +22,6 @@ const ideas: [string, string, string, BlindBoxCategory, number, number][] = [
   ["San Francisco", "Take a garden break", "Golden Gate Park", "Relaxation", 0, 45],
 ];
 
-export const demoOptions: BlindBoxOption[] = ideas.map(([destination, title, place, category, cost, durationMinutes], index) => ({
+export const demoOptions: LotteryBoxOption[] = ideas.map(([destination, title, place, category, cost, durationMinutes], index) => ({
   id: `demo-${index}`, destination, title, place, category, cost, durationMinutes, note: "Demo estimate. Check hours, prices and travel time before going.", submittedBy: null, addedBy: "Demo suggestion",
 }));

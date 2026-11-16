@@ -3,18 +3,18 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BlindBoxOptionForm, BlindBoxSetup } from "@/components/BlindBoxForms";
-import BlindBoxDraw from "@/components/BlindBoxDraw";
+import { LotteryBoxOptionForm, LotteryBoxSetup } from "@/components/LotteryBoxForms";
+import LotteryBoxDraw from "@/components/LotteryBoxDraw";
 import { useMe } from "@/components/me";
 import { api, errorText } from "@/lib/api";
-import type { BlindBoxView } from "@/lib/blind-box-types";
+import type { LotteryBoxView } from "@/lib/lottery-box-types";
 import { dayLabel } from "@/lib/itinerary";
 import type { Member, Trip } from "@/lib/types";
 
-type Data = { trip: Trip; members: Member[]; box: BlindBoxView | null };
-type BoxResponse = { box: BlindBoxView | null };
+type Data = { trip: Trip; members: Member[]; box: LotteryBoxView | null };
+type BoxResponse = { box: LotteryBoxView | null };
 
-export default function BlindBoxPage() {
+export default function LotteryBoxPage() {
   const { id } = useParams<{ id: string }>();
   const me = useMe();
   const [data, setData] = useState<Data | null>(null);
@@ -22,7 +22,7 @@ export default function BlindBoxPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [another, setAnother] = useState(false);
-  const path = `/trips/${id}/blind-box`;
+  const path = `/trips/${id}/lottery-box`;
 
   useEffect(() => {
     if (busy) return;
@@ -43,7 +43,7 @@ export default function BlindBoxPage() {
     return () => { cancelled = true; clearInterval(timer); };
   }, [id, path, busy]);
 
-  async function submit(body: Record<string, unknown>, method = "PATCH", presentReveal?: (box: BlindBoxView) => Promise<void>) {
+  async function submit(body: Record<string, unknown>, method = "PATCH", presentReveal?: (box: LotteryBoxView) => Promise<void>) {
     if (busy) return false;
     setBusy(true);
     setError("");
@@ -54,7 +54,7 @@ export default function BlindBoxPage() {
       if (presentReveal && result.box?.result) await presentReveal(result.box);
       setData((previous) => previous && { ...previous, box: result.box });
       setAnother(false);
-      setNotice(body.action === "save" ? "Mystery itinerary added. Open your trip to see the plans." : body.action === "submit" ? "Your idea is sealed until the reveal." : body.action === "reveal" ? "The surprise is ready for everyone." : method === "DELETE" ? "The blind box was reset." : "Blind box updated.");
+      setNotice(body.action === "save" ? "Mystery itinerary added. Open your trip to see the plans." : body.action === "submit" ? "Your idea is sealed until the reveal." : body.action === "reveal" ? "The surprise is ready for everyone." : method === "DELETE" ? "The lottery box was reset." : "Lottery box updated.");
       return true;
     } catch (e) {
       setError(errorText(e));
@@ -69,17 +69,17 @@ export default function BlindBoxPage() {
       <Link href={`/trips/${id}`} className="mb-8 inline-block">Back to your trip</Link>
       <header className="mb-8 grid gap-3">
         <p className="text-[14px] font-bold tracking-[0.12em] text-muted uppercase">Take the surprise exit</p>
-        <h1 className="sign justify-self-start px-8 py-6">Travel blind box</h1>
+        <h1 className="sign justify-self-start px-8 py-6">Travel lottery box</h1>
         <p className="max-w-160 text-muted">Let your group pick the possibilities. Let chance pick the route.</p>
       </header>
       {error && <p className="mb-5 font-semibold text-red" role="alert">{error}</p>}
       {notice && <p className="mb-5 font-semibold text-green" role="status">{notice}</p>}
-      {!data || !me ? <p role="status">Loading your blind box…</p> : (
+      {!data || !me ? <p role="status">Loading your lottery box…</p> : (
         <div className="grid grid-cols-[minmax(0,1fr)_260px] items-start gap-9 max-md:grid-cols-1">
           <div className="grid min-w-0 gap-6">
             {(!box || another) && (isOwner ? (
-              <BlindBoxSetup key={box?.id ?? "new"} trip={data.trip} previous={box ? { id: box.id, settings: box.settings } : undefined} busy={busy} submit={submit} onCancel={box ? () => setAnother(false) : undefined} />
-            ) : <p className="rounded-md border border-line bg-white p-5">Your organizer can open a blind box. Once it is ready, add your hidden ideas here.</p>)}
+              <LotteryBoxSetup key={box?.id ?? "new"} trip={data.trip} previous={box ? { id: box.id, settings: box.settings } : undefined} busy={busy} submit={submit} onCancel={box ? () => setAnother(false) : undefined} />
+            ) : <p className="rounded-md border border-line bg-white p-5">Your organizer can open a lottery box. Once it is ready, add your hidden ideas here.</p>)}
             {box && !another && (
               <>
                 <section className="grid gap-4 rounded-md border border-line bg-white p-5" aria-labelledby="box-settings">
@@ -96,10 +96,10 @@ export default function BlindBoxPage() {
                   </dl>
                   <p className="text-[14px] text-muted">{box.settings.preferences.join(" · ")}</p>
                 </section>
-                <BlindBoxDraw key={box.id} box={box} isOwner={isOwner} busy={busy} onDraw={(present) => submit({ action: "reveal" }, "PATCH", present)} />
+                <LotteryBoxDraw key={box.id} box={box} isOwner={isOwner} busy={busy} onDraw={(present) => submit({ action: "reveal" }, "PATCH", present)} />
                 {box.status === "collecting" ? (
                   <>
-                    <BlindBoxOptionForm key={box.id} settings={box.settings} busy={busy} submit={submit} />
+                    <LotteryBoxOptionForm key={box.id} settings={box.settings} busy={busy} submit={submit} />
                     {box.ownOptions.length > 0 && <section className="grid gap-3" aria-labelledby="your-ideas">
                       <h2 id="your-ideas">Your sealed ideas</h2>
                       <ul className="grid gap-2">{box.ownOptions.map((option) => <li key={option.id} className="flex items-start justify-between gap-4 rounded-md border border-line bg-white p-4">
@@ -137,7 +137,7 @@ export default function BlindBoxPage() {
                   </>
                 )}
                 {isOwner && box.status === "collecting" && <button className="link-btn justify-self-start text-red" disabled={busy} onClick={() => {
-                  if (confirm("Reset this blind box and remove everyone's hidden ideas?")) void submit({}, "DELETE");
+                  if (confirm("Reset this lottery box and remove everyone's hidden ideas?")) void submit({}, "DELETE");
                 }}>Reset this box</button>}
               </>
             )}

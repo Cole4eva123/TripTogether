@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BlindBoxCategory, BlindBoxResult, BlindBoxView } from "@/lib/blind-box-types";
+import type { LotteryBoxCategory, LotteryBoxResult, LotteryBoxView } from "@/lib/lottery-box-types";
 
 type Phase = "idle" | "spinning" | "settling";
-type PresentReveal = (box: BlindBoxView) => Promise<void>;
+type PresentReveal = (box: LotteryBoxView) => Promise<void>;
 const CELL_HEIGHT = 112;
 const REPEATS = 3;
 const reelColumns = ["", "mx-auto max-w-40 grid-cols-1", "mx-auto max-w-80 grid-cols-2", "grid-cols-3", "grid-cols-4 max-sm:grid-cols-2", "grid-cols-5 max-sm:grid-cols-3"];
 
-function ActivityIcon({ category, empty = false }: { category: BlindBoxCategory | null; empty?: boolean }) {
+function ActivityIcon({ category, empty = false }: { category: LotteryBoxCategory | null; empty?: boolean }) {
   return (
     <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="size-11 max-sm:size-9" aria-hidden="true">
       {empty ? <path d="M15 24h18" /> : category === "Food" ? <>
@@ -32,14 +32,14 @@ function ActivityIcon({ category, empty = false }: { category: BlindBoxCategory 
 }
 
 /** Cosmetic reels only: every final symbol comes from the server's shared reveal. */
-export default function BlindBoxDraw({ box, isOwner, busy, onDraw }: {
-  box: BlindBoxView;
+export default function LotteryBoxDraw({ box, isOwner, busy, onDraw }: {
+  box: LotteryBoxView;
   isOwner: boolean;
   busy: boolean;
   onDraw: (present: PresentReveal) => Promise<boolean>;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [preview, setPreview] = useState<BlindBoxResult | null>(null);
+  const [preview, setPreview] = useState<LotteryBoxResult | null>(null);
   const tracks = useRef<(HTMLDivElement | null)[]>([]);
   const locked = useRef(false);
   const mounted = useRef(false);
@@ -47,7 +47,7 @@ export default function BlindBoxDraw({ box, isOwner, busy, onDraw }: {
   const keepPosition = useRef(false);
   const finishSettle = useRef<(() => void) | null>(null);
   const finishDelay = useRef<(() => void) | null>(null);
-  const symbols: (BlindBoxCategory | null)[] = [null, ...box.settings.preferences];
+  const symbols: (LotteryBoxCategory | null)[] = [null, ...box.settings.preferences];
   const symbolCount = symbols.length;
   const slotCount = box.settings.maxStops;
   const finalOffset = symbolCount * REPEATS * CELL_HEIGHT;

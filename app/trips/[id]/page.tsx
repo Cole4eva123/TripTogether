@@ -94,7 +94,7 @@ export default function TripPage() {
           <section className="grid justify-items-start gap-3">
             <h2>Take a surprise detour</h2>
             <p className="text-muted">Share hidden ideas and draw a mystery itinerary within your budget and time.</p>
-            <Link href={`/trips/${trip.id}/blind-box`} className="btn btn-quiet">Open travel blind box</Link>
+            <Link href={`/trips/${trip.id}/lottery-box`} className="btn btn-quiet">Open travel lottery box</Link>
           </section>
 
           <section className="grid justify-items-start gap-3">

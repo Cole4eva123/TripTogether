@@ -15,7 +15,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { BlindBoxOptionInput, BlindBoxResult, BlindBoxSettings } from "../blind-box-types.ts";
+import type { LotteryBoxOptionInput, LotteryBoxResult, LotteryBoxSettings } from "../lottery-box-types.ts";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () => timestamp("updated_at", { withTimezone: true }).notNull().defaultNow();
@@ -226,33 +226,34 @@ export const bingoCells = pgTable(
   (t) => [uniqueIndex("bingo_cells_card_position_key").on(t.cardId, t.position)],
 );
 
-// --- Travel blind box (feature 3, lib/blind-box-store.ts) ---
+// --- Travel lottery box (feature 3, lib/lottery-box-store.ts) ---
 
 // A trip's current round. Settings and the drawn result are read and written whole, so they're jsonb.
-export const blindBoxRounds = pgTable("blind_box_rounds", {
+// The tables keep the feature's first name, "blind box": renaming them would need a migration for nothing.
+export const lotteryBoxRounds = pgTable("blind_box_rounds", {
   id: uuid("id").primaryKey().defaultRandom(),
   tripId: uuid("trip_id")
     .notNull()
     .unique() // one current round per trip
     .references(() => trips.id, { onDelete: "cascade" }),
-  settings: jsonb("settings").$type<BlindBoxSettings>().notNull(),
-  result: jsonb("result").$type<BlindBoxResult>(), // null until the organizer reveals
+  settings: jsonb("settings").$type<LotteryBoxSettings>().notNull(),
+  result: jsonb("result").$type<LotteryBoxResult>(), // null until the organizer reveals
   saved: boolean("saved").notNull().default(false), // the drawn stops are in the itinerary
   createdAt: createdAt(),
 });
 
 // A member's sealed idea for a round.
-export const blindBoxOptions = pgTable(
+export const lotteryBoxOptions = pgTable(
   "blind_box_options",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     roundId: uuid("round_id")
       .notNull()
-      .references(() => blindBoxRounds.id, { onDelete: "cascade" }),
+      .references(() => lotteryBoxRounds.id, { onDelete: "cascade" }),
     submittedById: text("submitted_by_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    idea: jsonb("idea").$type<BlindBoxOptionInput>().notNull(),
+    idea: jsonb("idea").$type<LotteryBoxOptionInput>().notNull(),
     createdAt: createdAt(),
   },
   (t) => [index("blind_box_options_round_id_idx").on(t.roundId)],

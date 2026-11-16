@@ -4,7 +4,7 @@ Every feature keeps its data in one PostgreSQL database, read and written throug
 and sessions through Better Auth. The route handlers in `app/api/` are the only way in: the frontend calls them
 through `lib/api.ts` and nothing else. This doc covers running the database, the tables, the conventions every
 endpoint follows, and the API of the base features (accounts, trips, members, itinerary). Each feature's own API
-is in its doc: [bingo.md](bingo.md), [blind-box.md](blind-box.md), [lobby.md](lobby.md). Who may call what is in
+is in its doc: [bingo.md](bingo.md), [lottery-box.md](lottery-box.md), [lobby.md](lobby.md). Who may call what is in
 [roles.md](roles.md).
 
 ## Running it
@@ -53,7 +53,7 @@ because a task or challenge someone wrote stays useful after they delete their a
 | Base trip | `trips`, `trip_members`, `plan_items` | `trips.invite_code` is unique; `(trip_id, user_id)` is the primary key of `trip_members`, so joining twice does nothing |
 | Bingo library | `bingo_tasks`, `bingo_challenges`, `bingo_challenge_tasks` | one live task per region and title, ignoring case (a partial unique index that skips rejected tasks) |
 | Bingo card | `bingo_cards`, `bingo_cells` | `bingo_cards.trip_id` is unique, so a trip has one card; `(card_id, position)` is unique |
-| Blind box | `blind_box_rounds`, `blind_box_options` | `blind_box_rounds.trip_id` is unique, so a trip has one current round |
+| Lottery box | `blind_box_rounds`, `blind_box_options` | `blind_box_rounds.trip_id` is unique, so a trip has one current round |
 | Lobby and chat | `lobby_posts`, `lobby_requests`, `trip_messages` | `lobby_posts.trip_id` is unique; one pending request per person and trip (a partial unique index) |
 
 Wherever two people could race, a unique constraint or a row lock settles it. The application checks first so it
@@ -72,7 +72,7 @@ They are in the schema already so that adding them later needs no migration.
 
 ## Conventions every endpoint follows
 
-- Bodies are JSON. The shapes are in `lib/types.ts`, `lib/bingo-types.ts` and `lib/blind-box-types.ts`.
+- Bodies are JSON. The shapes are in `lib/types.ts`, `lib/bingo-types.ts` and `lib/lottery-box-types.ts`.
 - Dates are `YYYY-MM-DD` strings with no time or time zone. Date maths is done in UTC (`lib/dates.ts`), so a
   date never shifts by a day depending on where the reader is.
 - Every error is `{ "error": string }`, written for the person using the app. The frontend shows it as is.
@@ -80,7 +80,7 @@ They are in the schema already so that adding them later needs no migration.
   `/api/auth` returns `401` without it.
 - A trip you aren't a member of answers `404`, the same as a trip that doesn't exist, so trip ids can't be
   probed.
-- Input goes through one parser per shape (`lib/validate.ts`, `lib/bingo.ts`, `lib/blind-box.ts`). Each parser
+- Input goes through one parser per shape (`lib/validate.ts`, `lib/bingo.ts`, `lib/lottery-box.ts`). Each parser
   drops unknown fields, so a body can't set `ownerId`, `inviteCode` or `addedBy`.
 
 ## Base features API

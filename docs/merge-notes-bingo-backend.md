@@ -31,11 +31,13 @@ round row, and saving the drawn stops adds them to the itinerary in the same tra
 
 ## Shared lobby (feature 2)
 
-The lobby keeps its posts, requests and chat in its own store and reads trips and members from `lib/mock-db.ts`.
-To run on this backend, it moves its store onto the database the same way `lib/store.ts` did for `lib/mock-db.ts`:
-its tables go in `lib/db/schema.ts` (user ids are `text`, since Better Auth's ids aren't uuids), `npm run
-db:generate` writes the migration, and its route handlers `await` the store. The trip and member helpers it needs
-belong in `lib/store.ts`.
+Merged into `dev` from `feature/shared-lobby-postgres`. Its own pool, migrations and adapter
+(`lib/postgres.ts`, `lib/lobby-backend*.ts`, `lib/lobby-schema.ts`) gave way to dev's: three tables in
+`lib/db/schema.ts` (`lobby_posts`, `lobby_requests`, `trip_messages`) with foreign keys that cascade from the trip
+and the account, and `lib/lobby-store.ts` in place of `lib/match-db.ts`. Agreed changes made in the merge: only the
+organizer shares, takes down and answers; members see requests with the applicant's name; a post stores only the
+trip and its note; an accepted request stays accepted when the person leaves. The store tests written against the
+in-memory fixtures (and the browser scripts) were replaced by `lib/lobby-store.test.ts`.
 
 ## Gasoline intelligence
 

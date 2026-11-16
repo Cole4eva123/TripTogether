@@ -29,6 +29,13 @@
       "when": 1794805665579,
       "tag": "0003_bingo_challenges",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794807113497,
+      "tag": "0004_shared_lobby",
+      "breakpoints": true
     }
   ]
 }

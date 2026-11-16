@@ -155,3 +155,86 @@ cover Chicago, New York and San Francisco; prices/durations are illustrative est
 Other destinations work with member submissions. A new round replaces the old reveal but keeps saved plans.
 The UI refreshes shared state every five seconds. Round ids prevent stale tabs from changing a new round, and
 writes to a round run one at a time (its row is locked), so two saves still add the stops once.
+
+## Lobby and matching
+
+The shared lobby: a trip's organizer shares it, everyone sees the trips in the lobby compared with their own,
+and asks to join one. When the organizer says yes, the applicant is in the trip, and in its chat group. The
+store is `lib/lobby-store.ts`, the scoring `lib/matching.ts`, the search and order `lib/lobby.ts`; the tables
+are `lobby_posts`, `lobby_requests` and `trip_messages`, which go with their trip (and with an account) when
+it is deleted.
+
+**The organizer decides.** Only the trip's organizer (`trip.ownerId`) shares it, takes it out of the lobby,
+and accepts or declines requests. Every member sees the requests about their trip, with the applicant's name
+and message. A member of a trip can't ask to join it, and nobody answers their own request.
+
+**A post is the trip as it is now.** It stores only the trip and the organizer's note; where, when and how many
+are read from the trip each time, so an edited plan shows at once.
+
+**What is public.** On another group's card the members are counted, not named. Your own trips list their
+members by name, and the requests about them name the applicant.
+
+| Method | Path | Body | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/lobby` | none | `200 LobbyView` | `400` bad dates |
+| POST | `/api/lobby` | `{ tripId, note }` | `201 { post }` | `400` invalid input; `403` not the organizer; `404` not my trip; `409` already in the lobby, or the trip is over |
+| DELETE | `/api/lobby/:tripId` | none | `204`; requests still waiting close with `closedBy: "gone"` | `403` not the organizer; `404` not my trip, or not in the lobby |
+| POST | `/api/join-requests` | `{ postId, message? }` | `201 { request }` | `400` invalid input; `404` not in the lobby; `409` I'm already in it, it's over, or I have a request waiting |
+| GET | `/api/join-requests/:id` | none | `200 { request }` | `404` no such request, or I'm neither the applicant nor in the trip |
+| PATCH | `/api/join-requests/:id` | `{ action: "accept" \| "decline" \| "withdraw" }` | `200 { request }` | `400`; `403` only the organizer answers, nobody answers their own request, only the applicant withdraws; `404`; `409` already answered, or accepting into a trip that is over |
+
+All of them answer `401` when logged out. `GET /api/lobby` takes optional `?against=<tripId>` (which of my
+trips the others are compared with; the best match without it), `?q=` (searches destinations, by any of their
+names in the gazetteer, origins and notes), `?from=`/`?to=` (`YYYY-MM-DD`; trips travelled in that window) and
+`?sort=closest|soonest|soonest-end` (closest: shared days first, then the score, then the start date; a trip
+that is over always comes last).
+
+`LobbyView` is `{ mine, others, requests, pendingRequestCount, publishedTripIds }`:
+
+- `mine` and `others` are `LobbyPostView`s: a `LobbyPost` (`id, tripId, origin, destination, startDate,
+  endDate, memberCount, note, publishedAt`) plus `mine` (I'm in the trip), `organizedByMe`, `score` (0 to 100
+  against the best of my trips), `reasons`, `datesClash`, `ended`, `members`, `basis` (which of my trips it
+  was compared with, and the days in common) and `myRequest` (my latest request about it).
+- `requests` are `RequestItem`s, `{ request, role, mayAnswer, trip, members, gone }`: `role` is `"member"`
+  (I'm in the trip) or `"applicant"`; `mayAnswer` is true for the organizer while it's pending; `gone` says
+  the trip is no longer in the lobby (`trip.id` is then `""`).
+- `pendingRequestCount` counts the requests I can answer; the navigation polls it every five seconds.
+- `publishedTripIds` are my trips in the lobby, whatever the filters.
+
+A `JoinRequest` is `{ id, tripId, applicantId, applicantName, message, status, score, createdAt, respondedAt,
+closedBy }`. It starts `pending` and ends `accepted`, or `declined` with `closedBy` saying why: `"answerer"`
+(the organizer said no), `"asked"` (the applicant took it back) or `"gone"` (the trip left the lobby). It keeps
+saying `accepted` if the applicant later leaves the trip. One open request per person and trip, enforced by
+the database; accepting someone who has joined meanwhile with the invite code just keeps them in.
+
+## The chat group of a trip
+
+Every trip has a chat group, whether or not it is in the lobby; only its members read and write in it.
+
+| Method | Path | Body | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/trips/:id/chat` | none | `200 { messages: ChatMessage[] }`, oldest first | `404` not a member |
+| POST | `/api/trips/:id/chat` | `{ body }` (1 to 2000 characters) | `201 { message }` | `400`; `404` not a member |
+
+A `ChatMessage` is `{ id, tripId, senderId, senderName, body, sentAt }`. The page polls every three seconds.
+
+## Places
+
+| Method | Path | Body | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/places?q=<text>` | none | `200 { places: PlaceSuggestion[] }` | `401` |
+
+The gazetteer is far too big to send to a browser, so the place search runs on the server and the browser gets
+a short list of names to pick from. A suggestion is `{ name, country, region, weight }`: `name` is the place
+people write, `country` and `region` say which one it is (so a second "Springfield" can be told apart), and
+`weight` is how strongly the place claims the name, which orders the list. An empty search finds nothing.
+
+Places come from a GeoNames gazetteer compiled into `lib/places.json.gz`. It is loaded on the server only, and
+used for three things:
+
+- the place search (`/api/places`),
+- comparing two destinations by distance, so "Chicago" and "Chicago Heights" are near each other and "Chicago"
+  and "Nashville" are not.
+
+A place can be found by any of its names: "Beijing", "北京" and "Peking" all lead to the same city. A name the
+gazetteer doesn't know is still usable; it is compared as text.

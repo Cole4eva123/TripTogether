@@ -35,6 +35,11 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (æŠ€æ
   `app/api/bingo/**`, `app/api/trips/[id]/bingo/**`, `app/trips/bingo/**`, `app/trips/[id]/bingo`,
   `components/bingo/**`. Admins publish challenges (one city's tasks in fixed squares, `/trips/bingo/challenges`); a trip plays one at a time, and switching starts an empty card.
   Admins are the emails in `ADMIN_EMAILS`; roles are in `docs/roles.md`.
+- Shared lobby (feature 2): `lib/lobby-store.ts` (posts, requests, each trip's chat; answering locks the request
+  row), `lib/matching.ts` (how close two trips are, pure), `lib/lobby.ts` (search and order, pure),
+  `lib/places.ts` + `lib/places.json.gz` (the gazetteer, server only), `app/api/lobby/**`, `app/api/join-requests/**`,
+  `app/api/trips/[id]/chat`, `app/trips/lobby`, `app/trips/[id]/chat`, `components/lobby/**`. Only the organizer
+  shares a trip, takes it down and answers requests; a post stores only the trip and its note.
 - Travel blind box: `lib/blind-box.ts` (the rules, pure), `lib/blind-box-store.ts` (rounds and sealed ideas; every
   write locks the round row), `app/api/trips/[id]/blind-box`, `app/trips/[id]/blind-box`, `components/BlindBox*.tsx`.
   Only the trip's organizer (`trip.ownerId`) starts, reveals or resets a box.

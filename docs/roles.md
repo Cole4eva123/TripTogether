@@ -49,6 +49,19 @@ ever to be appointed from inside the app, add a `role` column to `users` and cha
 
 An admin still has to be a member of the trip to see its card at all.
 
+### Shared lobby and chat (per trip)
+
+| Action | Organizer | Member | Not in the trip |
+|---|---|---|---|
+| Share the trip in the lobby, or take it out | ✅ | ❌ 403 | ❌ 404 |
+| See requests to join, with the applicant's name and message | ✅ | ✅ | only their own |
+| Accept or decline a request | ✅ | ❌ 403 | ❌ 404 |
+| Ask to join | — | ❌ 409, already in | ✅ |
+| Take back their own request | — | — | ✅ |
+| Read and write in the trip's chat | ✅ | ✅ | ❌ 404 |
+
+Admins have no extra powers in the lobby. Other groups' cards count their members without naming them.
+
 ### Bingo task library (site-wide)
 
 | Action | Admin | Anyone else (organizer or member) |

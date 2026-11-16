@@ -257,3 +257,66 @@ export const blindBoxOptions = pgTable(
   },
   (t) => [index("blind_box_options_round_id_idx").on(t.roundId)],
 );
+
+// --- Shared lobby (feature 2, lib/lobby-store.ts) ---
+
+// A trip shared in the lobby. Only the note is its own: where, when and who come from the trip itself, so the
+// lobby never shows an out-of-date plan.
+export const lobbyPosts = pgTable("lobby_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tripId: uuid("trip_id")
+    .notNull()
+    .unique() // a trip is in the lobby once
+    .references(() => trips.id, { onDelete: "cascade" }),
+  note: text("note").notNull().default(""),
+  publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// A request to join a trip, answered by its organizer. It stays after the post comes down, so both sides can
+// still see how it ended.
+export const lobbyRequests = pgTable(
+  "lobby_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    applicantId: text("applicant_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    message: text("message").notNull().default(""),
+    status: text("status", { enum: ["pending", "accepted", "declined"] })
+      .notNull()
+      .default("pending"),
+    // Why a declined request closed: the organizer said no, the applicant took it back, or the post came down.
+    closedBy: text("closed_by", { enum: ["answerer", "asked", "gone"] }),
+    score: integer("score").notNull(), // how close the applicant's own trips were, when they asked
+    createdAt: createdAt(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("lobby_requests_status_check", sql`${t.status} in ('pending', 'accepted', 'declined')`),
+    check("lobby_requests_closed_by_check", sql`${t.closedBy} in ('answerer', 'asked', 'gone')`),
+    index("lobby_requests_trip_id_idx").on(t.tripId),
+    index("lobby_requests_applicant_id_idx").on(t.applicantId),
+    // One open request per person per trip: the check in createJoinRequest can race, this can't.
+    uniqueIndex("lobby_requests_one_pending_key").on(t.applicantId, t.tripId).where(sql`${t.status} = 'pending'`),
+  ],
+);
+
+// The trip's chat group: every member reads and writes in it.
+export const tripMessages = pgTable(
+  "trip_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    senderId: text("sender_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("trip_messages_trip_id_sent_at_idx").on(t.tripId, t.sentAt)],
+);

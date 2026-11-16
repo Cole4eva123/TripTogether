@@ -51,7 +51,8 @@ Who may do what, and how admins differ from trip organizers: `docs/roles.md`.
   `/api/auth/*` contract stays as written. Passwords are hashed by Better Auth; the session is its signed,
   httpOnly cookie, stored in the `sessions` table.
 - `lib/store.ts` — trips, members and the itinerary.
-- `lib/bingo-store.ts`, `lib/blind-box-store.ts` — Travel Bingo and the travel blind box.
+- `lib/bingo-store.ts`, `lib/blind-box-store.ts`, `lib/lobby-store.ts` — Travel Bingo, the travel blind box, and
+  the shared lobby with each trip's chat.
 
 ## Tests
 

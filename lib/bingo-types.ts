@@ -21,6 +21,7 @@ export type BingoCell = {
   position: number; // 0 … size²−1, row by row
   task: Pick<BingoTask, "id" | "title" | "description">;
   completedBy: string | null; // the name of the member who checked it off
+  completedById: string | null; // their user id; null if not done, or if they have deleted their account
   completedAt: string | null; // ISO
 };
 
@@ -45,4 +46,5 @@ export type BingoView = {
   card: BingoCard | null;
   regions: BingoRegion[];
   suggestedRegion: string | null; // the region that matches the trip's destination, if one does
+  viewer: { id: string; admin: boolean }; // who is looking: an admin may undo any square, others only their own
 };

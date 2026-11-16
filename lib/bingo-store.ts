@@ -89,19 +89,23 @@ export async function submissionsBy(userId: string): Promise<BingoTask[]> {
   return rows.map(toTask);
 }
 
-/** Sends a task in for review. Its region joins an existing one written another way ("chicago, il" → "Chicago"). */
-export async function submitTask(userId: string, input: TaskInput): Promise<BingoTask> {
-  await bingoReady();
+/** The region as the library writes it: an existing one written another way joins it ("chicago, il" → "Chicago"). */
+async function libraryRegion(input: string): Promise<string> {
   const known = await db.selectDistinct({ region: bingoTasks.region }).from(bingoTasks);
-  const region = canonicalRegion(input.region, known.map((r) => r.region));
+  return canonicalRegion(input, known.map((r) => r.region));
+}
+
+/** Refuses a task the region already has or is already reviewing (by title, ignoring case), other than `except`. */
+async function mustBeNew(region: string, title: string, except?: string) {
   const [same] = await db
     .select({ status: bingoTasks.status })
     .from(bingoTasks)
     .where(
       and(
         eq(bingoTasks.region, region),
-        sql`lower(${bingoTasks.title}) = lower(${input.title})`,
+        sql`lower(${bingoTasks.title}) = lower(${title})`,
         sql`${bingoTasks.status} <> 'rejected'`,
+        except ? sql`${bingoTasks.id} <> ${except}` : undefined,
       ),
     );
   if (same) {
@@ -112,11 +116,60 @@ export async function submitTask(userId: string, input: TaskInput): Promise<Bing
         : `Someone already sent that task in for ${region}. It's waiting for review.`,
     );
   }
+}
+
+/**
+ * Adds a task. A member's waits for an admin's review; an admin's goes straight into the library, approved by
+ * them.
+ */
+export async function submitTask(userId: string, input: TaskInput, admin = false): Promise<BingoTask> {
+  await bingoReady();
+  const region = await libraryRegion(input.region);
+  await mustBeNew(region, input.title);
   const [row] = await db
     .insert(bingoTasks)
-    .values({ region, title: input.title, description: input.description, submittedById: userId })
+    .values({
+      region,
+      title: input.title,
+      description: input.description,
+      submittedById: userId,
+      ...(admin ? { status: "approved" as const, reviewedById: userId, reviewedAt: new Date() } : {}),
+    })
     .returning({ id: bingoTasks.id });
   return (await taskById(row.id))!;
+}
+
+/** An approved task of the library, or a 404. */
+async function libraryTask(taskId: string) {
+  const task = isId(taskId) ? await taskById(taskId) : null;
+  if (!task || task.status !== "approved") throw new BingoError(404, "That task isn't in the library. Reload the page.");
+  return task;
+}
+
+/** Admins: rewrites a task in the library. Cards that already have it show the new wording. */
+export async function editTask(taskId: string, input: TaskInput): Promise<BingoTask> {
+  await bingoReady();
+  await libraryTask(taskId);
+  const region = await libraryRegion(input.region);
+  await mustBeNew(region, input.title, taskId);
+  await db
+    .update(bingoTasks)
+    .set({ region, title: input.title, description: input.description })
+    .where(eq(bingoTasks.id, taskId));
+  return (await taskById(taskId))!;
+}
+
+/**
+ * Admins: takes a task out of the library, so no new card draws it. Cards that already have it keep it. Its
+ * sender sees it as turned down, with the reason.
+ */
+export async function removeTask(taskId: string, adminId: string): Promise<void> {
+  await bingoReady();
+  await libraryTask(taskId);
+  await db
+    .update(bingoTasks)
+    .set({ status: "rejected", reviewedById: adminId, reviewNote: "Taken out of the library by an admin.", reviewedAt: new Date() })
+    .where(eq(bingoTasks.id, taskId));
 }
 
 async function taskById(id: string): Promise<BingoTask | null> {
@@ -195,6 +248,7 @@ export async function cardFor(tripId: string): Promise<BingoCard | null> {
       task: { id: c.taskId, title: c.title, description: c.description },
       // Someone who has since deleted their account still checked it off.
       completedBy: c.completedAt ? (c.completedBy ?? "A former member") : null,
+      completedById: c.completedAt ? c.completedById : null,
       completedAt: c.completedAt?.toISOString() ?? null,
     })),
     completed: done.filter(Boolean).length,
@@ -245,24 +299,51 @@ async function cellOn(tripId: string, cellId: string) {
   return row;
 }
 
-/** Checks a square off, or takes the check back. Any member may do either. */
-export async function markCell(tripId: string, cellId: string, userId: string, done: boolean): Promise<BingoCard> {
+/** Who is acting on a square: a trip member, and whether they are an app admin (ADMIN_EMAILS). */
+export type Actor = { id: string; admin: boolean };
+
+/**
+ * A square someone has checked off is theirs: only they, or an admin, may take the check back (or swap the
+ * task, which takes it back too). A square checked off by a member who has since deleted their account is
+ * left to admins.
+ */
+function mustOwnCheck(cell: { completedAt: Date | null; completedById: string | null }, actor: Actor) {
+  if (cell.completedAt && cell.completedById !== actor.id && !actor.admin) {
+    throw new BingoError(403, "Only the member who checked this square off, or an admin, can undo or swap it.");
+  }
+}
+
+/**
+ * Checks a square off, or takes the check back. Any member may check a square off; checking one that is
+ * already done changes nothing, so it keeps the member who did it. Undoing follows mustOwnCheck.
+ */
+export async function markCell(tripId: string, cellId: string, actor: Actor, done: boolean): Promise<BingoCard> {
   await bingoReady();
-  await cellOn(tripId, cellId);
-  await db
-    .update(bingoCells)
-    .set(done ? { completedById: userId, completedAt: new Date() } : { completedById: null, completedAt: null })
-    .where(eq(bingoCells.id, cellId));
+  const { cell } = await cellOn(tripId, cellId);
+  if (done) {
+    if (!cell.completedAt) {
+      await db.update(bingoCells).set({ completedById: actor.id, completedAt: new Date() }).where(eq(bingoCells.id, cellId));
+    }
+  } else if (cell.completedAt) {
+    mustOwnCheck(cell, actor);
+    await db.update(bingoCells).set({ completedById: null, completedAt: null }).where(eq(bingoCells.id, cellId));
+  }
   return (await cardFor(tripId))!;
 }
 
 /**
  * Swaps the task on a square: for the one asked for, or a random one from the region that isn't on the card.
- * The square starts over, unchecked.
+ * The square starts over, unchecked, so a square someone else checked off follows mustOwnCheck.
  */
-export async function replaceCell(tripId: string, cellId: string, taskId: string | null): Promise<BingoCard> {
+export async function replaceCell(
+  tripId: string,
+  cellId: string,
+  actor: Actor,
+  taskId: string | null,
+): Promise<BingoCard> {
   await bingoReady();
-  const { card } = await cellOn(tripId, cellId);
+  const { card, cell } = await cellOn(tripId, cellId);
+  mustOwnCheck(cell, actor);
   const pool = await approvedIdsIn(card.region);
   const onCard = (await db.select({ taskId: bingoCells.taskId }).from(bingoCells).where(eq(bingoCells.cardId, card.id))).map(
     (c) => c.taskId,

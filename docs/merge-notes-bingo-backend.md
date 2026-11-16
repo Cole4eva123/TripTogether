@@ -12,6 +12,7 @@ Everything else on the branch is a new file.
 | `app/api/auth/*`, `app/api/trips/**`, `app/api/lobby/**`, `app/api/matches/**` | import from `@/lib/store` / `@/lib/match-store` instead of the mock files; `await` added; the auth routes call Better Auth | none: no other branch edits these |
 | `lib/server.ts` | `currentUser` reads the Better Auth session; `memberTrip` awaits the store | none |
 | `app/trips/[id]/page.tsx` | one new "Travel Bingo" section in the sidebar, after "Invite your group" | small: BlindBox adds a section at the top of the same sidebar. Keep both |
+| `app/trips/page.tsx` | two lines: the import of `components/bingo/AdminLinks` and `<BingoAdminLinks />` at the foot of `<main>` (a small admin-only line into the Bingo task library) | none expected: `feature/shared-lobby` edits the top and the middle of the same file. Keep both |
 | `docs/api.md` | the intro and the cookie/password lines updated for the real backend; "Travel Bingo" section appended at the end | small: other branches append their own section at the end. Keep all of them |
 | `package.json`, `package-lock.json` | new dependencies and `db:generate` | gasoline adds dependencies too. Keep both lists in `package.json`, then delete `package-lock.json` and run `npm install` rather than merging the lockfile by hand |
 | `.gitignore` | `.data` | trivial |

@@ -1,23 +1,32 @@
 import { isAdmin } from "@/lib/auth";
 import { parseTaskInput } from "@/lib/bingo";
 import { bingoAnswer } from "@/lib/bingo-api";
-import { regions, submissionsBy, submitTask, tasksIn } from "@/lib/bingo-store";
+import { pendingTasks, regions, submissionsBy, submitTask, tasksIn } from "@/lib/bingo-store";
 import { currentUser, fail, needLogin, readJson } from "@/lib/server";
 
-/** The library: its regions, the approved tasks of one region (?region=), and what the user has sent in. */
+/**
+ * The library: its regions, the approved tasks of one region (?region=), what the user has sent in, and, for an
+ * admin, how many tasks are waiting for review.
+ */
 export async function GET(req: Request) {
   const me = await currentUser();
   if (!me) return needLogin();
+  const admin = isAdmin(me.email);
   const region = new URL(req.url).searchParams.get("region")?.trim() ?? "";
-  const [all, tasks, mine] = await Promise.all([regions(), region ? tasksIn(region) : [], submissionsBy(me.id)]);
-  return Response.json({ regions: all, tasks, mine, isAdmin: isAdmin(me.email) });
+  const [all, tasks, mine, pending] = await Promise.all([
+    regions(),
+    region ? tasksIn(region) : [],
+    submissionsBy(me.id),
+    admin ? pendingTasks() : [],
+  ]);
+  return Response.json({ regions: all, tasks, mine, isAdmin: admin, pendingCount: pending.length });
 }
 
-/** Sends a task in. It waits for an admin before it joins the library. */
+/** Adds a task. A member's waits for an admin before it joins the library; an admin's joins it at once. */
 export async function POST(req: Request) {
   const me = await currentUser();
   if (!me) return needLogin();
   const input = parseTaskInput(await readJson(req));
   if (typeof input === "string") return fail(400, input);
-  return bingoAnswer(async () => Response.json({ task: await submitTask(me.id, input) }, { status: 201 }));
+  return bingoAnswer(async () => Response.json({ task: await submitTask(me.id, input, isAdmin(me.email)) }, { status: 201 }));
 }

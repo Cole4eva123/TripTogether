@@ -14,9 +14,9 @@ export async function bingoAnswer(run: () => Promise<Response>): Promise<Respons
 }
 
 /** The logged-in admin, or the response to send instead: 401 when logged out, 403 when not an admin. */
-export async function currentAdmin() {
+export async function currentAdmin(refusal = "Only admins can review tasks.") {
   const me = await currentUser();
   if (!me) return needLogin();
-  if (!isAdmin(me.email)) return fail(403, "Only admins can review tasks.");
+  if (!isAdmin(me.email)) return fail(403, refusal);
   return me;
 }

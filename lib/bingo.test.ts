@@ -6,6 +6,8 @@ import {
   drawCard,
   finishedLines,
   inRegion,
+  lineName,
+  newLines,
   parseCardInput,
   parseTaskInput,
   pickReplacement,
@@ -65,6 +67,27 @@ test("a line counts only when every square on it is done", () => {
     [0, 3, 6],
   ]);
   assert.equal(finishedLines(done([0, 1, 2, 3, 4, 5, 6, 7, 8]), 3).length, 8);
+});
+
+test("a line is named the way a person would say it", () => {
+  const names = bingoLines(3).map((l) => lineName(l, 3));
+  assert.deepEqual(names, [
+    "Row 1",
+    "Row 2",
+    "Row 3",
+    "Column 1",
+    "Column 2",
+    "Column 3",
+    "The diagonal from the top left",
+    "The diagonal from the top right",
+  ]);
+  assert.equal(lineName([4, 9, 14, 19, 24], 5), "Column 5");
+});
+
+test("only the lines a change finished count as new", () => {
+  assert.deepEqual(newLines([[0, 1, 2]], [[0, 1, 2], [0, 3, 6]]), [[0, 3, 6]]);
+  assert.deepEqual(newLines([[0, 1, 2]], [[0, 1, 2]]), []);
+  assert.deepEqual(newLines([[0, 1, 2]], []), []);
 });
 
 test("a destination falls in the region it names, however it's written", () => {

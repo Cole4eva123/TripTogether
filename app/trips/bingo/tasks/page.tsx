@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
 import type { BingoRegion, BingoTask } from "@/lib/bingo-types";
 
-type Library = { regions: BingoRegion[]; tasks: BingoTask[]; mine: BingoTask[]; isAdmin: boolean };
+type Library = { regions: BingoRegion[]; tasks: BingoTask[]; mine: BingoTask[]; isAdmin: boolean; pendingCount: number };
 
 const STATUS: Record<BingoTask["status"], string> = {
   pending: "Waiting for review",
@@ -14,41 +14,61 @@ const STATUS: Record<BingoTask["status"], string> = {
   rejected: "Turned down",
 };
 
-/** The Bingo task library: browse a region's tasks, send new ones in, and see what became of yours. */
+/**
+ * The Bingo task library. Every region is a button at the top, so any one is a click away. Members browse it and
+ * suggest tasks, which wait for review; admins also add tasks straight in, rewrite them, take them out, and see
+ * how many suggestions are waiting.
+ */
 export default function TaskLibraryPage() {
   const router = useRouter();
-  const region = useSearchParams().get("region") ?? "";
+  const asked = useSearchParams().get("region") ?? "";
   const [lib, setLib] = useState<Library | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(
     () =>
-      api<Library>(`/bingo/tasks?region=${encodeURIComponent(region)}`).then((l) => {
+      api<Library>(`/bingo/tasks?region=${encodeURIComponent(asked)}`).then((l) => {
         setLib(l);
         setError("");
       }),
-    [region],
+    [asked],
   );
 
   useEffect(() => {
     load().catch((e) => setError(errorText(e)));
   }, [load]);
 
+  // Open on the first region when none was asked for, so the page never starts empty.
+  const first = lib?.regions[0]?.region;
+  useEffect(() => {
+    if (!asked && first) router.replace(`?region=${encodeURIComponent(first)}`, { scroll: false });
+  }, [asked, first, router]);
+
+  const region = asked;
   const known = lib?.regions.some((r) => r.region === region);
+  const reload = () => load().catch((e) => setError(errorText(e)));
+  const admin = !!lib?.isAdmin;
 
   return (
-    <main className="mx-auto grid max-w-240 gap-10 px-4 pt-4 pb-16">
-      <header className="grid gap-2">
+    <main className="mx-auto grid max-w-240 gap-8 px-4 pt-4 pb-16">
+      <header className="grid gap-3">
         <h1>Bingo task library</h1>
         <p className="max-w-[60ch] text-muted">
-          Things to do in each place, sent in by travelers. Groups draw their Bingo cards from here. A new task joins
-          the library once an admin has looked at it.
+          {admin
+            ? "Things to do in each place. Groups draw their Bingo cards from here. As an admin, you can add tasks straight in, rewrite them, or take them out."
+            : "Things to do in each place, sent in by travelers. Groups draw their Bingo cards from here. Suggest a task and it joins the library once an admin approves it."}
         </p>
-        {lib?.isAdmin && (
+        {admin && (
           <p>
-            <Link href="/trips/bingo/review" className="link-btn">
-              Review the tasks people sent in
-            </Link>
+            {lib.pendingCount > 0 ? (
+              <Link href="/trips/bingo/review" className="btn btn-small">
+                {lib.pendingCount === 1 ? "1 suggestion" : `${lib.pendingCount} suggestions`} waiting for review
+              </Link>
+            ) : (
+              <Link href="/trips/bingo/review" className="link-btn">
+                Review queue: nothing waiting
+              </Link>
+            )}
           </p>
         )}
       </header>
@@ -59,40 +79,38 @@ export default function TaskLibraryPage() {
         </p>
       )}
 
+      {lib && (
+        <nav aria-label="Regions" className="flex flex-wrap gap-2">
+          {lib.regions.map((r) => (
+            <Link
+              key={r.region}
+              href={`?region=${encodeURIComponent(r.region)}`}
+              replace
+              scroll={false}
+              aria-current={r.region === region ? "page" : undefined}
+              className={r.region === region ? "btn btn-small" : "btn btn-quiet btn-small"}
+            >
+              {r.region} · {r.taskCount}
+            </Link>
+          ))}
+        </nav>
+      )}
+
       <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-14 max-md:grid-cols-1 max-md:gap-10">
         <section className="grid content-start gap-4">
-          <h2>Browse a region</h2>
-          <div className="grid max-w-[40ch] gap-1.5">
-            <label htmlFor="browse-region">Region</label>
-            <select
-              id="browse-region"
-              value={known ? region : ""}
-              onChange={(e) =>
-                router.replace(e.target.value ? `?region=${encodeURIComponent(e.target.value)}` : "?", { scroll: false })
-              }
-            >
-              <option value="">Choose a region</option>
-              {lib?.regions.map((r) => (
-                <option key={r.region} value={r.region}>
-                  {r.region} · {r.taskCount} tasks
-                </option>
-              ))}
-            </select>
-          </div>
+          <h2>{region && known ? `${region} · ${lib?.tasks.length} tasks` : "Tasks"}</h2>
           {lib && region && !known && (
             <p className="max-w-[60ch] text-muted">
-              There are no tasks for {region} yet. Send in the first ones, and once they&rsquo;re approved, groups
-              going there can draw a card.
+              There are no tasks for {region} yet.{" "}
+              {admin
+                ? "Add the first ones, and groups going there can draw a card."
+                : "Suggest the first ones, and once they're approved, groups going there can draw a card."}
             </p>
           )}
           {lib && known && (
             <ol className="grid gap-0">
               {lib.tasks.map((t) => (
-                <li key={t.id} className="grid gap-0.5 border-b border-line py-3">
-                  <span className="font-bold">{t.title}</span>
-                  {t.description && <span className="text-muted">{t.description}</span>}
-                  {t.submittedBy && <span className="text-[13px] text-muted">Sent in by {t.submittedBy}</span>}
-                </li>
+                <TaskRow key={t.id} task={t} admin={admin} regions={lib.regions} onChanged={reload} />
               ))}
             </ol>
           )}
@@ -100,13 +118,11 @@ export default function TaskLibraryPage() {
 
         <aside className="grid content-start gap-9">
           <section className="grid gap-3">
-            <h2>Send in a task</h2>
-            <TaskForm
-              key={region}
-              regions={lib?.regions ?? []}
-              initialRegion={region}
-              onSent={() => load().catch((e) => setError(errorText(e)))}
-            />
+            <h2>{admin ? "Add a task" : "Suggest a task"}</h2>
+            <p className="text-[14px] text-muted">
+              {admin ? "It goes straight into the library." : "An admin looks at it before it joins the library."}
+            </p>
+            <TaskForm key={region} regions={lib?.regions ?? []} initialRegion={region} admin={admin} onSent={reload} />
           </section>
 
           {!!lib?.mine.length && (
@@ -136,22 +152,98 @@ export default function TaskLibraryPage() {
   );
 }
 
-/** The form that sends a task in for review. */
+/** One task of the library. An admin can rewrite it in place or take it out. */
+function TaskRow({
+  task,
+  admin,
+  regions,
+  onChanged,
+}: {
+  task: BingoTask;
+  admin: boolean;
+  regions: BingoRegion[];
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function remove() {
+    if (!confirm(`Take "${task.title}" out of the ${task.region} library? Cards that already have it keep it.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/bingo/tasks/${task.id}`, "DELETE");
+      onChanged();
+    } catch (e) {
+      setError(errorText(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="grid gap-1 border-b border-line py-3">
+      {editing ? (
+        <TaskForm
+          regions={regions}
+          initialRegion={task.region}
+          admin
+          editing={task}
+          onSent={() => {
+            setEditing(false);
+            onChanged();
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <>
+          <span className="font-bold">{task.title}</span>
+          {task.description && <span className="text-muted">{task.description}</span>}
+          {task.submittedBy && <span className="text-[13px] text-muted">Sent in by {task.submittedBy}</span>}
+          {admin && (
+            <span className="flex flex-wrap gap-4 text-[14px]">
+              <button className="link-btn" disabled={busy} onClick={() => setEditing(true)}>
+                Edit
+              </button>
+              <button className="link-btn text-red" disabled={busy} onClick={remove}>
+                Take out
+              </button>
+            </span>
+          )}
+        </>
+      )}
+      {error && (
+        <p className="font-semibold text-red" role="alert">
+          {error}
+        </p>
+      )}
+    </li>
+  );
+}
+
+/** Adds a task (an admin's goes straight in, a member's waits for review), or rewrites one when `editing`. */
 function TaskForm({
   regions,
   initialRegion,
+  admin,
+  editing,
   onSent,
+  onCancel,
 }: {
   regions: BingoRegion[];
   initialRegion: string;
+  admin: boolean;
+  editing?: BingoTask;
   onSent: () => void;
+  onCancel?: () => void;
 }) {
   const [region, setRegion] = useState(initialRegion);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(editing?.title ?? "");
+  const [description, setDescription] = useState(editing?.description ?? "");
   const [error, setError] = useState("");
   const [sent, setSent] = useState("");
   const [busy, setBusy] = useState(false);
+  const id = editing ? `edit-${editing.id}` : "task";
 
   async function submit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -159,10 +251,19 @@ function TaskForm({
     setError("");
     setSent("");
     try {
-      const { task } = await api<{ task: BingoTask }>("/bingo/tasks", "POST", { region, title, description });
-      setTitle("");
-      setDescription("");
-      setSent(`Thanks. It joins the ${task.region} library once an admin approves it.`);
+      const body = { region, title, description };
+      if (editing) {
+        await api(`/bingo/tasks/${editing.id}`, "PATCH", body);
+      } else {
+        const { task } = await api<{ task: BingoTask }>("/bingo/tasks", "POST", body);
+        setTitle("");
+        setDescription("");
+        setSent(
+          task.status === "approved"
+            ? `Added to the ${task.region} library.`
+            : `Thanks. It joins the ${task.region} library once an admin approves it.`,
+        );
+      }
       onSent();
     } catch (err) {
       setError(errorText(err));
@@ -174,26 +275,26 @@ function TaskForm({
   return (
     <form className="grid gap-4" onSubmit={submit}>
       <div className="grid gap-1.5">
-        <label htmlFor="task-region">City or area</label>
+        <label htmlFor={`${id}-region`}>City or area</label>
         <input
-          id="task-region"
-          list="task-regions"
+          id={`${id}-region`}
+          list={`${id}-regions`}
           value={region}
           maxLength={60}
           required
           onChange={(e) => setRegion(e.target.value)}
           placeholder="Chicago"
         />
-        <datalist id="task-regions">
+        <datalist id={`${id}-regions`}>
           {regions.map((r) => (
             <option key={r.region} value={r.region} />
           ))}
         </datalist>
       </div>
       <div className="grid gap-1.5">
-        <label htmlFor="task-title">The task</label>
+        <label htmlFor={`${id}-title`}>The task</label>
         <input
-          id="task-title"
+          id={`${id}-title`}
           value={title}
           maxLength={120}
           required
@@ -202,9 +303,9 @@ function TaskForm({
         />
       </div>
       <div className="grid gap-1.5">
-        <label htmlFor="task-description">Tips (optional)</label>
+        <label htmlFor={`${id}-description`}>Tips (optional)</label>
         <textarea
-          id="task-description"
+          id={`${id}-description`}
           rows={2}
           maxLength={500}
           value={description}
@@ -222,10 +323,15 @@ function TaskForm({
           {sent}
         </p>
       )}
-      <div>
-        <button className="btn" disabled={busy}>
-          Send it in
+      <div className="flex flex-wrap gap-3">
+        <button className={editing ? "btn btn-small" : "btn"} disabled={busy}>
+          {editing ? "Save" : admin ? "Add it" : "Send it in"}
         </button>
+        {onCancel && (
+          <button type="button" className="btn btn-quiet btn-small" disabled={busy} onClick={onCancel}>
+            Cancel
+          </button>
+        )}
       </div>
     </form>
   );

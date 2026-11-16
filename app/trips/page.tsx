@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useState } from "react";
+import BingoAdminLinks from "@/components/bingo/AdminLinks";
 import TripSign from "@/components/TripSign";
 import { api, errorText } from "@/lib/api";
 import type { Trip } from "@/lib/types";
@@ -93,6 +94,7 @@ export default function TripsPage() {
           ))}
         </ul>
       )}
+      <BingoAdminLinks />
     </main>
   );
 }

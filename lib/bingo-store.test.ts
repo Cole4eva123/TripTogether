@@ -67,38 +67,61 @@ test("a region too small for the card is refused with the numbers", async () => 
   assert.equal((await bingo.cardFor(tripId))?.size, 3, "the old card is kept");
 });
 
+const sam = { id: SAM, admin: false };
+const maya = { id: MAYA, admin: false };
+const admin = { id: MAYA, admin: true };
+
 test("any member checks squares off, and a full row is a Bingo", async () => {
   let card = (await bingo.cardFor(tripId))!;
   const row = card.cells.slice(0, 3);
-  card = await bingo.markCell(tripId, row[0].id, SAM, true);
-  card = await bingo.markCell(tripId, row[1].id, MAYA, true);
+  card = await bingo.markCell(tripId, row[0].id, sam, true);
+  card = await bingo.markCell(tripId, row[1].id, maya, true);
   assert.deepEqual(card.lines, []);
-  card = await bingo.markCell(tripId, row[2].id, SAM, true);
+  card = await bingo.markCell(tripId, row[2].id, sam, true);
   assert.equal(card.completed, 3);
   assert.deepEqual(card.lines, [[0, 1, 2]]);
   assert.equal(card.cells[0].completedBy, "Sam Okafor");
   assert.ok(card.cells[0].completedAt);
 
-  card = await bingo.markCell(tripId, row[1].id, SAM, false);
+  assert.equal(card.cells[0].completedById, SAM);
+});
+
+test("only the member who checked a square off, or an admin, can undo it", async () => {
+  let card = (await bingo.cardFor(tripId))!;
+  const [samsSquare, mayasSquare, samsOther] = card.cells;
+  // Maya, not an admin, can't take back Sam's square, nor swap it away, nor take it over by checking it again.
+  await rejects(bingo.markCell(tripId, samsSquare.id, maya, false), 403);
+  await rejects(bingo.replaceCell(tripId, samsSquare.id, maya, null), 403);
+  card = await bingo.markCell(tripId, samsSquare.id, maya, true);
+  assert.equal(card.cells[0].completedById, SAM, "checking a done square again keeps who did it");
+
+  // Each undoes their own.
+  card = await bingo.markCell(tripId, mayasSquare.id, maya, false);
   assert.equal(card.cells[1].completedBy, null);
   assert.deepEqual(card.lines, []);
+  // An admin undoes anyone's.
+  card = await bingo.markCell(tripId, samsOther.id, admin, false);
+  assert.equal(card.cells[2].completedBy, null);
+  // Undoing a square that isn't done is harmless.
+  card = await bingo.markCell(tripId, mayasSquare.id, sam, false);
+  assert.equal(card.completed, 1);
 });
 
 test("a square can be swapped for a random task or a chosen one, and starts over", async () => {
   let card = (await bingo.cardFor(tripId))!;
   const square = card.cells[0]; // checked off above
-  card = await bingo.replaceCell(tripId, square.id, null);
+  card = await bingo.replaceCell(tripId, square.id, sam, null);
   const swapped = card.cells[0];
   assert.notEqual(swapped.task.id, square.task.id);
   assert.equal(swapped.completedBy, null);
   assert.equal(new Set(card.cells.map((c) => c.task.id)).size, 9, "never a task already on the card");
 
   const spare = (await bingo.tasksIn("Chicago")).find((t) => !card.cells.some((c) => c.task.id === t.id))!;
-  card = await bingo.replaceCell(tripId, square.id, spare.id);
+  card = await bingo.replaceCell(tripId, square.id, sam, spare.id);
   assert.equal(card.cells[0].task.id, spare.id);
-  await rejects(bingo.replaceCell(tripId, square.id, card.cells[1].task.id), 409);
+  await rejects(bingo.replaceCell(tripId, square.id, sam, card.cells[1].task.id), 409);
   const nashville = (await bingo.tasksIn("Nashville"))[0];
-  await rejects(bingo.replaceCell(tripId, square.id, nashville.id), 400);
+  await rejects(bingo.replaceCell(tripId, square.id, sam, nashville.id), 400);
 });
 
 test("a square from another trip's card can't be touched", async () => {
@@ -109,8 +132,8 @@ test("a square from another trip's card can't be touched", async () => {
     endDate: "2027-01-11",
   });
   const theirs = await bingo.createCard(other.id, SAM, "Nashville", 3);
-  await rejects(bingo.markCell(tripId, theirs.cells[0].id, MAYA, true), 404);
-  await rejects(bingo.markCell(tripId, "not-an-id", MAYA, true), 404);
+  await rejects(bingo.markCell(tripId, theirs.cells[0].id, maya, true), 404);
+  await rejects(bingo.markCell(tripId, "not-an-id", maya, true), 404);
   // Deleting the trip takes its card with it.
   await store.deleteTrip(other.id);
   assert.equal(await bingo.cardFor(other.id), null);

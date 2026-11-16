@@ -42,6 +42,20 @@ export function bingoLines(size: number): number[][] {
 export const finishedLines = (done: readonly boolean[], size: number) =>
   bingoLines(size).filter((line) => line.every((p) => done[p]));
 
+/** A line as a person would say it: "Row 1", "Column 3", "The diagonal from the top left". */
+export function lineName(line: readonly number[], size: number): string {
+  const [a, b] = line;
+  if (b - a === 1) return `Row ${Math.floor(a / size) + 1}`;
+  if (b - a === size) return `Column ${a + 1}`;
+  return a === 0 ? "The diagonal from the top left" : "The diagonal from the top right";
+}
+
+/** The lines in `after` that weren't in `before`: the ones a change has just finished. */
+export const newLines = (before: readonly number[][], after: readonly number[][]) => {
+  const had = new Set(before.map((l) => l.join(",")));
+  return after.filter((l) => !had.has(l.join(",")));
+};
+
 /** True when a place names the region: "Chicago, IL", "chicago" and "Downtown Chicago" all name Chicago. */
 export function inRegion(place: string, region: string): boolean {
   const p = normalizePlace(place);

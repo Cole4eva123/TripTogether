@@ -5,7 +5,9 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import BingoGrid from "@/components/bingo/BingoGrid";
 import DrawForm from "@/components/bingo/DrawForm";
+import Toast, { type ToastNote } from "@/components/bingo/Toast";
 import { api, errorText } from "@/lib/api";
+import { lineName, newLines } from "@/lib/bingo";
 import type { BingoCard, BingoCell, BingoView } from "@/lib/bingo-types";
 import type { Trip } from "@/lib/types";
 
@@ -17,6 +19,9 @@ export default function BingoPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<string | null>(null); // a square's id, or "draw"
   const [redrawing, setRedrawing] = useState(false);
+  const [note, setNote] = useState<ToastNote | null>(null);
+  const [flash, setFlash] = useState<{ id: number; positions: number[] } | null>(null);
+  const closeNote = useCallback(() => setNote(null), []);
 
   const load = useCallback(
     () =>
@@ -36,13 +41,20 @@ export default function BingoPage() {
     return () => document.removeEventListener("visibilitychange", refresh);
   }, [load]);
 
-  async function run(key: string, call: () => Promise<{ card: BingoCard }>) {
+  /** Runs a change to the card; `told` says what happened, given the card before and after. */
+  async function run(
+    key: string,
+    call: () => Promise<{ card: BingoCard }>,
+    told: (before: BingoCard | null, after: BingoCard) => Omit<ToastNote, "id">,
+  ) {
     setBusy(key);
     setError("");
+    const before = view?.card ?? null;
     try {
       const { card } = await call();
       setView((v) => v && { ...v, card });
       setRedrawing(false);
+      setNote({ id: Date.now(), ...told(before, card) });
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -52,12 +64,41 @@ export default function BingoPage() {
 
   const draw = (region: string, size: number) => {
     if (view?.card && !confirm("Draw a new card? The squares you've checked off on this one will be gone.")) return;
-    run("draw", () => api(`/trips/${id}/bingo`, "POST", { region, size }));
+    run(
+      "draw",
+      () => api(`/trips/${id}/bingo`, "POST", { region, size }),
+      (_, after) => ({ title: "New card drawn", detail: `${after.size} × ${after.size}, from the ${after.region} library.` }),
+    );
   };
+
   const mark = (cell: BingoCell, done: boolean) =>
-    run(cell.id, () => api(`/trips/${id}/bingo/cells/${cell.id}`, "PATCH", { action: done ? "complete" : "undo" }));
+    run(
+      cell.id,
+      () => api(`/trips/${id}/bingo/cells/${cell.id}`, "PATCH", { action: done ? "complete" : "undo" }),
+      (before, after) => {
+        if (!done) return { title: "Undone", detail: cell.task.title };
+        const finished = newLines(before?.lines ?? [], after.lines);
+        if (finished.length) setFlash({ id: Date.now(), positions: finished.flat() });
+        if (after.completed === after.cells.length) {
+          return { big: true, title: "Card complete!", detail: "Every square is done. What a trip." };
+        }
+        if (finished.length) {
+          return {
+            big: true,
+            title: finished.length === 1 ? "Bingo!" : `Double Bingo!`,
+            detail: `${finished.map((l) => lineName(l, after.size)).join(" and ")} done.`,
+          };
+        }
+        return { title: "Checked off", detail: cell.task.title };
+      },
+    );
+
   const swap = (cell: BingoCell) =>
-    run(cell.id, () => api(`/trips/${id}/bingo/cells/${cell.id}`, "PATCH", { action: "replace" }));
+    run(
+      cell.id,
+      () => api(`/trips/${id}/bingo/cells/${cell.id}`, "PATCH", { action: "replace" }),
+      (_, after) => ({ title: "Task swapped", detail: `New: ${after.cells[cell.position].task.title}` }),
+    );
 
   const errorLine = error && (
     <p className="font-semibold text-red" role="alert">
@@ -73,8 +114,16 @@ export default function BingoPage() {
       </main>
     );
 
-  const { card, regions, suggestedRegion } = view;
-  const bingos = card?.lines.length ?? 0;
+  const { card, regions, suggestedRegion, viewer } = view;
+  // The card's region; before a card, the library that matches the destination, or the destination itself.
+  const libraryRegion = card?.region ?? suggestedRegion ?? trip.destination;
+  // Each finished line, and who checked off its last square.
+  const finished = (card?.lines ?? []).map((line) => {
+    const last = line
+      .map((p) => card!.cells[p])
+      .reduce((a, b) => ((a.completedAt ?? "") >= (b.completedAt ?? "") ? a : b));
+    return { name: lineName(line, card!.size), by: last.completedBy };
+  });
 
   return (
     <main className="mx-auto grid max-w-240 gap-8 px-4 pt-4 pb-16">
@@ -86,8 +135,15 @@ export default function BingoPage() {
         <h1>Travel Bingo</h1>
         <p className="max-w-[60ch] text-muted">
           {card
-            ? `${card.region} · ${card.size} × ${card.size} card${card.createdBy ? `, drawn by ${card.createdBy}` : ""}. Anyone in the group can check a square off. A full row, column or diagonal is a Bingo.`
+            ? `${card.region} · ${card.size} × ${card.size} card${card.createdBy ? `, drawn by ${card.createdBy}` : ""}. Anyone in the group can check a square off; only whoever did, or an admin, can undo it. A full row, column or diagonal is a Bingo.`
             : `Draw a card of things to do in ${trip.destination}, then check them off as your group does them. A full row, column or diagonal is a Bingo.`}
+        </p>
+        {/* A quiet way into the task library; admins manage it from the trips page too. */}
+        <p className="text-[14px] text-muted">
+          Know something to do in {libraryRegion}?{" "}
+          <Link href={`/trips/bingo/tasks?region=${encodeURIComponent(libraryRegion)}`}>
+            {viewer.admin ? "Add it to the library" : "Suggest a task"}
+          </Link>
         </p>
       </header>
 
@@ -97,21 +153,35 @@ export default function BingoPage() {
             <p className="text-[22px] leading-[1.2] font-extrabold">
               {card.completed} of {card.cells.length} done
             </p>
-            {bingos > 0 && <span className="sign sign-small">{bingos === 1 ? "Bingo!" : `${bingos} Bingos!`}</span>}
           </section>
 
-          <BingoGrid card={card} busy={busy} onMark={mark} onSwap={swap} />
+          {finished.length > 0 && (
+            <section className="sign grid gap-1 px-7 pt-5 pb-4 max-sm:px-5" aria-label="Bingos">
+              <p className="text-[26px] leading-[1.1] font-extrabold">
+                {card.completed === card.cells.length
+                  ? "Card complete!"
+                  : finished.length === 1
+                    ? "Bingo!"
+                    : `${finished.length} Bingos!`}
+              </p>
+              <ul className="grid gap-0.5 text-[15px]">
+                {finished.map((f) => (
+                  <li key={f.name}>
+                    {f.name}
+                    {f.by && <span className="sign-body-quiet">, finished by {f.by}</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <BingoGrid card={card} viewer={viewer} flash={flash} busy={busy} onMark={mark} onSwap={swap} />
           {errorLine}
 
           <section className="grid justify-items-start gap-3 border-t border-line pt-6">
             <h2>Change the card</h2>
             <p className="max-w-[60ch] text-muted">
-              Swap a single square with its &ldquo;Swap task&rdquo; link, or draw a whole new card. Know something
-              that belongs here?{" "}
-              <Link href={`/trips/bingo/tasks?region=${encodeURIComponent(card.region)}`}>
-                Add a task for {card.region}
-              </Link>
-              .
+              Swap a single square with its &ldquo;Swap task&rdquo; link, or draw a whole new card.
             </p>
             {redrawing ? (
               <DrawForm
@@ -139,7 +209,7 @@ export default function BingoPage() {
             <p className="max-w-[60ch] text-muted">
               There&rsquo;s no library for {trip.destination} yet. Pick a region below, or{" "}
               <Link href={`/trips/bingo/tasks?region=${encodeURIComponent(trip.destination)}`}>
-                start one by adding tasks
+                {viewer.admin ? "start one by adding tasks" : "start one by suggesting tasks"}
               </Link>
               .
             </p>
@@ -154,6 +224,7 @@ export default function BingoPage() {
           {errorLine}
         </section>
       )}
+      <Toast note={note} onClose={closeNote} />
     </main>
   );
 }

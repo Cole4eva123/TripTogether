@@ -1,15 +1,19 @@
+import { isAdmin } from "@/lib/auth";
 import { parseCardInput, regionFor } from "@/lib/bingo";
 import { bingoAnswer } from "@/lib/bingo-api";
 import { cardFor, createCard, regions } from "@/lib/bingo-store";
 import { fail, memberTrip, readJson } from "@/lib/server";
 
-/** The trip's card (null before one is drawn), the regions to draw from, and the one its destination is in. */
+/**
+ * The trip's card (null before one is drawn), the regions to draw from, the one its destination is in, and who
+ * is asking (so the page offers Undo only where it's allowed).
+ */
 export async function GET(_req: Request, ctx: RouteContext<"/api/trips/[id]/bingo">) {
   const m = await memberTrip((await ctx.params).id);
   if (m instanceof Response) return m;
   const [card, all] = await Promise.all([cardFor(m.trip.id), regions()]);
   const suggestedRegion = regionFor(m.trip.destination, all.map((r) => r.region));
-  return Response.json({ card, regions: all, suggestedRegion });
+  return Response.json({ card, regions: all, suggestedRegion, viewer: { id: m.me.id, admin: isAdmin(m.me.email) } });
 }
 
 /** Draws a card from a region's tasks, replacing the trip's current card. Any member may. */

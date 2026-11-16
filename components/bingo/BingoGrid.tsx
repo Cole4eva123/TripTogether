@@ -1,23 +1,41 @@
 "use client";
 
-import type { BingoCard, BingoCell } from "@/lib/bingo-types";
+import { useEffect, useRef } from "react";
+import type { BingoCard, BingoCell, BingoView } from "@/lib/bingo-types";
 
 /**
  * The card as a grid. A square that's done turns into a green guide sign; a square on a finished line also gets
- * the road's yellow centre-line colour around it, so a Bingo stands out at a glance.
+ * the road's yellow centre-line colour around it, so a Bingo stands out at a glance. Undo shows only on the
+ * squares the viewer may undo: their own, or every one for an admin. The squares in `flash` (a line just
+ * finished) pulse once so the new Bingo is easy to find.
  */
 export default function BingoGrid({
   card,
+  viewer,
+  flash,
   busy,
   onMark,
   onSwap,
 }: {
   card: BingoCard;
+  viewer: BingoView["viewer"];
+  flash: { id: number; positions: number[] } | null;
   busy: string | null; // the id of the square waiting on the server
   onMark: (cell: BingoCell, done: boolean) => void;
   onSwap: (cell: BingoCell) => void;
 }) {
   const onLine = new Set(card.lines.flat());
+  const squares = useRef(new Map<number, HTMLLIElement>());
+
+  useEffect(() => {
+    if (!flash || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    flash.positions.forEach((p, i) =>
+      squares.current.get(p)?.animate(
+        [{ transform: "scale(1)" }, { transform: "scale(1.08)" }, { transform: "scale(1)" }],
+        { duration: 450, delay: i * 90, iterations: 2, easing: "ease-in-out" },
+      ),
+    );
+  }, [flash]);
   return (
     // Bigger cards keep a usable square size on a phone and scroll sideways instead.
     <div className="max-w-full overflow-x-auto pb-2">
@@ -35,6 +53,10 @@ export default function BingoGrid({
           return (
             <li
               key={cell.id}
+              ref={(el) => {
+                if (el) squares.current.set(cell.position, el);
+                else squares.current.delete(cell.position);
+              }}
               className={
                 done
                   ? "sign grid min-h-40 content-between gap-2 p-4 max-sm:min-h-32 max-sm:p-3"
@@ -54,13 +76,15 @@ export default function BingoGrid({
                 {done ? (
                   <>
                     <span className="sign-body-quiet">Done by {cell.completedBy}</span>
-                    <button
-                      className="link-btn text-white"
-                      disabled={busy === cell.id}
-                      onClick={() => onMark(cell, false)}
-                    >
-                      Undo
-                    </button>
+                    {(viewer.admin || cell.completedById === viewer.id) && (
+                      <button
+                        className="link-btn text-white"
+                        disabled={busy === cell.id}
+                        onClick={() => onMark(cell, false)}
+                      >
+                        Undo
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>

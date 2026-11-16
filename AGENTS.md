@@ -20,14 +20,15 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
 
 ## Commands
 
-- `npm run dev` (port 3000), `npm run lint`, `npm run typecheck`, `npm test` (node:test on `lib/*.test.ts`, one file at a time; the store tests need
+- `npm run dev` (port 3000), `npm run lint`, `npm run typecheck`, `npm test` (node:test on `lib/*.test.ts` and `lib/gasoline-intelligence/*.test.ts`, one file at a time; the store tests need
   the local PostgreSQL and its `triptogether_test` database)
 - `sh scripts/seed.sh http://localhost:3000` fills a running dev server with demo users and trips
 
 ## Layout
 
 - `docs/` — one doc per area, each saying what it does, how it is designed, and its API: `database.md` (setup,
-  tables, conventions, the base features' endpoints), `roles.md`, `bingo.md`, `blind-box.md`, `lobby.md`.
+  tables, conventions, the base features' endpoints), `roles.md`, `bingo.md`, `blind-box.md`, `lobby.md`,
+  `gasoline-intelligence.md`.
 - `app/api/` — route handlers. Their contract (paths, status codes, shapes, error messages) is in those docs.
   The frontend depends only on that contract, through `lib/api.ts`.
 - `lib/db/schema.ts` — every table; `npm run db:generate` turns a change into a migration in `drizzle/`, which the
@@ -45,6 +46,10 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
 - Travel blind box: `lib/blind-box.ts` (the rules, pure), `lib/blind-box-store.ts` (rounds and sealed ideas; every
   write locks the round row), `app/api/trips/[id]/blind-box`, `app/trips/[id]/blind-box`, `components/BlindBox*.tsx`.
   Only the trip's organizer (`trip.ownerId`) starts, reveals or resets a box.
+- Gasoline Intelligence (fuel planner): `lib/gasoline-intelligence/**` (`planner.ts` the rules, pure: the cheapest
+  stations to buy at; `google.ts` + `google-data.ts` Routes and Places; `service.ts` searches kept in memory;
+  `config.ts` the `FUEL_*` settings from the environment), `app/api/gasoline-intelligence/**`,
+  `app/trips/gasoline-intelligence`, `components/gasoline-intelligence/**`. Stops are chosen for pump cost only.
 - `lib/validate.ts` — trip and plan-item input validation, shared by every write.
 - `lib/itinerary.ts` — groups plan items into the trip's days (pure, tested).
 - `app/login`, `app/register`, `app/trips/**` — client-component pages. `app/trips/layout.tsx` checks the session

@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -40,4 +41,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .data
-!.env.example
+env_info.md
+basic_info.md
+
+# Locally retained optional UI; not part of the shipped module.
+/.local-features/gasoline-intelligence/
+
+# Local research/reference notes; shared setup, API and merge docs stay tracked.
+/docs/fuel-price-apis.md

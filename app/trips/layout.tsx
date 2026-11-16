@@ -38,6 +38,9 @@ export default function TripsLayout({ children }: LayoutProps<"/trips">) {
         </Link>
         <div className="ml-auto flex min-w-0 items-center gap-4">
           {/* The nav marks the page you're on, which it can only know at runtime. */}
+          <Link href="/trips/gasoline-intelligence" className="sign sign-small whitespace-nowrap hover:brightness-110">
+            Fuel planner
+          </Link>
           <Suspense fallback={<div className="min-w-[140px]" />}>
             <TripNav />
           </Suspense>

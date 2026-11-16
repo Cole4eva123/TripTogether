@@ -1,5 +1,5 @@
-// Shapes for Travel Bingo (feature 4), shared by its API and its pages. The endpoints are in docs/api.md under
-// "Travel Bingo". Kept apart from lib/types.ts so this feature doesn't touch the files the others share.
+// Shapes for Travel Bingo (feature 4), shared by its API and its pages. The endpoints are in docs/bingo.md.
+// Kept apart from lib/types.ts so this feature doesn't touch the files the others share.
 
 export type BingoTaskStatus = "pending" | "approved" | "rejected";
 

@@ -1,5 +1,5 @@
 // The database connection: the PostgreSQL server in DATABASE_URL (postgres://…), e.g. the one started with
-// Apple's `container` CLI (docs/backend.md). There is no fallback: without DATABASE_URL the first query fails.
+// Apple's `container` CLI (docs/database.md). There is no fallback: without DATABASE_URL the first query fails.
 //
 // The pool opens on the first query, never on import, so `next build` and the worker processes `next dev` loads
 // route modules in don't need a database.
@@ -15,7 +15,7 @@ type Conn = { db: PgDb; pool: Pool; ready?: Promise<void> };
 function connect(): Conn {
   const url = process.env.DATABASE_URL ?? "";
   if (!/^postgres(ql)?:\/\//.test(url)) {
-    throw new Error("Set DATABASE_URL to a PostgreSQL server (postgres://…) in .env.local. See docs/backend.md.");
+    throw new Error("Set DATABASE_URL to a PostgreSQL server (postgres://…) in .env.local. See docs/database.md.");
   }
   const pool = new Pool({ connectionString: url });
   return { db: drizzle(pool, { schema }), pool };

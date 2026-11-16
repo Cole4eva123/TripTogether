@@ -1,4 +1,4 @@
-// The frontend's only way to the backend. Endpoints and shapes: docs/api.md.
+// The frontend's only way to the backend. Endpoints and shapes: the docs in docs/.
 
 export class ApiError extends Error {
   constructor(

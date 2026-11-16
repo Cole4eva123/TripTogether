@@ -1,5 +1,5 @@
 // Accounts, passwords and sessions, through Better Auth on the same database. The app doesn't mount Better Auth's
-// own endpoints: the routes under app/api/auth keep the contract in docs/api.md and call `auth.api.*` here.
+// own endpoints: the routes under app/api/auth keep the contract in docs/database.md and call `auth.api.*` here.
 // Passwords are stored hashed (accounts.password); the session is Better Auth's signed, httpOnly cookie.
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";

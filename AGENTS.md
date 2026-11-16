@@ -16,7 +16,7 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
   breakpoints, font), element defaults, and the road-atlas component classes built from pseudo-elements and
   layered shadows (`btn`, `link-btn`, `sign*`, `road*`, `marker`). Add new styles as utilities, not CSS rules.
 - Backend: PostgreSQL only (local, in Apple's `container` or Docker) through Drizzle ORM, auth through Better Auth.
-  No embedded stand-in such as PGlite. Setup, settings and tests: `docs/backend.md`. Deployment is out of scope for now.
+  No embedded stand-in such as PGlite. Setup, settings, tables and tests: `docs/database.md`. Deployment is out of scope for now.
 
 ## Commands
 
@@ -26,7 +26,9 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
 
 ## Layout
 
-- `app/api/` — route handlers. Their contract (paths, status codes, shapes, error messages) is `docs/api.md`.
+- `docs/` — one doc per area, each saying what it does, how it is designed, and its API: `database.md` (setup,
+  tables, conventions, the base features' endpoints), `roles.md`, `bingo.md`, `blind-box.md`, `lobby.md`.
+- `app/api/` — route handlers. Their contract (paths, status codes, shapes, error messages) is in those docs.
   The frontend depends only on that contract, through `lib/api.ts`.
 - `lib/db/schema.ts` — every table; `npm run db:generate` turns a change into a migration in `drizzle/`, which the
   app applies on the first request. `lib/db/client.ts` is the pool; `lib/db/test-db.ts` sets up the store tests.

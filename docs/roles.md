@@ -1,45 +1,57 @@
 # Roles and permissions
 
-TripTogether has one kind of account. What a person may do depends on two things that are worked out, not
-stored on the account:
+TripTogether has one kind of account. What a person may do depends on two things, and both are worked out on
+each request rather than stored on the account:
 
-- **Organizer or member**, per trip: whoever creates a trip is its organizer; whoever joins it with the invite
-  code is a member. The same person can be the organizer of one trip and a member of another.
-- **Admin**, site-wide: the accounts whose email is in `ADMIN_EMAILS`. Admins look after the Bingo task library.
+- **Organizer or member**, per trip. Whoever creates a trip is its organizer; whoever joins it is a member. The
+  same person can organize one trip and be a member of another.
+- **Admin**, site-wide. These are the accounts whose email is listed in `ADMIN_EMAILS`. Admins look after the
+  Bingo task library.
 
-The two are independent. An admin can't edit, delete or manage the members of someone else's trip, and an
-organizer has no extra say over the task library. The one overlap is a trip's Bingo card, below: an admin who is
-a member of the trip may also switch its challenge and undo anyone's square. The organizer/member split follows the proposal's Appendix A; admins are Appendix B's "Task Review
-(admin)".
+The two are independent. An admin can't edit, delete or manage someone else's trip, and an organizer has no
+extra say over the task library. There is one overlap, a trip's Bingo card, covered below.
 
-## Where each role comes from
+## How a request's role is decided
+
+![The checks each request goes through](img/roles-decided.png)
 
 | Role | Where it lives | How it's decided |
 |---|---|---|
-| Account | `users` table | Everyone alike: name, email. There is no role column. |
-| Organizer of a trip | `trips.owner_id` | The trip's `owner_id` is you. Set when you create the trip. |
-| Member of a trip | `trip_members` table | You have a row for the trip. The organizer has one too. |
+| Account | `users` table | Everyone alike: a name and an email. There is no role column. |
+| Member of a trip | `trip_members` | You have a row for the trip. The organizer has one too. |
+| Organizer of a trip | `trips.owner_id` | The trip's `owner_id` is you. It is set when you create the trip and never changes. |
 | Admin | `ADMIN_EMAILS` in `.env.local`, not the database | Your email is in the comma-separated list (`isAdmin` in `lib/auth.ts`). Restart the server after changing it. |
 
-Keeping admins in the server's settings means nobody can make themselves an admin through the app. If admins are
-ever to be appointed from inside the app, add a `role` column to `users` and change `isAdmin`.
+Every trip route starts with `memberTrip` (`lib/server.ts`). It returns `401` without a session, and `404` when
+the trip doesn't exist or you aren't in it, so the two cases look the same and trip ids can't be probed. Only
+after that does a route compare `trip.ownerId` with you for organizer-only actions (`403`). The admin check is
+separate (`currentAdmin` in `lib/bingo-api.ts`) and applies only to the site-wide Bingo library.
+
+The design choices behind this:
+
+- **No role column.** Organizer is a property of a trip, not of a person, so it lives on the trip. A single
+  global role couldn't express "organizer here, member there".
+- **Admins live in the server's settings.** That way nobody can make themselves an admin through the app. If
+  admins are ever appointed from inside the app, add a `role` column to `users` and change `isAdmin`.
+- **The organizer can't leave.** A trip always has someone who can edit and delete it. The organizer deletes the
+  trip instead.
 
 ## What each role may do
 
-### Trips (base features)
+### Trips
 
 | Action | Organizer | Member | Not in the trip |
 |---|---|---|---|
-| See the trip, its members and invite code | ✅ | ✅ | ❌ (404, admins included) |
+| See the trip, its members and invite code | ✅ | ✅ | ❌ 404 (admins included) |
 | Add, edit, delete itinerary items | ✅ | ✅ | ❌ |
 | Edit the trip (origin, destination, dates) | ✅ | ❌ 403 | ❌ |
 | Delete the trip | ✅ | ❌ 403 | ❌ |
-| Leave the trip | ❌ 409, delete it instead | ✅ | — |
-| Join with the invite code | — | — | ✅ |
+| Leave the trip | ❌ 409, delete it instead | ✅ | none |
+| Join with the invite code | none | none | ✅ |
 
 ### Travel Bingo card (per trip)
 
-| Action | Admin | Organizer | Member |
+| Action | Admin in the trip | Organizer | Member |
 |---|---|---|---|
 | Pick the trip's first challenge | ✅ | ✅ | ✅ |
 | Switch to another challenge (clears every square) | ✅ | ✅ | ❌ 403 |
@@ -47,24 +59,13 @@ ever to be appointed from inside the app, add a `role` column to `users` and cha
 | Undo a square they checked off themselves | ✅ | ✅ | ✅ |
 | Undo a square someone else checked off | ✅ | ❌ 403 | ❌ 403 |
 
-An admin still has to be a member of the trip to see its card at all.
-
-### Shared lobby and chat (per trip)
-
-| Action | Organizer | Member | Not in the trip |
-|---|---|---|---|
-| Share the trip in the lobby, or take it out | ✅ | ❌ 403 | ❌ 404 |
-| See requests to join, with the applicant's name and message | ✅ | ✅ | only their own |
-| Accept or decline a request | ✅ | ❌ 403 | ❌ 404 |
-| Ask to join | — | ❌ 409, already in | ✅ |
-| Take back their own request | — | — | ✅ |
-| Read and write in the trip's chat | ✅ | ✅ | ❌ 404 |
-
-Admins have no extra powers in the lobby. Other groups' cards count their members without naming them.
+An admin still has to be a member of the trip to see its card at all. Switching is limited to the organizer
+because it wipes everyone's progress. Undo belongs to whoever checked the square, so one member can't erase
+another's work.
 
 ### Bingo task library (site-wide)
 
-| Action | Admin | Anyone else (organizer or member) |
+| Action | Admin | Anyone else |
 |---|---|---|
 | Browse every region's tasks | ✅ | ✅ |
 | Add a task | ✅ straight into the library | ✅ as a suggestion, waiting for review |
@@ -73,11 +74,31 @@ Admins have no extra powers in the lobby. Other groups' cards count their member
 | Approve or turn down suggestions | ✅ | ❌ 403 |
 | See the "Admin: Bingo task library" line on the trips page | ✅ | hidden |
 
-The library is shared by every group, which is why only admins change it directly.
+### Travel blind box (per trip)
+
+| Action | Organizer | Member |
+|---|---|---|
+| Start, reset, or reveal the box | ✅ | ❌ 403 |
+| Seal ideas into it, and remove their own | ✅ | ✅ |
+| See another person's sealed ideas before the reveal | ❌ | ❌ |
+| Add the revealed stops to the itinerary | ✅ | ✅ |
+
+### Shared lobby and chat (per trip)
+
+| Action | Organizer | Member | Not in the trip |
+|---|---|---|---|
+| Share the trip in the lobby, or take it out | ✅ | ❌ 403 | ❌ 404 |
+| See requests to join, with the applicant's name and message | ✅ | ✅ | only their own |
+| Accept or decline a request | ✅ | ❌ 403 | ❌ 404 |
+| Ask to join | none | ❌ 409, already in | ✅ |
+| Take back their own request | none | none | ✅ |
+| Read and write in the trip's chat | ✅ | ✅ | ❌ 404 |
+
+Admins have no extra powers in the lobby. On other groups' cards, members are counted, not named.
 
 ## The demo accounts
 
-`sh scripts/seed.sh http://localhost:3000` creates Maya and Sam (password `roadtrip1`); with
+`sh scripts/seed.sh http://localhost:3000` creates Maya and Sam (password `roadtrip1`). With
 `ADMIN_EMAILS=maya@example.com`, Maya is the admin.
 
 | Account | Admin? | In Maya's Chicago trip | In their own trips |
@@ -85,18 +106,14 @@ The library is shared by every group, which is why only admins change it directl
 | maya@example.com | ✅ | organizer | organizer (Nashville) |
 | sam@example.com | ❌ | member (joined with the code) | organizer (Chicago from Urbana, Great Smoky Mountains) |
 
-A third account, registered and joined to Maya's Chicago trip, shows a plain member with no trips of their own.
-
-## Showing the roles in a demo
+To show the roles in a demo:
 
 1. **Organizer.** Log in as Sam and open his Great Smoky Mountains trip: he can edit and delete it.
-2. **Member.** Still as Sam, open Maya's Chicago trip: no edit or delete. He can add to the itinerary and
-   play Bingo, but "Switch challenge" isn't offered, and squares others checked off have no Undo.
-3. **Suggesting a task.** On that Bingo page Sam follows "Suggest a task" and sends one in. It shows as
+2. **Member.** Still as Sam, open Maya's Chicago trip. There is no edit or delete. He can add to the itinerary
+   and play Bingo, but "Switch challenge" isn't offered, and squares others checked off have no Undo.
+3. **Suggesting a task.** On that Bingo page, Sam follows "Suggest a task" and sends one in. It shows as
    "Waiting for review".
 4. **Admin.** Log in as Maya. The foot of the trips page reads "Admin: Bingo task library · 1 suggestion to
    review". She approves Sam's task, and can edit or take out any task in any region.
-5. **Publishing a challenge.** Still as Maya, she follows "Bingo challenges", picks Chicago, fills the nine
+5. **Publishing a challenge.** Still as Maya, she opens "Bingo challenges", picks Chicago, fills the nine
    squares (Sam's task among them) and publishes it. Every group can now take it on.
-6. **Back to Sam.** His task now reads "In the library", and the new challenge shows on his Chicago trip's
-   Bingo page.

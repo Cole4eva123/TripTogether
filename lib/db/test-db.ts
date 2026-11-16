@@ -1,5 +1,5 @@
 // What the store tests share: they run against the PostgreSQL test database (TEST_DATABASE_URL, by default the
-// `triptogether_test` database of the local server in docs/backend.md), emptied and migrated afresh per test file.
+// `triptogether_test` database of the local server in docs/database.md), emptied and migrated afresh per test file.
 // `npm test` runs the files one at a time, so they don't empty the database under each other.
 import { after } from "node:test";
 import { sql } from "drizzle-orm";

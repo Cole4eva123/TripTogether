@@ -1,4 +1,4 @@
-// Shapes shared by the frontend and the API. docs/api.md describes the endpoints that return them.
+// Shapes shared by the frontend and the API. The docs in docs/ describe the endpoints that return them.
 
 export type User = { id: string; name: string; email: string };
 

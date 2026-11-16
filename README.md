@@ -9,8 +9,8 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 | 框架 | Next.js 16（App Router）+ React 19 | 在用 |
 | 语言 | TypeScript | 在用 |
 | 样式 | Tailwind CSS v4 | 在用 |
-| 后端 | Next.js API 路由（`app/api/`），接口契约见 `docs/api.md` | 在用 |
-| 数据库 | PostgreSQL，本地用 Apple `container`（或 Docker）运行，见 `docs/backend.md` | 在用 |
+| 后端 | Next.js API 路由（`app/api/`），接口契约见 `docs/` 各功能文档 | 在用 |
+| 数据库 | PostgreSQL，本地用 Apple `container`（或 Docker）运行，见 `docs/database.md` | 在用 |
 | ORM | Drizzle ORM，迁移用 drizzle-kit | 在用 |
 | 登录 | Better Auth（邮箱 + 密码，接 Drizzle） | 在用 |
 | 测试 | Node 自带的 `node:test` | 在用 |
@@ -62,7 +62,7 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 本地版本已实现：从旅行详情页点击 **Open travel blind box** 进入。组织者设置条件并揭晓，成员可提交
 保密选项，抽取后可将结果一次性加入原行程。内置 Chicago、New York、San Francisco 演示候选，其他目的地
 可通过成员提交使用；费用按每人 USD 估算，不含交通费。数据保存在 PostgreSQL 中。
-验证步骤见 [`docs/blind-box-verification.md`](docs/blind-box-verification.md)，接口见 [`docs/api.md`](docs/api.md)。
+设计、接口和验证步骤见 [`docs/blind-box.md`](docs/blind-box.md)。
 
 ### 4. 旅行任务 Bingo
 - 每个地区维护一个任务库，存放当地可以做的事（例如芝加哥：去海军码头看日出、晚上去某栋楼的楼顶看夜景、拍一张全组合照）

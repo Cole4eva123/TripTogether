@@ -187,7 +187,7 @@ export function buildFuelPlan(search: FuelSearch, input: FuelPreferences, statio
   minutes += last.minutes;
   const gallonsUsed = route.miles/mpg;
   if (stops.some(s => s.priceKind !== "web report")) warnings.push("Some prices are regional or user estimates. Compare the posted pump price before purchasing.");
-  warnings.push("Driving times exclude live traffic. Opening hours, facilities and prices may change; confirm before arrival.");
+  warnings.push("Driving times account for traffic at lookup and may change. Opening hours, facilities and prices may change; confirm before arrival.");
   return {
     searchId: search.id, route, stops, arrival: new Date(Date.parse(input.departure)+minutes*60000).toISOString(),
     totalMinutes: minutes, detourMinutes: Math.max(0,route.minutes-search.route.minutes), detourMiles: Math.max(0,route.miles-search.route.miles),

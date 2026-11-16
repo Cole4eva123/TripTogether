@@ -74,7 +74,12 @@ starting fuel, driving time, meals, tolls and other travel expenses are not valu
 
 The displayed duration is the sum of Google's final route-leg driving durations through the selected
 stops, plus `stopMinutes` for each stop. Detour driving is already included in that Google route and is
-not added twice. Requests use `TRAFFIC_UNAWARE`, so estimates exclude current traffic conditions.
+not added twice. Both the base route and the final route use `TRAFFIC_AWARE`; Google's leg `duration`
+includes traffic. Static step times only weight estimated intermediate-point timing and never replace
+the returned leg totals. Requests omit `departureTime`, so traffic estimates assume departure at lookup
+time. The trip's date remains a calendar/display value, not a chosen clock time or a future-date forecast.
+Results are snapshots, not continuous traffic monitoring. Start a new search to refresh traffic;
+searches generated under the previous traffic-unaware mode cannot be reused after the change.
 
 Recommended stops are compact cards connected by arrows. Distance Details is folded by default and
 shows distance from start, from the previous stop and to the destination. The map supports wheel zoom,
@@ -121,8 +126,9 @@ There is no runtime switch to the archived implementation.
 ignored `.local-features/gasoline-intelligence/` directory. Do not force-add either local backup.
 A clean checkout builds without this entire directory.
 
-Personal prompt explanations and supplier/cost research notes are also ignored locally. Keep this
-module guide, Google setup, the API contract and the Chinese merge instructions in the repository so
+The current vehicle prompts and call flow are tracked in [deepseek-prompts.md](deepseek-prompts.md);
+only supplier/cost research notes stay ignored locally. Keep this module guide, Google setup,
+the prompt documentation, the API contract and the Chinese merge instructions in the repository so
 other contributors can configure and integrate a clean checkout. Keep the module tests with its code.
 
 Run `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` for local checks.

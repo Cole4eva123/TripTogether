@@ -38,9 +38,9 @@
 不要将该目录或旧实现重新加入功能提交。克隆仓库后无需此目录也能构建；回滚需要原机器的本地快照。
 旧文件的删除应随本次功能变更提交，不能只靠 `.gitignore` 隐藏已经被跟踪的文件；不重写历史提交。
 
-文档保留范围：`docs/gasoline-intelligence.md`、`docs/google-maps-setup.md`、本合并说明和
-基础接口契约 `docs/api.md` 随源码提交。`docs/fuel-price-apis.md`、`docs/deepseek-prompts.md`
-属于个人调研和提示词参考，只在本地保留并由 `.gitignore` 忽略；已跟踪的调研笔记取消跟踪时保留本地文件。
+文档保留范围：`docs/gasoline-intelligence.md`、`docs/google-maps-setup.md`、`docs/deepseek-prompts.md`、
+本合并说明和基础接口契约 `docs/api.md` 随源码提交。提示词文档只描述当前车型识别实现，与 `prompts.ts` 同步维护。
+`docs/fuel-price-apis.md` 属于个人调研，只在本地保留并由 `.gitignore` 忽略；已跟踪的调研笔记取消跟踪时保留本地文件。
 运行源码、功能测试、锁文件、`.env.example` 和原框架文件不应加入忽略列表。
 
 Google 使用两个不同的 key：服务端为 `GOOGLE_MAPS_API_KEY`，浏览器为
@@ -78,7 +78,9 @@ Google 使用两个不同的 key：服务端为 `GOOGLE_MAPS_API_KEY`，浏览�
 金额只返回实际加油支出 `purchaseCost` 和单站 `cost`，删除已有燃油估值、总行程及其他费用。
 Distance 与 Estimated Duration with Breaks 单独一行，Fuel cost、已用、购买、到达剩余油量四项单独一行。
 总用时为 Google 最终途经站点路线的各段驾驶时间之和，加上每站的 `stopMinutes`；绕路驾驶时间已包含，
-不重复加算。当前使用 `TRAFFIC_UNAWARE`，不包含实时交通。地图 SDK 固定 `language=en&region=US`，不随浏览器语言变化。
+不重复加算。基础路线和最终途经站点路线均使用 `TRAFFIC_AWARE`，采用 Google 返回的含交通状况的驾驶时长。
+请求不指定具体出发时间，以查询时刻出发作为交通估算基准；旅行年月日继续仅用于日期和累计时间展示。
+结果不是持续交通监控，刷新交通需重新搜索；旧模式生成的查询不能继续复用。地图 SDK 固定 `language=en&region=US`，不随浏览器语言变化。
 无需购买燃油时隐藏零费用和零购买量，显示英文续航提示及实际油量；零绕路信息不显示。
 Distance Details 默认收起，车辆详情及地图/卡片的距离折叠统一带动画。
 推荐站点使用重新计算的实际道路距离，未规划或待重新计算的站点用 `~` 标记近似距离。

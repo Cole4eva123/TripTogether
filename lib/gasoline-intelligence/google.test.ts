@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { FuelPreferences } from "./types.ts";
 import { GOOGLE_PLACES_FIELDS, GOOGLE_ROUTES_FIELDS, decodeGooglePolyline, encodeGooglePolyline, googleFuelPrice, googleRouteRequest, googleSearchPolylines, googleStationRequest, parseGoogleRoute, parseGoogleStations } from "./google-data.ts";
-import { METERS_PER_MILE } from "./planner.ts";
+import { buildFuelPlan, METERS_PER_MILE } from "./planner.ts";
 
 const now = Date.parse("2026-11-15T18:00:00Z"), mapUrl = "https://maps.google.com/?cid=123";
 const input: FuelPreferences = { origin: "Tahlequah, OK", destination: "Urbana, IL", departure: "2026-11-20", vehicle: { year: 2010, make: "Toyota", model: "Corolla", trim: "LE", mpg: 34, tankGallons: 13.2, grade: "regular" }, initialFuelPercent: 85, reservePercent: 25, intervalMinutes: 90, maxDetourMinutes: 15, stopMinutes: 20, amenities: [], memberships: [], estimatedPrice: null };
@@ -47,6 +47,31 @@ test("missing step duration uses geometry estimates without changing Google's le
   const route = parseGoogleRoute(response);
   assert.equal(route.minutes, 20);
   assert.ok(Math.abs(route.points.find(point => point.lng === -89.9)!.minutes - 10) < 0.001);
+});
+
+test("traffic-aware leg durations determine driving, rest totals and the three-hour limit", () => {
+  const response = payload(), first = response.routes[0].legs[0];
+  first.duration = "1800s"; // Traffic adds ten minutes over the static step durations.
+  const onward = [{ lat: 40, lng: -89.8 }, { lat: 40, lng: -89.7 }, { lat: 40, lng: -89.6 }];
+  const second = { ...first, duration: "2400s", startLocation: first.endLocation, endLocation: { latLng: { latitude: 40, longitude: -89.6 } }, polyline: { encodedPolyline: encodeGooglePolyline(onward) }, steps: [] };
+  response.routes[0].legs.push(second);
+  response.routes[0].distanceMeters = 40000;
+  response.routes[0].duration = "4200s";
+  response.routes[0].polyline.encodedPolyline = encodeGooglePolyline([...points, ...onward.slice(1)]);
+  const route = parseGoogleRoute(response, 2);
+  assert.equal(route.minutes, 70);
+  assert.deepEqual(route.legs.map(leg => leg.minutes), [30, 40]);
+  assert.equal(route.points.find(point => point.lng === -89.9)?.minutes, 7.5);
+  const stop = parseGoogleStations({ places: [{ ...place(), location: { latitude: 40, longitude: -89.8 } }] }, route, input, now)[0];
+  stop.price = { ...stop.price!, observedAt: new Date().toISOString() };
+  const search = { id: "traffic-test", expiresAt: "2026-11-20T18:00:00Z", route, stations: [stop], regions: [], warnings: [], searchedAt: new Date().toISOString() };
+  const plan = buildFuelPlan(search, input, [stop], route);
+  assert.equal(plan.totalMinutes, 90); // 70 minutes driving plus one 20-minute break.
+  assert.equal(plan.stops[0].minutesFromStart, 30);
+
+  first.duration = "10860s";
+  response.routes[0].duration = "13260s";
+  assert.throws(() => buildFuelPlan(search, input, [stop], parseGoogleRoute(response, 2)), /over three hours/);
 });
 
 test("leg polyline handles zero steps, while partial or inconsistent routes fail", () => {
@@ -102,7 +127,13 @@ test("Google station parsing binds price to a US place and excludes unrelated lo
 test("Google requests resolve addresses directly and bound route station searches", () => {
   const request = googleRouteRequest(input.origin, input.destination);
   assert.deepEqual(request.origin, { address: input.origin });
-  assert.equal(request.routingPreference, "TRAFFIC_UNAWARE");
+  assert.equal(request.routingPreference, "TRAFFIC_AWARE");
+  assert.ok(!("departureTime" in request));
+  assert.ok(!("extraComputations" in request));
+  const stop = parseGoogleStations({ places: [place()] }, parseGoogleRoute(payload()), input, now)[0];
+  const throughStop = googleRouteRequest(points[0], points[2], [stop]);
+  assert.equal(throughStop.routingPreference, "TRAFFIC_AWARE");
+  assert.equal(throughStop.intermediates.length, 1);
   assert.ok(GOOGLE_ROUTES_FIELDS.includes("routes.legs.steps.staticDuration"));
   assert.ok(GOOGLE_PLACES_FIELDS.includes("places.fuelOptions"));
   assert.ok(!GOOGLE_PLACES_FIELDS.includes("*"));

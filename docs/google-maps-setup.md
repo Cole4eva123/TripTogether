@@ -85,9 +85,10 @@ npm run dev
 核对日期：2026-11-15。`fuelOptions` 是 Places **Enterprise + Atmosphere** 档位字段，
 不是仅开启基础地点查询就免费的字段。当前全球按量计费表中，Text Search 该档位每月有 1,000 次免费调用，
 超出后首档为每 1,000 次 $40；每次搜索可返回多个站点。
-Routes Compute Routes Essentials 每月 10,000 次免费，超出后首档每 1,000 次 $5；
+路线已启用 `TRAFFIC_AWARE`，使用 **Routes Compute Routes Pro**：每月 5,000 次免费，超出后首档每 1,000 次 $10；
 Dynamic Maps 每月 10,000 次免费加载，超出后首档每 1,000 次 $7。
-途经点较多等请求可能触发更高的 Routes 档位。
+当前每次路线请求首档单价约 $0.01；有停靠点时两次请求约 $0.02，免费额度内仍按相应额度抵扣。
+交通估算以查询时刻出发为基准；出发日期栏保留年月日，不额外假设具体出发时间。结果不会自动轮询更新。
 [字段计费档位](https://developers.google.com/maps/documentation/places/web-service/data-fields)、
 [官方价目表](https://developers.google.com/maps/billing-and-pricing/pricing)、
 [Routes 计费规则](https://developers.google.com/maps/documentation/routes/usage-and-billing)。

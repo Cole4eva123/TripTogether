@@ -6,8 +6,9 @@ import { currentUser, needLogin } from "../server";
 import { PLAN_BUDGET_MS, SEARCH_BUDGET_MS, withFuelBudget } from "./budget";
 import { fuelDataProvider } from "./provider";
 import { googleRoadRoute, googleSearchRoute } from "./google";
+import { GOOGLE_ROUTING_PREFERENCE } from "./google-data";
 
-type StoredSearch = { ownerId:string;input:FuelPreferences;search:FuelSearch;expires:number;plans:Map<string,FuelPlan> };
+type StoredSearch = { ownerId:string;input:FuelPreferences;search:FuelSearch;expires:number;plans:Map<string,FuelPlan>;routingPreference:typeof GOOGLE_ROUTING_PREFERENCE };
 type ServiceState = { searches:Map<string,StoredSearch>;limits:Map<string,{start:number;count:number}> };
 const g=globalThis as typeof globalThis & { fuelServiceState?:ServiceState };
 const service:ServiceState=g.fuelServiceState ??= {searches:new Map(),limits:new Map()};
@@ -44,7 +45,7 @@ function storeSearch(ownerId:string,input:FuelPreferences,route:RoadRoute,statio
   const search:FuelSearch={id,provider:"google",expiresAt:new Date(now+1800000).toISOString(),route,stations,regions,warnings:[...new Set(warnings)],searchedAt:new Date(now).toISOString()};
   for (const [key,entry] of service.searches) if (entry.expires < now) service.searches.delete(key);
   if (service.searches.size >= 24) service.searches.delete(service.searches.keys().next().value!);
-  service.searches.set(id,{ownerId,input,search,expires:now+1800000,plans:new Map()});
+  service.searches.set(id,{ownerId,input,search,expires:now+1800000,plans:new Map(),routingPreference:GOOGLE_ROUTING_PREFERENCE});
   return search;
 }
 export async function planFuel(ownerId: string, value: unknown): Promise<FuelPlan> {
@@ -56,7 +57,7 @@ export async function planFuel(ownerId: string, value: unknown): Promise<FuelPla
 }
 async function planWithinBudget(ownerId: string, value: unknown): Promise<FuelPlan> {
   const body=object(value), id=text(body.searchId,"Search id",80), entry=service.searches.get(id);
-  if (!entry || entry.ownerId !== ownerId || entry.expires < Date.now() || entry.search.provider !== "google") throw new FuelError("This route search has expired. Search again before planning.",410);
+  if (!entry || entry.ownerId !== ownerId || entry.expires < Date.now() || entry.search.provider !== "google" || entry.routingPreference !== GOOGLE_ROUTING_PREFERENCE) throw new FuelError("This route search has expired. Search again before planning.",410);
   fuelDataProvider(process.env);
   const {search,input}=entry;
   let selected: Station[];

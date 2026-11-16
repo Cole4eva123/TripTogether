@@ -44,7 +44,7 @@ TripTogether 是一个面向小组出行的旅行规划 Web 应用：从建团�
 
 加油规划模块统一命名为 **Gasoline Intelligence**，开发分支为 `feature/gasoline-intelligence`。
 登录后点击同名导航或旅行详情入口，进入 `/trips/gasoline-intelligence`。
-车型识别、一键规划和地图的配置及限制见 [加油规划说明](docs/gasoline-intelligence.md)，key 配置见 [Google Maps 步骤](docs/google-maps-setup.md)，车型提示词集中在 `lib/gasoline-intelligence/prompts.ts`。偏好、手动选站面板及旧的开源实现仅保存在本地忽略目录中，不参与发布构建。
+车型识别、一键规划和地图的配置及限制见 [加油规划说明](docs/gasoline-intelligence.md)，key 配置见 [Google Maps 步骤](docs/google-maps-setup.md)，实际车型提示词及调用流程见 [DeepSeek 提示词](docs/deepseek-prompts.md)，对应源码在 `lib/gasoline-intelligence/prompts.ts`。偏好、手动选站面板及旧的开源实现仅保存在本地忽略目录中，不参与发布构建。
 合并时的结构约定、冲突处理和检查步骤见 [中文合并说明](<docs/merge instruction.md>)。
 
 ### 1. 查油价与加油规划

@@ -91,6 +91,12 @@ See `docs/google-maps-setup.md` for configuration.
 Legacy ISO timestamp values remain accepted. With a date-only departure, the UI displays elapsed travel
 time at each stop rather than an assumed departure/arrival clock time.
 
+Both route computations use `TRAFFIC_AWARE`. Google's route-leg `duration` values include traffic,
+and `FuelPlan.totalMinutes` adds `stopMinutes` per stop. `departureTime` is omitted from Google requests,
+so traffic estimates assume departure at lookup time; the input calendar date is not a future traffic
+forecast. Results do not update continuously; a new search refreshes traffic. Searches created under
+the previous routing preference return `410` during planning rather than reuse old timing.
+
 `FuelPlan.purchaseCost` and each `FuelStop.cost` are fuel-purchase cash only (gallons bought × station price).
 `totalCost`, `fuelConsumedCost`, `FuelPreferences.timeValue` and `FuelPreferences.otherCosts` have been
 removed. Gallons used, purchased and remaining are still returned separately; old nonfuel cost inputs

@@ -3,6 +3,7 @@ import { distanceMiles, METERS_PER_MILE, projectOnRoute } from "./planner.ts";
 import { FuelError } from "./validation.ts";
 import { normalizeState } from "./regions.ts";
 
+export const GOOGLE_ROUTING_PREFERENCE = "TRAFFIC_AWARE";
 export const GOOGLE_ROUTES_FIELDS = [
   "routes.distanceMeters", "routes.duration", "routes.polyline.encodedPolyline",
   "routes.legs.distanceMeters", "routes.legs.duration", "routes.legs.polyline.encodedPolyline",
@@ -169,7 +170,9 @@ const waypoint = (value: Coordinate | string) => typeof value === "string" ? { a
 export function googleRouteRequest(origin: Coordinate | string, destination: Coordinate | string, stations: Station[] = []) {
   if (stations.length > 25) throw new FuelError("Google Maps supports up to 25 recommended stops per travel day.");
   return { origin: waypoint(origin), destination: waypoint(destination), intermediates: stations.map(station => waypoint(station.location)),
-    travelMode: "DRIVE", routingPreference: "TRAFFIC_UNAWARE", computeAlternativeRoutes: false,
+    // Omit departureTime: Google uses the request time; the trip's calendar date
+    // stays a display value rather than an assumed midnight departure.
+    travelMode: "DRIVE", routingPreference: GOOGLE_ROUTING_PREFERENCE, computeAlternativeRoutes: false,
     polylineQuality: "HIGH_QUALITY", polylineEncoding: "ENCODED_POLYLINE", languageCode: "en-US", regionCode: "US", units: "IMPERIAL" };
 }
 export function googleStationRequest(encodedPolyline: string) {

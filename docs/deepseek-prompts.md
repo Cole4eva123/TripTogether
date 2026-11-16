@@ -1,6 +1,6 @@
 # DeepSeek 车型识别提示词
 
-本文档随 Git 同步，描述当前发布版本。实际提示词在 [prompts.ts](../lib/gasoline-intelligence/prompts.ts)，调用和校验在 [ai.ts](../lib/gasoline-intelligence/ai.ts)。
+本文档随 Git 同步，描述当前发布版本。实际提示词在 [prompts.ts](../lib/route-planner/prompts.ts)，调用和校验在 [ai.ts](../lib/route-planner/ai.ts)。
 
 DeepSeek 当前只负责车型识别：从自然语言描述中寻找年份、品牌、车型、配置、US highway MPG、油箱容量和油品等级，并提供来源。路线、站点和单站油价均由 Google API 获取；站点推荐、加油量与费用由项目自己的规划器计算。
 

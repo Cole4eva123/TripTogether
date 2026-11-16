@@ -1,18 +1,18 @@
-# Gasoline Intelligence
+# Route planner
 
 A fuel planner for a US road trip: given the car and the trip, it finds the stations to buy at, and how much at
-each, so the whole drive costs the least at the pump. It lives at `/trips/gasoline-intelligence`, reached from
+each, so the whole drive costs the least at the pump. It lives at `/trips/route-planner`, reached from
 the header and from a trip's page (which passes the trip's origin, destination and start date).
 
 | Where | What |
 |---|---|
-| `lib/gasoline-intelligence/planner.ts` | The rules, pure: which stations to buy at (`cheapestStops`) and how much (`buildFuelPlan`) (tested in `planner.test.ts`) |
-| `lib/gasoline-intelligence/google.ts`, `google-data.ts` | The Google requests, and the parsing of what comes back (tested in `google.test.ts`) |
-| `lib/gasoline-intelligence/service.ts` | A search's lifetime: owner, expiry, rate limits, and the plan's retry loop |
-| `lib/gasoline-intelligence/config.ts` | The settings read from the environment |
-| `lib/gasoline-intelligence/ai.ts`, `prompts.ts`, `ai-cache.ts` | Vehicle lookup through DeepSeek ([prompts](deepseek-prompts.md)) |
-| `lib/gasoline-intelligence/validation.ts`, `form.ts`, `display.ts` | Input validation, the form's defaults, distance display |
-| `app/api/gasoline-intelligence/**`, `components/gasoline-intelligence/**` | The three endpoints and the page |
+| `lib/route-planner/planner.ts` | The rules, pure: which stations to buy at (`cheapestStops`) and how much (`buildFuelPlan`) (tested in `planner.test.ts`) |
+| `lib/route-planner/google.ts`, `google-data.ts` | The Google requests, and the parsing of what comes back (tested in `google.test.ts`) |
+| `lib/route-planner/service.ts` | A search's lifetime: owner, expiry, rate limits, and the plan's retry loop |
+| `lib/route-planner/config.ts` | The settings read from the environment |
+| `lib/route-planner/ai.ts`, `prompts.ts`, `ai-cache.ts` | Vehicle lookup through DeepSeek ([prompts](deepseek-prompts.md)) |
+| `lib/route-planner/validation.ts`, `form.ts`, `display.ts` | Input validation, the form's defaults, distance display |
+| `app/api/route-planner/**`, `components/route-planner/**` | The three endpoints and the page |
 
 ## How it works
 
@@ -84,14 +84,14 @@ A value outside its range falls back to the default.
 
 ## API
 
-All three need the session and answer `401` without it. Shapes are in `lib/gasoline-intelligence/types.ts`.
+All three need the session and answer `401` without it. Shapes are in `lib/route-planner/types.ts`.
 Every error is `{ error }`.
 
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
-| POST | `/api/gasoline-intelligence/vehicle` | `{ description }` (up to 500 characters) | `200 VehicleSuggestion` | `400`; `429`; `502` DeepSeek failed; `503` no DeepSeek key; `504` |
-| POST | `/api/gasoline-intelligence/search` | `FuelPreferences` | `200 FuelSearch`: the search id, the route, the stations, price samples by state, warnings | `400`; `422` no drivable route; `429`; `502` Google failed; `503` no Google keys; `504` |
-| POST | `/api/gasoline-intelligence/plan` | `{ searchId, stationIds? }` | `200 FuelPlan`: the stops, gallons and cost at each, on real road legs | `400`; `410` the search expired; `422` the trip can't be made above the reserve; `429`; `502`; `504` |
+| POST | `/api/route-planner/vehicle` | `{ description }` (up to 500 characters) | `200 VehicleSuggestion` | `400`; `429`; `502` DeepSeek failed; `503` no DeepSeek key; `504` |
+| POST | `/api/route-planner/search` | `FuelPreferences` | `200 FuelSearch`: the search id, the route, the stations, price samples by state, warnings | `400`; `422` no drivable route; `429`; `502` Google failed; `503` no Google keys; `504` |
+| POST | `/api/route-planner/plan` | `{ searchId, stationIds? }` | `200 FuelPlan`: the stops, gallons and cost at each, on real road legs | `400`; `410` the search expired; `422` the trip can't be made above the reserve; `429`; `502`; `504` |
 
 Without `stationIds` the plan is the cheapest one. With them it is the plan through exactly those stations (the
 page doesn't send any). Limits per user per five minutes: 4 searches, 6 vehicle lookups, 20 plans.

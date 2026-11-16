@@ -6,24 +6,24 @@ import { useCallback, useRef, useState } from "react";
 import { useMe } from "@/components/me";
 import PlaceField from "@/components/PlaceField";
 import { api, errorText } from "@/lib/api";
-import { stationPrice } from "@/lib/gasoline-intelligence/planner";
-import { formatDistance, getStationDistances, type DistanceUnit } from "@/lib/gasoline-intelligence/display";
+import { stationPrice } from "@/lib/route-planner/planner";
+import { formatDistance, getStationDistances, type DistanceUnit } from "@/lib/route-planner/display";
 import type {
   FuelPlan,
   FuelPreferences,
   FuelSearch,
   VehicleSuggestion,
-} from "@/lib/gasoline-intelligence/types";
+} from "@/lib/route-planner/types";
 import FuelMap from "./FuelMap";
 import FuelSearchBar from "./FuelSearchBar";
 import AnimatedDisclosure, { type AnimatedDisclosureHandle } from "./AnimatedDisclosure";
 import { PlanSummary, RegionalPrices } from "./FuelResults";
-import { buildFuelPreferences, createFuelFormSettings, emptyVehicle, vehicleToFields } from "@/lib/gasoline-intelligence/form";
+import { buildFuelPreferences, createFuelFormSettings, emptyVehicle, vehicleToFields } from "@/lib/route-planner/form";
 
 const field = "grid content-start gap-1.5";
 const panel = "grid gap-4 rounded-xl border-2 border-line bg-white p-5";
 
-export default function GasolineIntelligence() {
+export default function RoutePlanner() {
   const params = useSearchParams(),
     me = useMe();
   const [description, setDescription] = useState("");
@@ -63,7 +63,7 @@ export default function GasolineIntelligence() {
     setSuggestion(null);
     invalidate();
     try {
-      const result = await api<VehicleSuggestion>("/gasoline-intelligence/vehicle", "POST", {
+      const result = await api<VehicleSuggestion>("/route-planner/vehicle", "POST", {
         description,
       });
       setSuggestion(result);
@@ -85,10 +85,10 @@ export default function GasolineIntelligence() {
     setActiveId(null);
     setPlannedInput(input);
     try {
-      const result = await api<FuelSearch>("/gasoline-intelligence/search", "POST", input);
+      const result = await api<FuelSearch>("/route-planner/search", "POST", input);
       setSearch(result);
       setBusy("Working out the cheapest stops…");
-      const planned = await api<FuelPlan>("/gasoline-intelligence/plan", "POST", {
+      const planned = await api<FuelPlan>("/route-planner/plan", "POST", {
         searchId: result.id,
       });
       setPlan(planned);
@@ -131,7 +131,7 @@ export default function GasolineIntelligence() {
         Back to your trips
       </Link>
       <div className="mt-5 mb-8 flex flex-wrap items-end justify-between gap-4">
-        <h1>Gasoline Intelligence</h1>
+        <h1>Route planner</h1>
         <span className="sign sign-small">US road trips</span>
       </div>
 

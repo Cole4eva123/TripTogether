@@ -1,4 +1,4 @@
-import { fuelFailure, fuelUser, planFuel } from "@/lib/gasoline-intelligence/service";
+import { fuelFailure, fuelUser, planFuel } from "@/lib/route-planner/service";
 import { readJson } from "@/lib/server";
 
 export const maxDuration=120;

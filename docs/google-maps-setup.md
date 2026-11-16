@@ -71,7 +71,7 @@ NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID=DEMO_MAP_ID
 npm run dev
 ```
 
-登录后进入 Gasoline Intelligence，先用 Tahlequah, OK → Urbana, IL 测试。
+登录后进入 Route planner，先用 Tahlequah, OK → Urbana, IL 测试。
 地图应切换为 Google 地图；油价应来自该站对应油品的 `fuelOptions`，地图预览与推荐卡片使用同一份价格。
 没有价格、油品不符或报价超过 72 小时的站点仍显示无报价，不用州均价替代。
 如果没有足够报价支持安全行程，仍会提示无法规划；这属于数据覆盖限制，不保证开通 API 后每条路线都有报价。

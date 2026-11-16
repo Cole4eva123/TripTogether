@@ -1,7 +1,7 @@
 "use client";
 
-import type { FuelStop, RoadRoute, Station } from "@/lib/gasoline-intelligence/types";
-import type { DistanceUnit, StationDistances } from "@/lib/gasoline-intelligence/display";
+import type { FuelStop, RoadRoute, Station } from "@/lib/route-planner/types";
+import type { DistanceUnit, StationDistances } from "@/lib/route-planner/display";
 import GoogleFuelMap from "./GoogleFuelMap";
 
 export type MapStation = Station & {

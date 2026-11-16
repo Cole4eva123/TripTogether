@@ -76,7 +76,7 @@ export default function TripPage() {
       </Link>
       <TripSign trip={trip} />
       <Link
-        href={`/trips/gasoline-intelligence?${new URLSearchParams({ origin: trip.origin, destination: trip.destination, startDate: trip.startDate })}`}
+        href={`/trips/route-planner?${new URLSearchParams({ origin: trip.origin, destination: trip.destination, startDate: trip.startDate })}`}
         className="btn btn-quiet btn-small mt-4 mr-3"
       >
         Plan fuel stops

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Coordinate, RoadRoute, Source } from "@/lib/gasoline-intelligence/types";
-import { formatDistance, type DistanceUnit } from "@/lib/gasoline-intelligence/display";
+import type { Coordinate, RoadRoute, Source } from "@/lib/route-planner/types";
+import { formatDistance, type DistanceUnit } from "@/lib/route-planner/display";
 import { createMapDisclosure } from "./AnimatedDisclosure";
 import { duration } from "./FuelResults";
 import type { FuelMapProps, MapStation } from "./FuelMap";

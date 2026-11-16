@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { resultValidity, type DistanceUnit } from "@/lib/gasoline-intelligence/display";
-import type { FuelGrade } from "@/lib/gasoline-intelligence/types";
+import { resultValidity, type DistanceUnit } from "@/lib/route-planner/display";
+import type { FuelGrade } from "@/lib/route-planner/types";
 
 type Props = {
   count: number;

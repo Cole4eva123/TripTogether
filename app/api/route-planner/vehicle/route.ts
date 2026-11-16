@@ -1,6 +1,6 @@
-import { identifyVehicle } from "@/lib/gasoline-intelligence/ai";
-import { fuelFailure, fuelUser } from "@/lib/gasoline-intelligence/service";
-import { text } from "@/lib/gasoline-intelligence/validation";
+import { identifyVehicle } from "@/lib/route-planner/ai";
+import { fuelFailure, fuelUser } from "@/lib/route-planner/service";
+import { text } from "@/lib/route-planner/validation";
 import { readJson } from "@/lib/server";
 
 export const maxDuration=240;

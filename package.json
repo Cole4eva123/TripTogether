@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "node --experimental-strip-types --no-warnings --test --test-concurrency=1 lib/*.test.ts lib/gasoline-intelligence/*.test.ts",
+    "test": "node --experimental-strip-types --no-warnings --test --test-concurrency=1 lib/*.test.ts lib/route-planner/*.test.ts",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

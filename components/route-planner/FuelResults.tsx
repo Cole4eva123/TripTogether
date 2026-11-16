@@ -1,7 +1,7 @@
 "use client";
 
-import type { FuelPlan, FuelPreferences, FuelSearch, Station } from "@/lib/gasoline-intelligence/types";
-import { formatDistance, type DistanceUnit } from "@/lib/gasoline-intelligence/display";
+import type { FuelPlan, FuelPreferences, FuelSearch, Station } from "@/lib/route-planner/types";
+import { formatDistance, type DistanceUnit } from "@/lib/route-planner/display";
 import AnimatedDisclosure from "./AnimatedDisclosure";
 
 export const money=(n:number) => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(n);

@@ -34,6 +34,9 @@ Next.js 16 (App Router, React 19, TypeScript). Product scope and the stack (技�
 - Travel Bingo: `lib/bingo.ts` (the rules, pure), `lib/bingo-store.ts` (task library, review queue, cards),
   `app/api/bingo/**`, `app/api/trips/[id]/bingo/**`, `app/trips/bingo/**`, `app/trips/[id]/bingo`,
   `components/bingo/**`. Admins are the emails in `ADMIN_EMAILS`; roles are in `docs/roles.md`.
+- Travel blind box: `lib/blind-box.ts` (the rules, pure), `lib/blind-box-store.ts` (rounds and sealed ideas; every
+  write locks the round row), `app/api/trips/[id]/blind-box`, `app/trips/[id]/blind-box`, `components/BlindBox*.tsx`.
+  Only the trip's organizer (`trip.ownerId`) starts, reveals or resets a box.
 - `lib/validate.ts` — trip and plan-item input validation, shared by every write.
 - `lib/itinerary.ts` — groups plan items into the trip's days (pure, tested).
 - `app/login`, `app/register`, `app/trips/**` — client-component pages. `app/trips/layout.tsx` checks the session

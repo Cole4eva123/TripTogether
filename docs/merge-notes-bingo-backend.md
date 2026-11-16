@@ -25,16 +25,9 @@ On `dev`, after the merge: PGlite is gone (the app and the tests run on PostgreS
 
 ## BlindBox
 
-1. `lib/mock-db.ts`: the branch's two lines (`import { deleteBlindBox }` and the call in `deleteTrip`) merge
-   cleanly, but they no longer run, since routes delete trips through `lib/store.ts`. Move the call to
-   `deleteTrip` in `lib/store.ts`, or better, keep blind boxes in tables with `trip_id … on delete cascade` like the
-   Bingo card, and the cleanup happens by itself.
-2. `app/api/trips/[id]/blind-box/route.ts` imports `addItem` from `@/lib/mock-db`. Import it from `@/lib/store`
-   and `await` it. It's async now, so the loop has to wait for each one:
-   `async (plans) => { for (const plan of plans) await addItem(m.trip.id, m.me.id, plan); }`, and `changeBlindBox`
-   has to await that callback.
-3. `lib/blind-box-store.ts` keeps its data in memory. It still works, but empties on restart. Moving it to tables
-   in `lib/db/schema.ts` means running `npm run db:generate` and committing the new migration.
+Merged into `dev`. Its rounds and sealed ideas moved to two tables (`blind_box_rounds`, one per trip, and
+`blind_box_options`) that cascade from the trip, so deleting a trip deletes its box; every write locks the
+round row, and saving the drawn stops adds them to the itinerary in the same transaction.
 
 ## Shared lobby (feature 2)
 

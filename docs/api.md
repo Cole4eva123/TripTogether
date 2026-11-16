@@ -108,3 +108,45 @@ The rules are pure functions in `lib/bingo.ts`, the store is `lib/bingo-store.ts
   starts over, unchecked.
 - A task sent in under another spelling of an existing region ("chicago, il") joins that region. Titles are
   compared without case. A rejected task keeps the admin's `reviewNote` and may be sent in again.
+
+## Travel blind box
+
+`/api/trips/:id/blind-box` uses the same session and membership checks (`401` / `404`) as the itinerary.
+Types live in `lib/blind-box-types.ts`. All successes return `{ box: BlindBoxView | null }` and are private,
+uncached responses. State is in PostgreSQL (`lib/blind-box-store.ts`); deleting a trip
+also deletes its box. A trip has one current round, shared by its members.
+
+| Method | Body | Success | Errors |
+|---|---|---|---|
+| GET | none | `200`, null if no round | `401`; `404` |
+| POST | `BlindBoxSettings`, plus `previousRoundId` when replacing a revealed round | `201`, new collecting round | `403` non-organizer; `400` invalid settings; `409` collecting round exists or stale round |
+| PATCH | `{ roundId, action: "submit", option: BlindBoxOptionInput }` | `200`, idea sealed | `400` invalid/nonmatching option or more than 10 per person; `409` stale/revealed round |
+| PATCH | `{ roundId, action: "remove", optionId }` | `200`, own idea removed | `404` absent/not own; `409` stale/revealed round |
+| PATCH | `{ roundId, action: "reveal" }` | `200`, shared reveal (repeat returns the same result) | `403` non-organizer; `400` no matching options or date outside edited trip; `409` stale round |
+| PATCH | `{ roundId, action: "save" }` | `200`, all drawn stops added to itinerary once, `saved: true` | `400` date outside edited trip; `409` stale/unrevealed round |
+| DELETE | `{ roundId }` | `200 { box: null }`, resets current round | `403` non-organizer; `409` stale round |
+
+Settings are `{ destination, date, startTime, budget, availableMinutes, maxStops, preferences }`:
+
+- Destination: required, up to 120 characters. Date: within the trip. Start: `HH:MM`, required.
+- Budget: activity costs per person in USD, 0–10,000, up to two decimal places; excludes transport.
+- Available time: integer 15–720 minutes, ending no later than midnight. Maximum stops: integer 1–5.
+- Preferences: nonempty array of `Sightseeing`, `Food`, `Outdoors`, `Culture`, `Adventure`, `Relaxation`.
+
+Options are `{ title, place, category, cost, durationMinutes, note }`. Title/place are required, up to 120
+characters; note is optional, up to 500. Cost has the same bounds as budget; duration is an integer 15–720.
+The server assigns identity and destination, and requires each submission to fit the current settings.
+
+Before reveal, `ownOptions` contains only the caller's ideas, `submissions` contains member ids/counts,
+and `revealedOptions` and `result` are null. Even the organizer cannot inspect others' sealed details.
+After reveal, `revealedOptions` lists every current member's submitted idea (including unselected ideas),
+and `result` contains selected stops with start times, total cost and total minutes. Ideas from members
+who left before the draw are excluded. Membership is checked on every request.
+
+The server shuffles matching demo/member options, greedily selects up to `maxStops` within the **combined**
+budget and available minutes, and includes 15-minute transfer buffers between stops. Repeated title/place
+pairs are skipped. It can return fewer stops than requested. No match leaves the round sealed. Demo ideas
+cover Chicago, New York and San Francisco; prices/durations are illustrative estimates, not live data.
+Other destinations work with member submissions. A new round replaces the old reveal but keeps saved plans.
+The UI refreshes shared state every five seconds. Round ids prevent stale tabs from changing a new round, and
+writes to a round run one at a time (its row is locked), so two saves still add the stops once.

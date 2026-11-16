@@ -15,6 +15,13 @@
       "when": 1794804858775,
       "tag": "0001_bingo_task_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794805162520,
+      "tag": "0002_blind_box",
+      "breakpoints": true
     }
   ]
 }

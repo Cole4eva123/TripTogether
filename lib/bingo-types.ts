@@ -46,5 +46,7 @@ export type BingoView = {
   card: BingoCard | null;
   regions: BingoRegion[];
   suggestedRegion: string | null; // the region that matches the trip's destination, if one does
-  viewer: { id: string; admin: boolean }; // who is looking: an admin may undo any square, others only their own
+  // Who is looking: an admin may undo any square, others only their own; the trip's creator and admins may
+  // replace the card with a new one.
+  viewer: { id: string; admin: boolean; mayRedraw: boolean };
 };

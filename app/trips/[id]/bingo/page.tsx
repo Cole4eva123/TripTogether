@@ -181,9 +181,11 @@ export default function BingoPage() {
           <section className="grid justify-items-start gap-3 border-t border-line pt-6">
             <h2>Change the card</h2>
             <p className="max-w-[60ch] text-muted">
-              Swap a single square with its &ldquo;Swap task&rdquo; link, or draw a whole new card.
+              {viewer.mayRedraw
+                ? "Swap a single square with its \u201cSwap task\u201d link, or draw a whole new card."
+                : "Swap a single square with its \u201cSwap task\u201d link. Only the trip\u2019s creator or an admin can draw a whole new card, since it clears everyone\u2019s progress."}
             </p>
-            {redrawing ? (
+            {!viewer.mayRedraw ? null : redrawing ? (
               <DrawForm
                 regions={regions}
                 initialRegion={card.region}

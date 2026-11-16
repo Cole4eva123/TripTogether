@@ -46,7 +46,7 @@ test("the starter library is there on first use, once", async () => {
 
 test("a trip starts with no card, and a drawn 3×3 card has 9 different Chicago tasks", async () => {
   assert.equal(await bingo.cardFor(tripId), null);
-  const card = await bingo.createCard(tripId, MAYA, "Chicago", 3);
+  const card = await bingo.createCard(tripId, MAYA, "Chicago", 3, true);
   assert.equal(card.size, 3);
   assert.equal(card.region, "Chicago");
   assert.equal(card.createdBy, "Maya Chen");
@@ -62,8 +62,8 @@ test("a trip starts with no card, and a drawn 3×3 card has 9 different Chicago 
 });
 
 test("a region too small for the card is refused with the numbers", async () => {
-  await rejects(bingo.createCard(tripId, MAYA, "Chicago", 5), 400);
-  await rejects(bingo.createCard(tripId, MAYA, "Atlantis", 3), 400);
+  await rejects(bingo.createCard(tripId, MAYA, "Chicago", 5, true), 400);
+  await rejects(bingo.createCard(tripId, MAYA, "Atlantis", 3, true), 400);
   assert.equal((await bingo.cardFor(tripId))?.size, 3, "the old card is kept");
 });
 
@@ -131,7 +131,7 @@ test("a square from another trip's card can't be touched", async () => {
     startDate: "2027-01-08",
     endDate: "2027-01-11",
   });
-  const theirs = await bingo.createCard(other.id, SAM, "Nashville", 3);
+  const theirs = await bingo.createCard(other.id, SAM, "Nashville", 3, false);
   await rejects(bingo.markCell(tripId, theirs.cells[0].id, maya, true), 404);
   await rejects(bingo.markCell(tripId, "not-an-id", maya, true), 404);
   // Deleting the trip takes its card with it.
@@ -139,12 +139,14 @@ test("a square from another trip's card can't be touched", async () => {
   assert.equal(await bingo.cardFor(other.id), null);
 });
 
-test("drawing again replaces the card", async () => {
+test("only the creator or an admin can replace the card, which starts it over", async () => {
   const before = (await bingo.cardFor(tripId))!;
-  const after = await bingo.createCard(tripId, SAM, "Chicago", 3);
+  await rejects(bingo.createCard(tripId, SAM, "Chicago", 3, false), 403);
+  assert.equal((await bingo.cardFor(tripId))!.id, before.id, "the card is kept");
+  const after = await bingo.createCard(tripId, MAYA, "Chicago", 3, true);
   assert.notEqual(after.id, before.id);
   assert.equal(after.completed, 0);
-  assert.equal(after.createdBy, "Sam Okafor");
+  assert.equal(after.createdBy, "Maya Chen");
 });
 
 test("a task sent in waits for review, then joins the library when approved", async () => {

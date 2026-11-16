@@ -266,9 +266,21 @@ const approvedIdsIn = async (region: string) =>
       .where(and(eq(bingoTasks.region, region), eq(bingoTasks.status, "approved")))
   ).map((t) => t.id);
 
-/** Draws a new card for the trip from the region's approved tasks, replacing any card it had. */
-export async function createCard(tripId: string, userId: string, region: string, size: number): Promise<BingoCard> {
+/**
+ * Draws a new card for the trip from the region's approved tasks. Any member draws the first one; replacing a
+ * card wipes everyone's progress, so only those who `mayRedraw` (the trip's creator or an admin) can.
+ */
+export async function createCard(
+  tripId: string,
+  userId: string,
+  region: string,
+  size: number,
+  mayRedraw: boolean,
+): Promise<BingoCard> {
   await bingoReady();
+  if (!mayRedraw && (await db.select({ id: bingoCards.id }).from(bingoCards).where(eq(bingoCards.tripId, tripId))).length) {
+    throw new BingoError(403, "Only the trip's creator or an admin can draw a new card.");
+  }
   const pool = await approvedIdsIn(region);
   if (!pool.length) throw new BingoError(400, `There are no tasks for ${region} yet. Pick another region.`);
   const picked = drawCard(pool, size * size);

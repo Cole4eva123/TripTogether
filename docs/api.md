@@ -83,8 +83,8 @@ The rules are pure functions in `lib/bingo.ts`, the store is `lib/bingo-store.ts
 
 | Method | Path | Body | Success | Errors |
 |---|---|---|---|---|
-| GET | `/api/trips/:id/bingo` | none | `200 { card, regions: BingoRegion[], suggestedRegion, viewer: { id, admin } }`; `card` is `null` before one is drawn | `404` trip |
-| POST | `/api/trips/:id/bingo` | `{ region, size? }` | `201 { card }`; replaces the trip's card | `400` no region, size not 3/4/5, or the region has too few tasks; `404` trip |
+| GET | `/api/trips/:id/bingo` | none | `200 { card, regions: BingoRegion[], suggestedRegion, viewer: { id, admin, mayRedraw } }`; `card` is `null` before one is drawn | `404` trip |
+| POST | `/api/trips/:id/bingo` | `{ region, size? }` | `201 { card }`; replaces the trip's card | `400` no region, size not 3/4/5, or the region has too few tasks; `403` replacing a card when not the trip's creator or an admin; `404` trip |
 | PATCH | `/api/trips/:id/bingo/cells/:cellId` | `{ action: "complete" \| "undo" \| "replace", taskId? }` | `200 { card }` | `400` bad action, or `taskId` not in the card's region; `403` undoing or swapping a square someone else checked off, unless an admin; `404` trip, or a square not on its card; `409` that task is already on the card, or no task is left to swap in |
 | GET | `/api/bingo/tasks?region=` | none | `200 { regions, tasks, mine, isAdmin, pendingCount }`: every region, the approved tasks of `region` (empty without it), everything I sent in, and how many tasks wait for review (0 unless I'm an admin) | `401` |
 | POST | `/api/bingo/tasks` | `{ region, title, description }` | `201 { task }`: waiting for review, or approved at once when an admin adds it | `400` invalid input; `409` the region already has it, or it's already waiting |
@@ -93,14 +93,15 @@ The rules are pure functions in `lib/bingo.ts`, the store is `lib/bingo-store.ts
 | GET | `/api/bingo/review` | none | `200 { tasks }`, the ones waiting, oldest first | `403` not an admin |
 | PATCH | `/api/bingo/review/:taskId` | `{ action: "approve" \| "reject", note? }` | `200 { task }` | `400`; `403` not an admin; `404`; `409` already reviewed |
 
-- Any member may draw, redraw, check off, and swap a square nobody has checked off. A square checked off is
+- Any member may draw the first card, check off, and swap a square nobody has checked off. Only the trip's
+  creator or an admin may draw a new card over an existing one (`403` otherwise), since it clears every square. A square checked off is
   its member's: only they, or an admin, may undo it or swap its task. Checking off a square already done changes
   nothing. Drawing again replaces the card and its progress.
 - `size` is 3 (the default), 4 or 5; the card holds `size²` different tasks, so the region needs at least that
   many approved ones.
 - `suggestedRegion` is the region the trip's destination names ("Chicago, IL" is in Chicago), or `null`.
 - `viewer` is who is asking, so a page can offer Undo only on the squares they may undo: their own (a cell's
-  `completedById`), or every one when `admin` is true.
+  `completedById`), or every one when `admin` is true; and `mayRedraw` says whether they may draw a new card.
 - A card's `cells` come in position order, row by row from 0. `completed` counts the squares checked off, and
   `lines` lists every finished line as its positions, so `lines.length` is the number of Bingos.
 - `replace` without `taskId` swaps in a random task from the region that isn't on the card. Either way the square

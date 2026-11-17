@@ -42,6 +42,11 @@ test("Google's documented polyline fixture decodes and round-trips", () => {
   assert.throws(() => decodeGooglePolyline("~~~~~~~"), /polyline/);
 });
 
+test("a cross-country route's polyline decodes: Chicago to Los Angeles is about 150,000 points", () => {
+  const long = Array.from({ length: 150000 }, (_, index) => ({ lat: 40, lng: -120 + index / 1e4 }));
+  assert.equal(decodeGooglePolyline(encodeGooglePolyline(long)).length, long.length);
+});
+
 test("Google route projection uses step times and preserves exact route and leg totals", () => {
   const route = parseGoogleRoute(payload());
   assert.equal(route.miles, 20000 / METERS_PER_MILE);

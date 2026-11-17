@@ -29,7 +29,10 @@ function link(value: unknown): string | null {
   try { const url = new URL(string(value)); return url.protocol === "https:" && !!url.hostname ? url.href : null; } catch { return null; }
 }
 
-/** Google's documented encoded-polyline format; reject truncated/overflowing provider data. */
+/**
+ * Google's documented encoded-polyline format; reject truncated/overflowing provider data. The length limit is the
+ * only one on size: a 30-hour route, the longest allowed, is about 150,000 points in under 400,000 characters.
+ */
 export function decodeGooglePolyline(encoded: string): Coordinate[] {
   if (!encoded || encoded.length > 1000000) throw new FuelError("Google Maps returned an invalid route polyline.", 502);
   const points: Coordinate[] = [];
@@ -48,7 +51,7 @@ export function decodeGooglePolyline(encoded: string): Coordinate[] {
   while (index < encoded.length) {
     latitude += next(); longitude += next();
     const point = coordinate({ latitude: latitude / 1e5, longitude: longitude / 1e5 });
-    if (!point || points.length >= 100000) throw new FuelError("Google Maps returned an invalid route polyline.", 502);
+    if (!point) throw new FuelError("Google Maps returned an invalid route polyline.", 502);
     points.push(point);
   }
   return points;
@@ -83,7 +86,6 @@ export function parseGoogleRoute(payload: unknown, expectedLegs = 1): RoadRoute 
     const append = (point: Coordinate, miles: number, minutes: number) => {
       const previous = points.at(-1);
       if (previous && previous.lat === point.lat && previous.lng === point.lng && previous.miles === miles && previous.minutes === minutes) return;
-      if (points.length >= 100000) throw new FuelError("Google Maps returned too much route geometry.", 502);
       points.push({ ...point, miles, minutes });
     };
     append(start, milesBefore, minutesBefore);

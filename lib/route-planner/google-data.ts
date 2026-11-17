@@ -31,7 +31,7 @@ function link(value: unknown): string | null {
 
 /**
  * Google's documented encoded-polyline format; reject truncated/overflowing provider data. The length limit is the
- * only one on size: a 30-hour route, the longest allowed, is about 150,000 points in under 400,000 characters.
+ * only one on size, and allows about 5,000 miles: Chicago to Los Angeles is 150,000 points in under 400,000 characters.
  */
 export function decodeGooglePolyline(encoded: string): Coordinate[] {
   if (!encoded || encoded.length > 1000000) throw new FuelError("Google Maps returned an invalid route polyline.", 502);
@@ -62,7 +62,6 @@ export function parseGoogleRoute(payload: unknown, expectedLegs = 1): RoadRoute 
   const route = json(list(json(payload).routes)[0]), rawLegs = list(route.legs);
   const meters = amount(route.distanceMeters), duration = seconds(route.duration), encodedPolyline = string(json(route.polyline).encodedPolyline);
   if (!meters || !duration || rawLegs.length !== expectedLegs || !encodedPolyline) throw new FuelError("No complete drivable route was found between these locations.", 422);
-  if (duration > 30 * 3600) throw new FuelError("Please split routes over 30 hours into separate travel days.");
   if (decodeGooglePolyline(encodedPolyline).length < 2) throw new FuelError("Google Maps returned an incomplete route polyline.", 502);
   const points: RoutePoint[] = [], legs: RoadRoute["legs"] = [];
   let milesBefore = 0, minutesBefore = 0;

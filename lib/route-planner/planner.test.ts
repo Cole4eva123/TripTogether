@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildFuelPlan, cheapestStops, distanceMiles, eligibleStations, projectOnRoute, regionalPrices, stationPrice, worstLegRatio } from "./planner.ts";
+import { buildFuelPlan, cheapestStops, distanceMiles, eligibleStations, projectOnRoute, regionalPrices, stationPrice, thinRoute, worstLegRatio } from "./planner.ts";
 import { parseFuelPreferences } from "./validation.ts";
 import type { FuelPreferences, FuelSearch, RoadRoute, Station } from "./types.ts";
 
@@ -207,4 +207,15 @@ test("legacy nonfuel cost inputs are ignored rather than charged or monetized",(
   const plan=buildFuelPlan(search(300,stations),settings,stations,route([60,120,120]));
   assert.equal(plan.purchaseCost,plan.stops.reduce((sum,stop)=>sum+stop.buyGallons*stop.pricePerGallon,0));
   assert.ok(!("totalCost" in plan));
+});
+
+test("a long route goes to the browser with few points, its two ends kept", () => {
+  const points = Array.from({ length: 150001 }, (_, index) => ({ lat: 40, lng: -120 + index / 1e4, miles: index, minutes: index }));
+  const long = { ...route([100]), points }, thin = thinRoute({ id: "s", route: long });
+  assert.ok(thin.route.points.length <= 5001);
+  assert.deepEqual([thin.route.points[0], thin.route.points.at(-1)], [points[0], points.at(-1)]);
+  assert.equal(thin.id, "s");
+  assert.equal(long.points.length, 150001); // the search kept on the server still plans on every point
+  const short = { route: route([100]) };
+  assert.equal(thinRoute(short), short);
 });

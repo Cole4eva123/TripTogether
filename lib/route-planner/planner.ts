@@ -23,6 +23,15 @@ export function projectOnRoute(location: Coordinate, route: RoadRoute) {
   }
   return best;
 }
+/**
+ * The same search or plan with a route light enough to send: Google's 75 points a mile make a cross-country
+ * route 13 MB of JSON, and the map only draws a line through them. The server keeps every point to plan on.
+ */
+export function thinRoute<T extends { route: RoadRoute }>(value: T, max = 5000): T {
+  const { points } = value.route, step = Math.ceil(points.length / max);
+  // ponytail: every nth point, which cuts corners by a few dozen metres when zoomed right in. Douglas-Peucker if that shows.
+  return step <= 1 ? value : { ...value, route: { ...value.route, points: points.filter((_, index) => index % step === 0 || index === points.length - 1) } };
+}
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 export function membershipFor(station: Station, input: FuelPreferences) {
   return input.memberships.find(m => normalize(station.brand + station.name).includes(normalize(m.brand)));
